@@ -14,8 +14,14 @@ const out = process.argv[2] || path.join(root, "..", "lectio-vulgata.html");
 // app.jsx may pull in other source files with /*@include name.jsx*/
 const src = readFileSync(path.join(root, "src/app.jsx"), "utf8").replace(/\/\*@include ([\w.-]+)\*\//g, (_, f) => readFileSync(path.join(root, "src", f), "utf8"));
 
+// 0. The exam parts, books and chapter labels come from the data build.
+const lexicon = JSON.parse(readFileSync(path.join(root, "..", "data", "lexicon.json"), "utf8"));
+const parts = lexicon.parts.map(p => ({ id: p.id, name: p.name, books: p.books }));
+const srcWithData = src.replace("/*PARTS_JSON*/[]", () => JSON.stringify(parts));
+if (srcWithData === src) throw new Error("PARTS_JSON marker missing");
+
 // 1. JavaScript
-const js = esbuild.transformSync(src, { loader: "jsx", jsx: "transform", minify: true, target: "es2019", legalComments: "none" }).code;
+const js = esbuild.transformSync(srcWithData, { loader: "jsx", jsx: "transform", minify: true, target: "es2019", legalComments: "none" }).code;
 
 // 2. Tailwind: collect class candidates from the source, compile only what is used
 const twDir = path.join(NM, "tailwindcss");
