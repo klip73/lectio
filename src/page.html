@@ -54,6 +54,12 @@
   .tutor-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rubric); animation: pulse 0.9s ease-in-out infinite alternate; }
   @keyframes pulse { from { opacity: .25; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .tutor-dot { animation: none; } }
+  /* Reading aids */
+  .lt { zoom: var(--lz, 1); }
+  .st-v { font-weight: 700; color: var(--rubric); }
+  .st-nf { font-style: italic; text-decoration: underline dotted var(--rubric); text-underline-offset: 4px; }
+  .st-sub { color: var(--mid); background: var(--mid-tint); border-radius: 3px; padding: 0 2px; }
+  .st-nom { text-decoration: underline solid var(--ok); text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .reveal { animation: rise .25s ease-out both; }
   @keyframes rise { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }

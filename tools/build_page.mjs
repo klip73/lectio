@@ -11,7 +11,8 @@ const { compile } = require("tailwindcss");
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const out = process.argv[2] || path.join(root, "..", "lectio-vulgata.html");
-const src = readFileSync(path.join(root, "src/app.jsx"), "utf8");
+// app.jsx may pull in other source files with /*@include name.jsx*/
+const src = readFileSync(path.join(root, "src/app.jsx"), "utf8").replace(/\/\*@include ([\w.-]+)\*\//g, (_, f) => readFileSync(path.join(root, "src", f), "utf8"));
 
 // 1. JavaScript
 const js = esbuild.transformSync(src, { loader: "jsx", jsx: "transform", minify: true, target: "es2019", legalComments: "none" }).code;
