@@ -134,7 +134,31 @@ END = {"N": ["", "a", "us", "um", "es", "u", "is", "on", "e", "os", "as", "er", 
        "NUM": ["", "us", "o", "es", "i", "a", "um"],
        "ADV": [""], "PREP": [""], "CONJ": [""], "INTERJ": [""]}
 FREQ = "ABCDEF"
+def principal_parts(stems, codes):
+    """dico, dicere, dixi, dictum / sequor, sequi, secutus sum, from Whitaker's stems and conjugation codes."""
+    s1, s2, s3, s4 = stems
+    conj, var = (codes + ["", ""])[1:3]
+    dep = "DEP" in codes
+    if conj == "1": pres, inf, dinf = s1 + "o", s2 + "are", s2 + "ari"
+    elif conj == "2": pres, inf, dinf = s1 + "eo", s2 + "ere", s2 + "eri"
+    elif conj == "3" and var == "4": pres, inf, dinf = s1 + ("o" if s1.endswith("i") else "io"), s2 + "ire", s2 + "iri"
+    elif conj == "3" and var == "1": pres, inf, dinf = s1 + "o", s2 + "ere", s2 + "i"
+    else: return ""
+    if dep:
+        out = [pres[:-1] + "or", dinf] + ([s4 + "us sum"] if s4 and s4 != "zzz" else [])
+    else:
+        out = [pres, inf] + ([s3 + "i"] if s3 and s3 != "zzz" else []) + ([s4 + "um"] if s4 and s4 != "zzz" else [])
+    return ", ".join(out)
+MANUAL_PP = {"sum": "sum, esse, fui, futurus", "possum": "possum, posse, potui", "eo": "eo, ire, ii (ivi), itum", "fero": "fero, ferre, tuli, latum",
+  "uolo": "volo, velle, volui", "volo": "volo, velle, volui", "nolo": "nolo, nolle, nolui", "malo": "malo, malle, malui", "fio": "fio, fieri, factus sum",
+  "prosum": "prosum, prodesse, profui", "absum": "absum, abesse, afui", "adsum": "adsum, adesse, adfui", "desum": "desum, deesse, defui",
+  "pereo": "pereo, perire, perii, peritum", "exeo": "exeo, exire, exii, exitum", "transeo": "transeo, transire, transii, transitum",
+  "aufero": "aufero, auferre, abstuli, ablatum", "offero": "offero, offerre, obtuli, oblatum", "affero": "affero, afferre, attuli, allatum",
+  "refero": "refero, referre, rettuli, relatum", "confero": "confero, conferre, contuli, collatum", "differo": "differo, differre, distuli, dilatum",
+  "coepi": "coepi, coepisse, coeptum", "memini": "memini, meminisse", "odi": "odi, odisse, osurus", "noui": "novi, novisse, notum (from nosco)",
+  "inquam": "inquam, inquis, inquit (defective)", "aio": "aio, ais, ait (defective)", "queo": "queo, quire, quivi"}
 dict_idx = collections.defaultdict(list)
+VPP = {}
 for line in open(f"{SRC}/ww/DICTLINE.GEN", encoding="latin-1"):
     stems = [line[i:i + 19].strip() for i in range(0, 76, 19)]
     codes = line[76:110].split()
@@ -148,8 +172,14 @@ for line in open(f"{SRC}/ww/DICTLINE.GEN", encoding="latin-1"):
     if not gloss: continue
     s1 = stems[0].replace("j", "i").replace("v", "u")
     if pos not in END: continue
+    pp = principal_parts(stems, codes) if pos == "V" else ""
+    if pp:
+        vkey = pp.split(", ")[0].replace("j", "i").replace("v", "u")
+        dict_idx[(vkey, "V")].append((rank, gloss, pp))
+        VPP.setdefault(vkey, []).append((rank, pp))
+        continue
     for e in END[pos]:
-        dict_idx[(s1 + e, pos)].append((rank, gloss))
+        dict_idx[(s1 + e, pos)].append((rank, gloss, pp))
 
 
 # stem index for guessing unknown words
@@ -200,6 +230,7 @@ ENCL = [("cum", ("me", "te", "se", "nobis", "uobis")), ("que", None), ("ne", Non
 stats = collections.Counter()
 PFREQ = collections.defaultdict(collections.Counter)   # part -> lemma id -> count
 LEX_EX = {}
+LEX_EXP = collections.defaultdict(dict)   # part -> lemma id -> example
 
 def ids_for(la, toks, part, ref):
     words = WORD.findall(la)
@@ -255,15 +286,46 @@ def ids_for(la, toks, part, ref):
             li, pos, m = analyses[a]
             if pos == "Ne" or m == "??": continue
             PFREQ[part][li] += 1
-            if li not in LEX_EX:
+            if li not in LEX_EXP[part]:
                 lo, hi = max(0, i - 6), min(len(words), i + 7)
                 sp = [mm.span() for mm in WORD.finditer(la)]
                 a0, a1 = sp[i]
                 snip = la[sp[lo][0]:a0] + "[[" + la[a0:a1] + "]]" + la[a1:sp[hi - 1][1]]
-                LEX_EX[li] = [ref, ("… " if lo else "") + snip + (" …" if hi < len(words) else "")]
+                LEX_EXP[part][li] = [ref, ("… " if lo else "") + snip + (" …" if hi < len(words) else "")]
+                LEX_EX.setdefault(li, LEX_EXP[part][li])
     return ids
 
 FILES = {}       # code -> book object written to data/<code>.json
+def fix_empty(verses):
+    """Drop placeholder verses; where the Vulgate joins two verses the Douay-Rheims splits, attach the English to the previous verse."""
+    out = []
+    for v in verses:
+        if not v[1].strip():
+            if v[2].strip() and out: out[-1][2] = out[-1][2].rstrip() + " " + v[2].strip()
+            stats["empty_verse"] += 1
+            continue
+        out.append(v)
+    if len(out) > 2 and out[-1][1].strip() and not out[-1][2].strip():
+        out = realign(out)
+    return out
+def realign(rows):
+    """The English joins two verses somewhere (so it ends one verse early). Find the join by word-count fit,
+    merge the matching Latin pair, and re-pair the rest."""
+    import math
+    wl = [len(WORD.findall(r[1])) for r in rows]; we = [len(WORD.findall(r[2])) for r in rows]
+    best, bs = None, 1e18
+    for s_ in range(1, len(rows)):
+        cost = 0
+        for j in range(len(rows) - 1):
+            l = wl[j] + (wl[j + 1] if j == s_ - 1 else 0) if j < s_ else wl[j + 1]
+            cost += math.log((we[j] + 1) / (l + 1)) ** 2
+        if cost < bs: bs, best = cost, s_
+    k = best - 1
+    merged = [rows[k][0], rows[k][1] + " " + rows[k + 1][1], rows[k][2], rows[k][3] + rows[k + 1][3]]
+    out = rows[:k] + [merged] + [[rows[j][0], rows[j][1], rows[j - 1][2], rows[j][3]] for j in range(k + 2, len(rows))]
+    stats["realigned"] += 1
+    print("realigned chapter at verse", rows[k][0], "+", rows[k + 1][0])
+    return out
 PARTS = []       # [{id, name, books: [[code, name, versesPerChapter, chapterLabels?]]}]
 
 # New Testament
@@ -276,7 +338,7 @@ for src, code, pcode, disp in NT:
             la = lig(va["text"]).strip()
             toks = tok_by_verse.get((pcode, ca["chapter"], va["verse"]), [])
             verses.append([va["verse"], la, vd["text"].strip(), ids_for(la, toks, "nt", f"{disp} {ca['chapter']}:{va['verse']}")])
-        chapters.append(verses)
+        chapters.append(fix_empty(verses))
     FILES[code] = {"code": code, "name": disp, "ch": chapters}
     books.append([code, disp, [len(c) for c in chapters]])
 PARTS.append({"id": "nt", "name": "New Testament", "ref": "Douay-Rheims", "books": books})
@@ -290,7 +352,7 @@ for ca, cd in zip(ps_la, ps_en):
     for va, vd in zip(ca["verses"], cd["verses"]):
         la = lig(va["text"]).strip()
         verses.append([va["verse"], la, vd["text"].strip(), ids_for(la, [], "ps", f"Psalm {ca['chapter']}:{va['verse']}")])
-    chapters.append(verses)
+    chapters.append(fix_empty(verses))
 FILES["ps"] = {"code": "ps", "name": "Psalms", "ch": chapters}
 PARTS.append({"id": "ps", "name": "Psalms", "ref": "Douay-Rheims", "books": [["ps", "Psalms", [len(c) for c in chapters], [f"Psalm {i + 1}" for i in range(len(chapters))]]]})
 
@@ -356,6 +418,7 @@ MANUAL = {
 MANUAL_LC = {k.lower(): v for k, v in MANUAL.items()}
 glossed = 0
 gl = []
+PP = {}
 for lem in lemmas:
     key = lem.replace("j", "i").replace("v", "u")
     g = MANUAL.get(lem) or MANUAL.get(key) or MANUAL_LC.get(key.lower())
@@ -369,11 +432,19 @@ for lem in lemmas:
         for kv in variants:
             cand = cand or dict_idx.get((kv.lower(), pos)) or (dict_idx.get((kv.lower(), "ADJ")) if pos in ("NUM", "PRON") else None)
         if cand:
-            g = sorted(cand)[0][1]
+            best = sorted(cand)[0]
+            g = best[1]
+            if best[2]: PP[len(gl)] = best[2]
     if not g and lem in GUESS_GLOSS and lemma_pos[lem].endswith("?"):
         g = GUESS_GLOSS[lem]
     if not g and lemma_pos[lem] == "Ne":
         g = "(proper name)"
+    if lemma_pos[lem].startswith("V"):
+        mp = MANUAL_PP.get(key) or MANUAL_PP.get(lem)
+        if not mp:
+            for kv in variants:
+                if kv.lower() in VPP: mp = sorted(VPP[kv.lower()])[0][1]; break
+        if mp: PP[len(gl)] = mp
     if g: glossed += 1
     gl.append(g or "")
 print("lemmas glossed", glossed, "/", len(lemmas))
@@ -468,7 +539,8 @@ for f in FILES.values():
                 elif isinstance(e, str): used.update(int(x) for x in e.split("+"))
                 elif isinstance(e, list): used.update(e)
 amap = {a: k for k, a in enumerate(sorted(used))}
-lused = sorted({analyses[a][0] for a in used} | {f[0] for f in freq})
+DECKS = {p: [[li, n] + LEX_EXP[p][li] for li, n in PFREQ[p].most_common() if n >= 2 and gl[li] and not lemma_pos[lemmas[li]].startswith("Ne")][:1500] for p in PFREQ}
+lused = sorted({analyses[a][0] for a in used} | {f[0] for f in freq} | {d[0] for v in DECKS.values() for d in v})
 lmap = {l: k for k, l in enumerate(lused)}
 def remap(e):
     if isinstance(e, int): return amap[e] if e >= 0 else -1
@@ -479,10 +551,47 @@ for code, f in FILES.items():
         for v in ch: v[3] = [remap(e) for e in v[3]]
     json.dump(f, open(f"{OUT}/{code}.json", "w"), separators=(",", ":"), ensure_ascii=False)
 ana_out = [[lmap[analyses[a][0]], analyses[a][1], analyses[a][2]] for a in sorted(used)]
-lem_out = [[lemmas[l], gl[l]] for l in lused]
+lem_out = [[lemmas[l], gl[l]] + ([PP[l]] if l in PP else []) for l in lused]
+json.dump({p: [[lmap[d[0]]] + d[1:] for d in v] for p, v in DECKS.items()}, open(f"{OUT}/vocab.json", "w"), separators=(",", ":"), ensure_ascii=False)
+print("principal parts", sum(1 for l in lused if l in PP), "| decks", {p: len(v) for p, v in DECKS.items()})
 freq_out = [[lmap[f[0]]] + f[1:] for f in freq]
 books_nt = PARTS[0]["books"]
 json.dump({"books": books_nt, "parts": PARTS, "lemmas": lem_out, "ana": ana_out, "freq": freq_out, "tokens": sum(count.values())},
           open(f"{OUT}/lexicon.json", "w"), separators=(",", ":"), ensure_ascii=False)
 json.dump(INDEX, open(f"{OUT}/passages.json", "w"), separators=(",", ":"), ensure_ascii=False)
+
+# ---------- stress accents, learned from the accented Breviary text ----------
+ACC = {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ý": "y", "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ý": "Y"}
+def accent_info(tok):
+    plain, pos = [], []
+    for ch in tok:
+        if ch in "ǽǼ": pos.append(len(plain)); plain += ["a", "e"]
+        elif ch in "æÆ": plain += ["a", "e"]
+        elif ch in "œŒ": plain += ["o", "e"]
+        elif ch in ACC: pos.append(len(plain)); plain.append(ACC[ch].lower())
+        elif ch.isascii(): plain.append(ch.lower())
+        else: return None, None
+    return "".join(plain), tuple(pos)
+acc_counts = collections.defaultdict(collections.Counter)
+for fpath in _glob.glob(f"{SRC}/do/web/www/horas/Latin/**/*.txt", recursive=True):
+    try: t = open(fpath, encoding="utf-8").read()
+    except Exception: continue
+    for tok in re.findall(r"[A-Za-zÀ-ÿǽǼæœÆŒ]+", t):
+        if not any(c in ACC or c in "ǽǼ" for c in tok): continue
+        plain, pos = accent_info(tok)
+        if plain and pos: acc_counts[n1(plain)][pos] += 1
+needed = set()
+for f in FILES.values():
+    for ch in f["ch"]:
+        for v in ch: needed.update(n1(w) for w in WORD.findall(v[1]))
+ACCENTS = {k: list(c.most_common(1)[0][0]) for k, c in acc_counts.items() if k in needed}
+json.dump(ACCENTS, open(f"{OUT}/accents.json", "w"), separators=(",", ":"))
+tok_total = tok_hit = 0
+for f in FILES.values():
+    for ch in f["ch"]:
+        for v in ch:
+            for w in WORD.findall(v[1]):
+                if len(re.findall(r"[aeiouy]+", w.lower())) >= 3:
+                    tok_total += 1; tok_hit += n1(w) in ACCENTS
+print("accents: forms", len(ACCENTS), "| 3+ syllable words covered", round(tok_hit / max(1, tok_total) * 100, 1), "%")
 print("lexicon: lemmas", len(lem_out), "analyses", len(ana_out), "freq", len(freq_out))
