@@ -145,6 +145,18 @@ def resolve(lang, rel, sec, depth=0):
     if "\n@" in "\n" + txt: return None
     return txt
 
+def office_name(rel):
+    """The feast's English name from its [Officium] or [Name] section, shortened."""
+    n = ""
+    for lang in ("English", "Latin"):
+        secs = sections(f"{DO}/{lang}/{rel}.txt")
+        n = (secs.get("Officium") or secs.get("Name") or "").split("\n")[0].strip()
+        if n and not n.startswith("@"): break
+        n = ""
+    if not n: return ""
+    if not n.isascii(): n = clean_la(n)
+    n = re.sub(r"\s+", " ", n).replace("Commune Apostolorum", "Common of Apostles")
+    return n if len(n) <= 60 else n[:57].rsplit(" ", 1)[0] + "…"
 DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 SEASON = [("Adv", "Advent"), ("Nat", "Christmastide"), ("Epi", "After Epiphany"), ("Quadp", "Septuagesima"), ("Quad", "Lent"),
           ("Pasc", "Eastertide"), ("Pent", "After Pentecost")]
@@ -160,8 +172,11 @@ def day_name(rel):
     m = re.match(r"(\d{2})(\d)-(\d)", base)
     if m: return "Summer & autumn", f"{MONTHS[int(m.group(1)) - 1]} week {int(m.group(2))}, {DAYS[int(m.group(3))]}"
     m = re.match(r"(\d{2})-(\d{2})", base)
-    if m: return f"Saints: {MONTHS[int(m.group(1)) - 1]}", f"{MONTHS[int(m.group(1)) - 1]} {int(m.group(2))}"
-    if base.startswith("C"): return "Commons of saints", "Common " + base
+    name = office_name(rel)
+    if m:
+        d = f"{MONTHS[int(m.group(1)) - 1]} {int(m.group(2))}"
+        return f"Saints: {MONTHS[int(m.group(1)) - 1]}", (f"{d} · {name}" if name else d)
+    if base.startswith("C"): return "Commons of saints", name or ("Common " + base)
     return None, None
 
 LA_HEAD = re.compile(r"^(Homil|Sermo|Ex |Tractat|Liber|Epistola sancti|Expositio)", re.I)
