@@ -150,7 +150,7 @@ def office_name(rel):
     n = ""
     for lang in ("English", "Latin"):
         secs = sections(f"{DO}/{lang}/{rel}.txt")
-        n = (secs.get("Officium") or secs.get("Name") or "").split("\n")[0].strip()
+        n = (secs.get("Officium") or secs.get("Name") or (secs.get("Rank") or "").split(";;")[0]).split("\n")[0].strip()
         if n and not n.startswith("@"): break
         n = ""
     if not n: return ""
