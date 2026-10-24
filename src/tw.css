@@ -1,0 +1,28 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Page palette as Tailwind colors (tokens are defined in the page's :root). */
+@theme {
+  --color-paper: var(--paper);
+  --color-leaf: var(--leaf);
+  --color-ink: var(--ink);
+  --color-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-rubric: var(--rubric);
+  --color-rubrictint: var(--rubric-tint);
+  --color-ok: var(--ok);
+  --color-oktint: var(--ok-tint);
+  --color-mid: var(--mid);
+  --color-midtint: var(--mid-tint);
+  --color-warn: var(--warn);
+  --color-warntint: var(--warn-tint);
+}
+
+/* Keep Tailwind v3 behaviour the page was designed with. */
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button { border-color: var(--rule); }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  input::placeholder, textarea::placeholder { color: #a59c90; opacity: 1; }
+}
