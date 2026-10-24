@@ -1510,7 +1510,7 @@ function VocabMode({ prog, onGrade, deck, setDeck }) {
             {c.ex && c.aid != null && c.aid >= 0 && (() => {
               const d = describe(lex, c.aid);
               const form = (c.ex.match(/\[\[(.+?)\]\]/) || [])[1];
-              return d.parse && form ? <p className="mt-1 text-[14px] text-soft">In the example, <span lang="la" className="latin font-bold text-ink">{form}</span> is {/^[aeiou]/.test(d.parse) ? "an" : "a"} {d.parse.replace(" · ", ", ")}.</p> : null;
+              return d.parse && form ? <p className="mt-1 text-[14px] text-soft">In the example, <span lang="la" className="latin font-bold text-ink">{form}</span> here: {d.parse.replace(" · ", ", ")}.</p> : null;
             })()}
           </div>
         ) : (
