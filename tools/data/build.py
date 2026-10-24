@@ -476,7 +476,9 @@ MANUAL.update({
  "praeterea": "besides, moreover, furthermore", "uidetur": "it seems", "dicendum": "it must be said (respondeo dicendum quod: I answer that)",
  "sed contra": "on the contrary", "secundum": "according to (prep. + acc.); (adj.) second", "quidem": "indeed, certainly",
  "inquantum": "insofar as", "unde": "whence, hence, therefore", "scilicet": "namely, that is to say", "simpliciter": "simply, absolutely",
- "proprie": "properly, strictly speaking", "principium": "beginning; principle", "obiectio": "objection", "conclusio": "conclusion",
+ "proprie": "properly, strictly speaking", "nascor": "be born; arise", "morior": "die", "patior": "suffer, undergo; allow", "sequor": "follow", "ago": "do, act; drive; (gratias agere) give thanks",
+ "cognosco": "come to know, learn; recognize", "intellego": "understand, perceive", "pono": "put, place, lay down; establish", "mitto": "send",
+ "accipio": "receive, accept, take", "reddo": "give back, render, repay", "quaero": "seek, ask", "inuenio": "find", "inuenio ": "find", "principium": "beginning; principle", "obiectio": "objection", "conclusio": "conclusion",
 })
 MANUAL_LC = {k.lower(): v for k, v in MANUAL.items()}
 glossed = 0
