@@ -149,6 +149,34 @@ def principal_parts(stems, codes):
     else:
         out = [pres, inf] + ([s3 + "i"] if s3 and s3 != "zzz" else []) + ([s4 + "um"] if s4 and s4 != "zzz" else [])
     return ", ".join(out)
+GEN_ABBR = {"M": "m.", "F": "f.", "N": "n.", "C": "m./f."}
+def noun_head(stems, codes):
+    """rex, regis (m.) / aqua, aquae (f.): nominative, genitive and gender from Whitaker's stems."""
+    s1, s2 = stems[0], stems[1]
+    d, v, g = (codes + ["", "", ""])[1:4]
+    if d == "1": nom, gen = s1 + "a", s2 + "ae"
+    elif d == "2" and v == "1": nom, gen = s1 + "us", s2 + "i"
+    elif d == "2" and v == "2": nom, gen = s1 + "um", s2 + "i"
+    elif d == "2" and v == "3": nom, gen = s1, s2 + "i"
+    elif d == "2" and v == "4": nom, gen = s1 + "um", s2 + "i"      # gaudium, gaudii
+    elif d == "2" and v == "5": nom, gen = s1 + "us", s2 + "i"      # filius, filii
+    elif d == "3": nom, gen = s1, s2 + "is"
+    elif d == "4" and v == "1": nom, gen = s1 + "us", s2 + "us"
+    elif d == "4" and v == "2": nom, gen = s1 + "u", s2 + "us"
+    elif d == "5": nom, gen = s1 + "es", s2 + "ei"
+    else: return None, ""
+    return nom, f"{nom}, {gen} ({GEN_ABBR.get(g, '')})".replace(" ()", "")
+def adj_head(stems, codes):
+    """bonus, -a, -um / omnis, -e / felix, felicis."""
+    s1, s2 = stems[0], stems[1]
+    d, v = (codes + ["", ""])[1:3]
+    if d == "1" and v == "1": return s1 + "us", f"{s1}us, -a, -um"
+    if d == "1" and v in ("2", "3"): return s1, f"{s1}, {s2}a, {s2}um"
+    if d == "3" and v == "1": return s1, f"{s1}, gen. {s2}is"
+    if d == "3" and v == "2": return s1 + "is", f"{s1}is, -e"
+    if d == "3" and v == "3": return s1, f"{s1}, {s2}is, {s2}e"
+    return None, ""
+HEADS = collections.defaultdict(list)
 MANUAL_PP = {"sum": "sum, esse, fui, futurus", "possum": "possum, posse, potui", "eo": "eo, ire, ii (ivi), itum", "fero": "fero, ferre, tuli, latum",
   "uolo": "volo, velle, volui", "volo": "volo, velle, volui", "nolo": "nolo, nolle, nolui", "malo": "malo, malle, malui", "fio": "fio, fieri, factus sum",
   "prosum": "prosum, prodesse, profui", "absum": "absum, abesse, afui", "adsum": "adsum, adesse, adfui", "desum": "desum, deesse, defui",
@@ -173,6 +201,9 @@ for line in open(f"{SRC}/ww/DICTLINE.GEN", encoding="latin-1"):
     s1 = stems[0].replace("j", "i").replace("v", "u")
     if pos not in END: continue
     pp = principal_parts(stems, codes) if pos == "V" else ""
+    if pos in ("N", "ADJ") and stems[0] and stems[0] != "zzz":
+        nom, head = noun_head(stems, codes) if pos == "N" else adj_head(stems, codes)
+        if nom: HEADS[(nom.replace("j", "i").replace("v", "u"), pos)].append((rank, head))
     if pp:
         vkey = pp.split(", ")[0].replace("j", "i").replace("v", "u")
         dict_idx[(vkey, "V")].append((rank, gloss, pp))
@@ -291,7 +322,7 @@ def ids_for(la, toks, part, ref):
                 sp = [mm.span() for mm in WORD.finditer(la)]
                 a0, a1 = sp[i]
                 snip = la[sp[lo][0]:a0] + "[[" + la[a0:a1] + "]]" + la[a1:sp[hi - 1][1]]
-                LEX_EXP[part][li] = [ref, ("… " if lo else "") + snip + (" …" if hi < len(words) else "")]
+                LEX_EXP[part][li] = [ref, ("… " if lo else "") + snip + (" …" if hi < len(words) else ""), a]
                 LEX_EX.setdefault(li, LEX_EXP[part][li])
     return ids
 
@@ -415,6 +446,38 @@ MANUAL = {
  "exsulto":"rejoice, exult","exulto":"rejoice, exult","ungo":"anoint","unguo":"anoint","exstinguo":"extinguish, quench",
  "extinguo":"extinguish, quench","exspiro":"breathe out, expire","expiro":"breathe out, expire","Galilaea":"Galilee","peccatum":"sin","pecco":"sin","resurrectio":"resurrection","uita":"life","mundus":"world",
 }
+# Ecclesiastical and scholastic senses first: Whitaker gives classical meanings, which mislead in Church Latin.
+MANUAL.update({
+ "persona": "person; (classical) mask, character", "gratia": "grace; favour; thanks (gratias agere: give thanks)", "fides": "faith; fidelity, trust",
+ "caritas": "charity, love (of God and neighbour)", "salus": "salvation; health, safety", "uirtus": "virtue; power, strength; (pl.) mighty works, the heavenly Powers",
+ "saeculum": "age, world; in saecula (saeculorum): for ever (and ever)", "regnum": "kingdom, reign", "sanctus": "holy, sacred; (as noun) a saint",
+ "anima": "soul; life", "ratio": "reason; account, nature (of a thing); argument", "intellectus": "intellect, understanding",
+ "actus": "act, actuality; deed", "potentia": "power; potency, potentiality", "substantia": "substance", "natura": "nature",
+ "causa": "cause; reason; case", "finis": "end; purpose, goal", "creatura": "creature; creation", "passio": "passion, suffering; being acted upon",
+ "sacramentum": "sacrament; mystery; oath", "mysterium": "mystery", "misericordia": "mercy", "iustitia": "justice, righteousness",
+ "iustus": "just, righteous", "sapientia": "wisdom", "scientia": "knowledge; science (an ordered body of knowledge)", "lex": "law",
+ "mandatum": "commandment", "opus": "work; need (opus est: there is need)", "lumen": "light", "gloria": "glory", "uoluntas": "will; good will, pleasure",
+ "species": "species; appearance, form; beauty", "habitus": "habit, settled disposition; dress", "obiectum": "object", "res": "thing, matter, reality",
+ "esse": "being, existence (the infinitive used as a noun)", "ens": "a being; that which is", "essentia": "essence", "forma": "form",
+ "materia": "matter", "accidens": "accident (a non-essential property)", "ueritas": "truth", "bonitas": "goodness", "perfectio": "perfection",
+ "processio": "procession (of the divine Persons)", "relatio": "relation", "generatio": "generation; begetting", "similitudo": "likeness, similitude",
+ "imago": "image", "beatitudo": "happiness, beatitude", "uisio": "vision", "contemplatio": "contemplation", "praedestinatio": "predestination",
+ "prouidentia": "providence", "incarnatio": "incarnation", "redemptio": "redemption", "resurrectio": "resurrection", "ascensio": "ascension",
+ "martyr": "martyr, witness", "confessor": "confessor (a saint who was not martyred)", "uirgo": "virgin", "pontifex": "bishop, high priest; pontiff",
+ "sacerdos": "priest", "episcopus": "bishop", "presbyter": "priest, elder", "diaconus": "deacon", "beatus": "blessed",
+ "fidelis": "faithful; (as noun) a believer, one of the faithful", "infidelis": "unbelieving; an unbeliever", "gentes": "the nations, the Gentiles",
+ "ecclesia": "Church; assembly, congregation", "euangelium": "gospel", "baptismus": "baptism", "eucharistia": "Eucharist",
+ "carnalis": "of the flesh, carnal", "spiritualis": "spiritual", "caro": "flesh; the body", "peccator": "sinner", "paenitentia": "repentance, penance",
+ "poenitentia": "repentance, penance", "remissio": "forgiveness, remission", "tentatio": "temptation, trial", "temptatio": "temptation, trial",
+ "praeceptum": "precept, commandment", "consilium": "counsel, plan; council", "doctrina": "doctrine, teaching", "praedico": "preach, proclaim",
+ "credo": "believe; trust; entrust", "spero": "hope, hope for", "diligo": "love", "adoro": "adore, worship", "oro": "pray; beg",
+ "benedico": "bless; speak well of", "glorifico": "glorify", "sanctifico": "sanctify, make holy", "iustifico": "justify, make righteous",
+ "saluo": "save", "redimo": "redeem, buy back", "remitto": "forgive, remit; send back", "conuerto": "convert; turn",
+ "praeterea": "besides, moreover, furthermore", "uidetur": "it seems", "dicendum": "it must be said (respondeo dicendum quod: I answer that)",
+ "sed contra": "on the contrary", "secundum": "according to (prep. + acc.); (adj.) second", "quidem": "indeed, certainly",
+ "inquantum": "insofar as", "unde": "whence, hence, therefore", "scilicet": "namely, that is to say", "simpliciter": "simply, absolutely",
+ "proprie": "properly, strictly speaking", "principium": "beginning; principle", "obiectio": "objection", "conclusio": "conclusion",
+})
 MANUAL_LC = {k.lower(): v for k, v in MANUAL.items()}
 glossed = 0
 gl = []
@@ -439,6 +502,11 @@ for lem in lemmas:
         g = GUESS_GLOSS[lem]
     if not g and lemma_pos[lem] == "Ne":
         g = "(proper name)"
+    lp = lemma_pos[lem]
+    if lp[0] in "NAP" and not lp.startswith("Ne"):
+        for hp in (("N",) if lp[0] == "N" else ("ADJ",)):
+            hit = next((kv for kv in variants if HEADS.get((kv.lower(), hp))), None)
+            if hit: PP[len(gl)] = sorted(HEADS[(hit.lower(), hp)])[0][1]
     if lemma_pos[lem].startswith("V"):
         mp = MANUAL_PP.get(key) or MANUAL_PP.get(lem)
         if not mp:
@@ -539,6 +607,7 @@ for f in FILES.values():
                 elif isinstance(e, str): used.update(int(x) for x in e.split("+"))
                 elif isinstance(e, list): used.update(e)
 amap = {a: k for k, a in enumerate(sorted(used))}
+ex_aid = lambda a: amap.get(a, -1)
 DECKS = {p: [[li, n] + LEX_EXP[p][li] for li, n in PFREQ[p].most_common() if n >= 2 and gl[li] and not lemma_pos[lemmas[li]].startswith("Ne")][:1500] for p in PFREQ}
 lused = sorted({analyses[a][0] for a in used} | {f[0] for f in freq} | {d[0] for v in DECKS.values() for d in v})
 lmap = {l: k for k, l in enumerate(lused)}
@@ -552,9 +621,9 @@ for code, f in FILES.items():
     json.dump(f, open(f"{OUT}/{code}.json", "w"), separators=(",", ":"), ensure_ascii=False)
 ana_out = [[lmap[analyses[a][0]], analyses[a][1], analyses[a][2]] for a in sorted(used)]
 lem_out = [[lemmas[l], gl[l]] + ([PP[l]] if l in PP else []) for l in lused]
-json.dump({p: [[lmap[d[0]]] + d[1:] for d in v] for p, v in DECKS.items()}, open(f"{OUT}/vocab.json", "w"), separators=(",", ":"), ensure_ascii=False)
-print("principal parts", sum(1 for l in lused if l in PP), "| decks", {p: len(v) for p, v in DECKS.items()})
-freq_out = [[lmap[f[0]]] + f[1:] for f in freq]
+json.dump({p: [[lmap[d[0]]] + d[1:4] + [ex_aid(d[4])] for d in v] for p, v in DECKS.items()}, open(f"{OUT}/vocab.json", "w"), separators=(",", ":"), ensure_ascii=False)
+print("dictionary headings", sum(1 for l in lused if l in PP), "| decks", {p: len(v) for p, v in DECKS.items()})
+freq_out = [[lmap[f[0]]] + f[1:4] + [ex_aid(f[4])] for f in freq]
 books_nt = PARTS[0]["books"]
 json.dump({"books": books_nt, "parts": PARTS, "lemmas": lem_out, "ana": ana_out, "freq": freq_out, "tokens": sum(count.values())},
           open(f"{OUT}/lexicon.json", "w"), separators=(",", ":"), ensure_ascii=False)

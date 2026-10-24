@@ -1377,7 +1377,7 @@ function vocabOf(lex) {
   const posOf = {};
   lex.ana.forEach(([li, pos]) => { if (!(li in posOf)) posOf[li] = pos; });
   const freq = {};
-  lex.freq.forEach(([li, n, ref, ex], i) => { freq[lex.lemmas[li][0]] = { rank: i + 1, n, ref, ex }; });
+  lex.freq.forEach(([li, n, ref, ex, aid], i) => { freq[lex.lemmas[li][0]] = { rank: i + 1, n, ref, ex, aid }; });
   const V = { byLemma, posOf, freq, order: lex.freq.map(f => lex.lemmas[f[0]][0]), tokens: lex.tokens };
   vocabCache.set(lex, V);
   return V;
@@ -1386,20 +1386,26 @@ let vocabPromise = null;
 function loadVocab() { if (!vocabPromise) vocabPromise = getJSON("data/vocab.json").catch(e => { vocabPromise = null; throw e; }); return vocabPromise; }
 const DECKS = [["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
   ["pp", "Principal parts"], ["tap", "Words I looked up"], ["mk", "My mistakes"]];
+/* Words any student sitting the exam already knows; they are left out of the decks. */
+const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sine sub super inter post ante apud propter ego tu nos vos is hic ille ipse iste idem " +
+  "qui quis sui se suus meus tuus noster vester autem sed enim ergo igitur nam ut si quod quia quoniam sicut neque nec aut vel atque ac etiam iam nunc tunc ibi ubi " +
+  "omnis unus deus dominus homo dico facio video uideo venio uenio do habeo eo fero volo uolo audio magnus bonus malus multus ecce amen nihil nemo que ne iesus christus " +
+  "dies terra caelum filius pater mater vir uir mulier rex verbum uerbum spiritus").split(" "));
 /* Build a deck as an ordered list of cards. Word cards share their schedule across decks (keyed by lemma). */
 function buildDeck(deck, lex, V, vocab, prog) {
   const word = (lemma, ex) => {
     const li = V.byLemma[lemma];
     if (li === undefined || !lex.lemmas[li][1]) return null;
-    const [, gloss, pp] = lex.lemmas[li];
+    const [, gloss, head] = lex.lemmas[li];
     const f = ex || V.freq[lemma];
-    return { key: lemma, front: lemma, sub: POS_L[V.posOf[li]] || "", ex: f && f.ex, ref: f && f.ref, back: gloss, extra: pp || "" };
+    return { key: lemma, front: head || lemma, sub: POS_L[V.posOf[li]] || "", ex: f && f.ex, ref: f && f.ref, aid: f ? f.aid : -1, back: gloss };
   };
-  if (deck === "all") return V.order.map(l => word(l)).filter(Boolean);
-  // Part decks skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
-  if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex]) => word(lex.lemmas[li][0], { ref, ex })).filter(Boolean) : null;
+  const notBasic = l => !BASIC.has(l.toLowerCase());
+  if (deck === "all") return V.order.filter(notBasic).map(l => word(l)).filter(Boolean);
+  // Part decks also skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
+  if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => notBasic(lex.lemmas[li][0]) && !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex, aid]) => word(lex.lemmas[li][0], { ref, ex, aid })).filter(Boolean) : null;
   if (deck === "tap") return (prog.vtap || []).map(l => word(l)).filter(Boolean);
-  if (deck === "pp") return V.order.map(l => { const li = V.byLemma[l]; const [, gloss, pp] = lex.lemmas[li]; return pp ? { key: "pp:" + l, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }).filter(Boolean);
+  if (deck === "pp") return V.order.filter(notBasic).map(l => { const li = V.byLemma[l]; const [, gloss, pp] = lex.lemmas[li]; return pp && /^V/.test(V.posOf[li]) && pp.includes(",") ? { key: "pp:" + l, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }).filter(Boolean);
   if (deck === "mk") return (prog.mistakes || []).slice().reverse().filter(m => m.latin && m.fix)
     .map(m => ({ key: "mk:" + m.ref + ":" + m.latin, front: m.latin, sub: `${ISSUE_TYPES[m.type] || "Mistake"} · ${m.ref}`, back: m.fix, extra: m.concept ? CONCEPTS[m.concept] : "", mk: true }));
   return [];
@@ -1500,12 +1506,18 @@ function VocabMode({ prog, onGrade, deck, setDeck }) {
         {shown ? (
           <div className="reveal mt-5 border-l-2 border-rubric pl-3">
             <p className="text-[1.1rem] leading-snug text-ink">{c.pp ? <span lang="la" className="latin">{c.back}</span> : c.back}</p>
-            {c.extra && <p className="mt-1 text-[14px] text-soft">{c.pp || c.mk ? c.extra : <span lang="la" className="latin">{c.extra}</span>}</p>}
+            {c.extra && <p className="mt-1 text-[14px] text-soft">{c.extra}</p>}
+            {c.ex && c.aid != null && c.aid >= 0 && (() => {
+              const d = describe(lex, c.aid);
+              const form = (c.ex.match(/\[\[(.+?)\]\]/) || [])[1];
+              return d.parse && form ? <p className="mt-1 text-[14px] text-soft">In the example, <span lang="la" className="latin font-bold text-ink">{form}</span> is {/^[aeiou]/.test(d.parse) ? "an" : "a"} {d.parse.replace(" · ", ", ")}.</p> : null;
+            })()}
           </div>
         ) : (
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
             <Btn variant="primary" onClick={() => setShown(true)}>{c.pp ? "Show principal parts" : c.mk ? "Show the correction" : "Show meaning"}</Btn>
-            <span className="ml-3 hidden text-[13px] text-soft sm:inline">or press Space</span>
+            {!c.mk && <Btn onClick={() => grade("know")} title="Mark as known and skip it for five weeks">I know this already</Btn>}
+            <span className="ml-1 hidden text-[13px] text-soft sm:inline">Space shows the answer</span>
           </div>
         )}
       </article>
@@ -2205,6 +2217,12 @@ function App() {
     setProg(next); persist({ ...next, updated: Date.now() });
   }
   function gradeVocab(lemma, key) {
+    if (key === "know") {
+      const now = Date.now();
+      const next = { ...prog, vcards: { ...(prog.vcards || {}), [lemma]: { box: 5, n: 1, last: now, due: now + INTERVALS[5], ema: 1 } }, updated: now };
+      setProg(next); persist(next); bump("vocab");
+      return next;
+    }
     undoRef.current = null;
     return grade(key, "vcards", lemma, []);
   }
