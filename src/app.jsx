@@ -1985,6 +1985,8 @@ function App() {
   const [prefs, setPrefs] = useState(() => ({ accents: false, structure: false, size: 1, deck: "all", welcomed: false, ...(readLocal(PREFS_KEY) || {}) }));
   const [day, setDay] = useState(readDay);
   const [focusMode, setFocusMode] = useState(false);
+  const [examKey, setExamKey] = useState(0);
+  const practiceRef = useRef(null);
   const [accMap, setAccMap] = useState(null);
   const [lexAll, setLexAll] = useState(null);
   const voice = useLatinVoice();
@@ -2253,8 +2255,18 @@ function App() {
   const focusPart = untried || weakestPart;
   const dueAll = dueDrill + dueP + dueV;
   const examLeft = prog.exam ? (() => { const d = Math.ceil((new Date(prog.exam + "T12:00:00") - now) / DAY); return d > 0 ? `${d} days to the exam` : ""; })() : "";
+  /* Bring the practice area into view, so a Today step always visibly does something. */
+  function showPractice() {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = practiceRef.current;
+      if (!el) return;
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
+    }));
+  }
   function todayStep(id) {
     setFocusMode(false);
+    showPractice();
     if (id === "reviews") {
       if (dueDrill) { setMode("drill"); return goTo(pickNext(prog, null, focus, null)); }
       if (dueP) { const k = duePassages(prog)[0]; setMode("read"); return goPassage(parseKey(k), "Due for review."); }
@@ -2264,8 +2276,10 @@ function App() {
     if (id === "vocab") return setMode("vocab");
     if (id === "passage") return switchPart(focusPart ? focusPart.id : "nt", true);
     if (id === "oral") {
+      // Set up a fresh short oral mock, unless a sitting is still running; then remount the exam view so it reads that set-up.
       const x = readLocal(EXAM_KEY) || {};
-      if (!x.run) writeLocal(EXAM_KEY, { ...x, cfg: { ...(x.cfg || {}), scope: "mock", size: "short", oral: true, mins: 5 } });
+      if (!x.run || x.run.end) writeLocal(EXAM_KEY, { cfg: { ...(x.cfg || {}), scope: "mock", size: "short", oral: true, mins: 5 }, run: null });
+      setExamKey(k => k + 1);
       setMode("exam");
     }
   }
@@ -2356,7 +2370,7 @@ function App() {
             <Btn onClick={() => setFocusMode(false)}>Exit focus</Btn>
           </div>
           <ReadingAids prefs={prefs} setPrefs={setPrefs} text="" voice={null} />
-          <ExamMode prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
+          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
         </div>
       </AidsContext.Provider>
     );
@@ -2389,7 +2403,7 @@ function App() {
           <Stat value={wordsKnown} label="words known" />
           <Stat value={dueDrill + dueP + dueV} label="due for review" />
         </div>
-        <Readiness prog={prog} onPick={pid => switchPart(pid, true)} />
+        <Readiness prog={prog} onPick={pid => { switchPart(pid, true); showPractice(); }} />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[14px] text-soft">{pace || "Set your exam date (in Skill map & backup) to see your countdown."} {focusText}</p>
           <button type="button" onClick={() => setShowStats(s => !s)} aria-expanded={showStats}
@@ -2436,7 +2450,7 @@ function App() {
       </section>
 
       {/* Mode switch */}
-      <nav className="flex flex-wrap items-center gap-1 rounded-lg border border-rule bg-paper p-1 self-start" aria-label="Practice mode">
+      <nav ref={practiceRef} className="flex scroll-mt-4 flex-wrap items-center gap-1 rounded-lg border border-rule bg-paper p-1 self-start" aria-label="Practice mode">
         <button type="button" className={tabCls(mode === "drill")} aria-pressed={mode === "drill"} onClick={() => { setMode("drill"); resetView(); }}>Verse drill</button>
         <button type="button" className={tabCls(mode === "read")} aria-pressed={mode === "read"} onClick={() => { setMode("read"); resetView(); }}>
           Passages{dueP ? ` · ${dueP} due` : ""}
@@ -2452,7 +2466,7 @@ function App() {
       ) : mode === "exam" ? (
         <>
           <ReadingAids prefs={prefs} setPrefs={setPrefs} text="" voice={null} />
-          <ExamMode prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
+          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
         </>
       ) : mode === "drill" ? (
         <>

@@ -217,7 +217,7 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft }) {
         ))}
       </ol>
       <div className="mt-3">
-        {next ? <Btn variant="primary" onClick={() => onStep(next.id)}>{steps.every(s => !s.done) ? "Start today’s session →" : "Continue →"}</Btn>
+        {next ? <Btn variant="primary" onClick={() => onStep(next.id)}>{steps.some(s => s.done) ? "Continue" : "Start"}: {next.label.replace(/ \(.*\)$/, "").replace(/^Clear your reviews$/, "Clear your reviews")} →</Btn>
           : <p className="text-[14px] text-ok">Today’s session is done. Anything more is a bonus.</p>}
       </div>
     </section>
