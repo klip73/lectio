@@ -1,0 +1,74 @@
+<!doctype html><html><head><meta charset="utf-8"><title>t</title><style>
+  /* Layout: one quiet reading column, like a single page of a breviary; a progress ledger above, the verse in the middle, grading below. */
+  /* Single deliberate paper theme (user asked for a #f8f6f0 stone background). */
+  :root {
+    color-scheme: light;
+    --paper: #f8f6f0;
+    --leaf: #fffdf8;
+    --ink: #2a2622;
+    --ink-soft: #6b625a;
+    --rule: #e3ddd0;
+    --rubric: #9a2b22;
+    --rubric-tint: #f4e6e1;
+    --ok: #3f6b3a;
+    --ok-tint: #e7efe2;
+    --mid: #5b5f86;
+    --mid-tint: #e8e9f2;
+    --warn: #8a6113;
+    --warn-tint: #f6ecd6;
+    --font-latin: "Merriweather", Georgia, "Times New Roman", serif;
+    --font-ui: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  }
+  html, body { background: var(--paper); color: var(--ink); }
+  body { font-family: var(--font-ui); font-size: 16px; }
+  .wrap {
+    max-width: 46rem; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 1.5rem 3rem;
+  }
+  .latin { font-family: var(--font-latin); }
+  .smallcaps { font-variant-caps: all-small-caps; letter-spacing: .08em; }
+  .num { font-variant-numeric: tabular-nums; }
+  .initial::first-letter {
+    color: var(--rubric); font-weight: 700; float: left;
+    font-size: 3.1em; line-height: .9; padding: .06em .12em 0 0;
+  }
+  textarea:focus, select:focus, input:focus, button:focus-visible {
+    outline: 2px solid var(--rubric); outline-offset: 2px;
+  }
+  .lw { cursor: pointer; border-radius: 3px; transition: background-color .12s; }
+  .lw:hover { background: var(--rubric-tint); }
+  .lw.sel { background: var(--rubric-tint); box-shadow: inset 0 -2px 0 var(--rubric); }
+  .lw:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
+  .mk { border-radius: 3px; cursor: pointer; padding: 0 1px; color: inherit; }
+  .mk-error, .lw.mk-error { background: var(--rubric-tint); box-shadow: inset 0 -2px 0 var(--rubric); }
+  .mk-minor, .lw.mk-minor { background: var(--mid-tint); box-shadow: inset 0 -2px 0 var(--mid); }
+  .mk-on { outline: 2px solid var(--rubric); outline-offset: 1px; }
+  .mk-n { font-family: var(--font-ui); font-size: .58em; font-weight: 700; color: var(--rubric); margin-left: 1px; font-style: normal; }
+  .mk-minor .mk-n { color: var(--mid); }
+  .tutor-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rubric); animation: pulse 0.9s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: .25; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .tutor-dot { animation: none; } }
+  .reveal { animation: rise .25s ease-out both; }
+  @keyframes rise { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
+</style></head><body>
+<div id="root" class="wrap"></div>
+<script>
+window.__prompts=[];
+const fake = async function(){ return {text:"x"}; };
+fake.json = async (prompt, opts) => { window.__opts=opts;
+  window.__prompts.push(prompt);
+  await new Promise(r=>setTimeout(r,400));
+  return {verdict:"partly", summary:"Good overall; watch the subjunctives.", praise:"You handled nolite + infinitive well.",
+    issues:[{severity:"minor",type:"mood",latin:"videant",verse:16,yours:"might see",fix:"may see",why:"Present subjunctive, primary sequence.",concept:"subj"},
+            {severity:"error",type:"tense",latin:"veni",verse:17,yours:"I come",fix:"I came",why:"veni is perfect.",concept:"perf"},
+            {severity:"error",type:"omission",latin:"bona",verse:16,yours:"",fix:"good",why:"bona left out.",concept:null}]};
+};
+window.claude = { use: n => Promise.resolve(n === "sample" ? fake : null) };
+localStorage.setItem("lectio-vulgata-ui", JSON.stringify({mode:"read", pos:{b:"mt",c:5,v:16}}));
+</script>
+<script src="react-bundle.js"></script>
+<script src="page.js"></script>
+</body></html>
