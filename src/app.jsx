@@ -605,7 +605,7 @@ function loadPassages() {
 const diffWord = pct => (pct < 34 ? "Easier" : pct < 67 ? "Medium" : "Harder");
 
 /* Ability per exam part: a simple Elo-style estimate on the 0–1 difficulty scale. */
-const ABIL0 = { t: 0.45, n: 0 };
+const ABIL0 = { t: 0.6, n: 0 };   // third-year students: start matched to medium-hard passages
 const pSuccess = (t, d) => 1 / (1 + Math.exp(-6 * (t - d)));
 function applyAbility(prog, part, d, score, k) {
   const a = (prog.ability || {})[part] || ABIL0;
@@ -726,9 +726,11 @@ function levelTarget(prog) {
     if (!seen.length) return { n: 0, a: 0 };
     return { n: seen.length, a: seen.reduce((s, v) => s + prog.cards[v.id].ema, 0) / seen.length };
   };
+  // Students have finished Latin 1–3: start at Intermediate, move up quickly, drop back only on real trouble.
   const b = avg(1), i = avg(2);
-  if (b.n >= 5 && b.a >= 0.7) return i.n >= 4 && i.a >= 0.7 ? 3 : 2;
-  return 1;
+  if (i.n >= 3 && i.a >= 0.7) return 3;
+  if (b.n >= 3 && b.a < 0.5 && i.a < 0.5) return 1;
+  return 2;
 }
 function weakestTag(prog, tags) {
   let best = null, bestS = 2;
@@ -1142,7 +1144,7 @@ function wordNotes(lex, verses) {
 function tutorPrompt(lex, verses, ref, user, part) {
   const notes = wordNotes(lex, verses);
   const info = PART_INFO[part] || PART_INFO.nt;
-  return `Latin tutor. Check a student's English translation of ${info.src} for a Latin exam.
+  return `Latin tutor. Check a student's English translation of ${info.src} for a Latin proficiency exam. The student has completed three years of seminary Latin: use standard grammatical terms and hold them to an examiner's standard.
 ${ref}
 LATIN:
 ${verses.map(v => `${promptTag(v)} ${v[1]}`).join("\n")}
@@ -1392,7 +1394,7 @@ const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sin
   "omnis unus deus dominus homo dico facio video uideo venio uenio do habeo eo fero volo uolo audio magnus bonus malus multus ecce amen nihil nemo que ne iesus christus " +
   "dies terra caelum filius pater mater vir uir mulier rex verbum uerbum spiritus").split(" "));
 /* Build a deck as an ordered list of cards. Word cards share their schedule across decks (keyed by lemma). */
-function buildDeck(deck, lex, V, vocab, prog) {
+function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
   const word = (lemma, ex) => {
     const li = V.byLemma[lemma];
     if (li === undefined || !lex.lemmas[li][1]) return null;
@@ -1400,7 +1402,8 @@ function buildDeck(deck, lex, V, vocab, prog) {
     const f = ex || V.freq[lemma];
     return { key: lemma, front: head || lemma, sub: POS_L[V.posOf[li]] || "", ex: f && f.ex, ref: f && f.ref, aid: f ? f.aid : -1, back: gloss };
   };
-  const notBasic = l => !BASIC.has(l.toLowerCase());
+  // Third-year students know the commonest words: leave out the top 400 unless the student asks for them.
+  const notBasic = l => !BASIC.has(l.toLowerCase()) && (includeCommon || !(V.freq[l] && V.freq[l].rank <= 400));
   if (deck === "all") return V.order.filter(notBasic).map(l => word(l)).filter(Boolean);
   // Part decks also skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
   if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => notBasic(lex.lemmas[li][0]) && !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex, aid]) => word(lex.lemmas[li][0], { ref, ex, aid })).filter(Boolean) : null;
@@ -1425,7 +1428,7 @@ function Snippet({ text }) {
   return text.split(/\[\[|\]\]/).map((part, i) => i % 2 ? <mark key={i} className="rounded bg-rubrictint px-0.5 font-bold text-rubric">{part}</mark> : part);
 }
 
-function VocabMode({ prog, onGrade, deck, setDeck }) {
+function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeCommon }) {
   const { lex, err } = useLex(true);
   const V = lex ? vocabOf(lex) : null;
   const [vocab, setVocab] = useState(null);
@@ -1439,7 +1442,7 @@ function VocabMode({ prog, onGrade, deck, setDeck }) {
     loadVocab().then(v => { if (alive) setVocab(v); }).catch(() => { if (alive) setVerr("This deck didn’t load. Check your connection, then try again."); });
     return () => { alive = false; };
   }, [deck, vocab]);
-  const cards = useMemo(() => (V ? buildDeck(deck, lex, V, vocab, prog) : null), [deck, V, vocab, deck === "tap" ? prog.vtap : null, deck === "mk" ? prog.mistakes : null]);
+  const cards = useMemo(() => (V ? buildDeck(deck, lex, V, vocab, prog, includeCommon) : null), [deck, V, vocab, includeCommon, deck === "tap" ? prog.vtap : null, deck === "mk" ? prog.mistakes : null]);
   useEffect(() => { setPick(cards ? pickCard(prog, cards, null) : null); setShown(false); }, [cards]);
 
   function grade(k) {
@@ -1462,11 +1465,17 @@ function VocabMode({ prog, onGrade, deck, setDeck }) {
   }, []);
 
   const deckPicker = (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Deck">
-      {DECKS.map(([k, l]) => (
-        <button key={k} type="button" onClick={() => setDeck(k)} aria-pressed={deck === k}
-          className={`rounded-md border px-2.5 py-1 text-[13px] ${deck === k ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
-      ))}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Deck">
+        {DECKS.map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setDeck(k)} aria-pressed={deck === k}
+            className={`rounded-md border px-2.5 py-1 text-[13px] ${deck === k ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
+        ))}
+      </div>
+      <label htmlFor="vocab-common" className="flex items-center gap-2 text-[13px] text-soft">
+        <input id="vocab-common" type="checkbox" checked={!!includeCommon} onChange={e => setIncludeCommon(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />
+        Include the 400 commonest words (left out by default, since Latin 1–3 covered them)
+      </label>
     </div>
   );
   if (!lex || !cards) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || verr || "Loading the word list…"}</article></>;
@@ -2480,7 +2489,8 @@ function App() {
       </nav>
 
       {mode === "vocab" ? (
-        <VocabMode prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))} />
+        <VocabMode prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
+          includeCommon={!!prefs.vocabAll} setIncludeCommon={v => setPrefs(p => ({ ...p, vocabAll: v }))} />
       ) : mode === "exam" ? (
         <>
           <ReadingAids prefs={prefs} setPrefs={setPrefs} text="" voice={null} />

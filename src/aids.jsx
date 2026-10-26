@@ -95,6 +95,26 @@ const MOODS = ["indicative", "subjunctive", "imperative"];
 const VALID_TM = [...TENSES.map(t => t + " indicative"), ...["present", "imperfect", "perfect", "pluperfect"].map(t => t + " subjunctive"), "present imperative", "future imperative"];
 function rng(seed) { let h = 2166136261; for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
 function shuffle(a, r) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+/* Questions at the level of a student who has finished three years of Latin:
+   full parsing with confusable choices, the harder forms first, oblique cases only, irregular principal parts. */
+const PNL = { "1s": "1st person singular", "2s": "2nd person singular", "3s": "3rd person singular", "1p": "1st person plural", "2p": "2nd person plural", "3p": "3rd person plural" };
+function verbLabel(te, mo, vo, pn, lemma) {
+  const voice = vo === "p" ? (/or$/.test(lemma) ? "deponent" : "passive") : "active";
+  return `${T_L[te]} ${M_L[mo]} ${voice}, ${PNL[pn] || ""}`.replace(/, $/, "");
+}
+const SUBJ_TENSES = "pirl";
+function verbDistractors(c, r) {
+  const [pe, nu, te, mo, vo] = c.m;
+  const pn = pe + nu, out = new Set();
+  const add = (t, m, p) => { if (T_L[t] && M_L[m] && PNL[p] && !(m === "s" && !SUBJ_TENSES.includes(t)) && !(m === "m")) out.add(verbLabel(t, m, vo, p, c.lemma)); };
+  // same tense and mood, another person or number (the commonest slip)
+  shuffle(Object.keys(PNL).filter(x => x !== pn), r).slice(0, 2).forEach(p => add(te, mo, p));
+  // a neighbouring tense, same person
+  ({ p: ["f", "i"], i: ["l", "p"], f: ["p", "t"], r: ["l", "t"], l: ["r", "i"], t: ["r", "f"] }[te] || []).forEach(t => add(t, mo, pn));
+  // indicative and subjunctive swapped
+  add(te, mo === "s" ? "i" : "s", pn);
+  return shuffle([...out], r);
+}
 function makeQuestions(lex, verses, seed, max = 3) {
   if (!lex) return [];
   const r = rng(seed);
@@ -106,45 +126,59 @@ function makeQuestions(lex, verses, seed, max = 3) {
       const rd = readings(e);
       if (!(rd.kind === "context" || (rd.kind === "lookup" && rd.ids.length === 1))) return;
       const [li, pos, m] = lex.ana[rd.ids[0]];
-      if (!m || m === "??" || pos === "Ne") return;
+      if (!m || m === "??" || pos === "Ne" || w.length < 3) return;
       const [lemma, gloss, pp] = lex.lemmas[li];
-      if (w.length < 3) return;
-      if (pos === "V-" && "ism".includes(m[3]) && T_L[m[2]]) cands.push({ w, kind: "verb", lemma, gloss, pp, pos, m, li, wt: 3 });
-      else if (pos === "V-" && "pdg".includes(m[3])) cands.push({ w, kind: "nonfinite", lemma, gloss, pp, pos, m, li, wt: 2 });
-      else if (/^(Nb|A-)/.test(pos) && C_L[m[6]] && CASES.includes(C_L[m[6]])) cands.push({ w, kind: "case", lemma, gloss, pp, pos, m, li, wt: 2 });
+      if (pos === "V-" && "is".includes(m[3]) && T_L[m[2]] && PNL[m[0] + m[1]]) {
+        const wt = m[3] === "s" ? 5 : m[4] === "p" ? 4 : "ltf".includes(m[2]) ? 4 : m[2] === "r" ? 2.5 : 1;
+        cands.push({ w, kind: "verb", lemma, gloss, pp, pos, m, li, wt });
+      } else if (pos === "V-" && "pdg".includes(m[3])) {
+        const wt = m[3] === "g" ? 5 : m[2] === "f" ? 5 : m[3] === "d" ? 4 : m[2] === "r" ? 3 : 2.5;
+        cands.push({ w, kind: "nonfinite", lemma, gloss, pp, pos, m, li, wt });
+      } else if (/^(Nb|A-)/.test(pos) && "bgd".includes(m[6])) {
+        cands.push({ w, kind: "case", lemma, gloss, pp, pos, m, li, wt: m[6] === "b" ? 2.5 : 2 });
+      }
     });
   });
-  // Skip forms of sum/possum when there is anything more interesting; never ask about one word or lemma twice.
   const EASY = new Set(["sum", "possum"]);
-  const pool = cands.filter(c => !EASY.has(c.lemma)).length >= 2 ? cands.filter(c => !EASY.has(c.lemma)) : cands;
-  const seen = new Set(), qs = [];
-  shuffle(pool, r).sort((a, b) => b.wt - a.wt + (r() - 0.5) * 2).forEach(c => {
-    if (qs.length >= max || seen.has(c.lemma)) return;
-    seen.add(c.lemma);
-    const full = parseLabel(c.pos, c.m, c.lemma);
+  const pool = cands.filter(c => !EASY.has(c.lemma));
+  const seen = new Set(), kinds = {}, qs = [];
+  const sig = c => c.kind === "verb" ? "v" + c.m[3] : c.kind;   // e.g. "vs" = a subjunctive
+  shuffle(pool, r).sort((a, b) => b.wt - a.wt + (r() - 0.5) * 1.5).forEach(c => {
+    if (qs.length >= max || seen.has(c.lemma) || (kinds[sig(c)] || 0) >= 1 && pool.some(o => !seen.has(o.lemma) && sig(o) !== sig(c) && !(kinds[sig(o)] >= 1))) return;
+    seen.add(c.lemma); kinds[sig(c)] = (kinds[sig(c)] || 0) + 1;
+    const full = (c.pp ? c.pp + ": " : "") + parseLabel(c.pos, c.m, c.lemma);
     if (c.kind === "verb") {
-      const t = T_L[c.m[2]], mo = M_L[c.m[3]], vo = c.m[4] === "p" ? (/or$/.test(c.lemma) ? " (deponent)" : " passive") : "";
-      const ans = `${t} ${mo}${vo}`;
-      const opts = new Set([ans]);
-      shuffle(VALID_TM.map(x => x + vo), r).forEach(o => { if (opts.size < 4) opts.add(o); });
-      const concept = c.m[3] === "s" ? "subj" : c.m[3] === "m" ? "imp" : c.m[4] === "p" ? (/or$/.test(c.lemma) ? "dep" : "pass") : c.m[2] === "f" ? "fut" : "rlt".includes(c.m[2]) ? "perf" : null;
-      qs.push({ q: `What tense and mood is “${c.w}”?`, ans, opts: shuffle([...opts], r), why: full, c, concept });
+      const ans = verbLabel(c.m[2], c.m[3], c.m[4], c.m[0] + c.m[1], c.lemma);
+      const opts = [ans, ...verbDistractors(c, r).filter(o => o !== ans)].slice(0, 4);
+      const concept = c.m[3] === "s" ? "subj" : c.m[4] === "p" ? (/or$/.test(c.lemma) ? "dep" : "pass") : c.m[2] === "f" ? "fut" : "rlt".includes(c.m[2]) ? "perf" : null;
+      if (opts.length >= 3) qs.push({ q: `Parse “${c.w}”.`, ans, opts: shuffle(opts, r), why: full, c, concept });
     } else if (c.kind === "nonfinite") {
-      const label = { p: { p: "present participle", r: "perfect participle", f: "future participle" }[c.m[2]] || "participle", d: "gerund", g: "gerundive" }[c.m[3]];
-      const opts = shuffle(["present participle", "perfect participle", "future participle", "gerundive", "gerund"].filter(o => o !== label), r).slice(0, 3).concat(label);
-      qs.push({ q: `What form is “${c.w}”?`, ans: label, opts: shuffle(opts, r), why: full, c, concept: "part" });
+      const g = { m: "masculine", f: "feminine", n: "neuter" }[c.m[5]] || "";
+      const kind = { p: { p: "present participle", r: "perfect participle", f: "future participle" }[c.m[2]] || "participle", d: "gerund", g: "gerundive" }[c.m[3]];
+      const ans = c.m[3] === "d" ? `${kind}, ${C_L[c.m[6]] || ""}`.replace(/, $/, "") : `${kind}, ${C_L[c.m[6]] || ""} ${N_L[c.m[1]] || ""} ${g}`.replace(/\s+/g, " ").trim();
+      const kinds = ["present participle", "perfect participle", "future participle", "gerundive"].filter(k => k !== kind);
+      const opts = new Set([ans]);
+      shuffle(kinds, r).forEach(k => opts.size < 3 && opts.add(ans.replace(kind, k)));
+      const otherCase = shuffle(["nominative", "accusative", "genitive", "dative", "ablative"].filter(x => x !== C_L[c.m[6]]), r)[0];
+      if (C_L[c.m[6]]) opts.add(ans.replace(C_L[c.m[6]], otherCase));
+      qs.push({ q: `Identify “${c.w}” exactly.`, ans, opts: shuffle([...opts].slice(0, 4), r), why: full, c, concept: "part" });
     } else {
       const ans = `${C_L[c.m[6]]} ${N_L[c.m[1]] || ""}`.trim();
       const opts = new Set([ans]);
-      shuffle(CASES.flatMap(cs => ["singular", "plural"].map(nn => `${cs} ${nn}`)), r).forEach(o => { if (opts.size < 4) opts.add(o); });
-      qs.push({ q: `What case and number is “${c.w}” here?`, ans, opts: shuffle([...opts], r), why: full, c, concept: { ablative: "abl", genitive: "gen", dative: "dat" }[C_L[c.m[6]]] || null });
+      const other = { s: "plural", p: "singular" }[c.m[1]];
+      if (other) opts.add(`${C_L[c.m[6]]} ${other}`);
+      shuffle(["genitive", "dative", "ablative", "accusative"].filter(x => x !== C_L[c.m[6]]).flatMap(cs => ["singular", "plural"].map(nn => `${cs} ${nn}`)), r).forEach(o => { if (opts.size < 4) opts.add(o); });
+      qs.push({ q: `Case and number of “${c.w}”?`, ans, opts: shuffle([...opts], r), why: full, c, concept: { ablative: "abl", genitive: "gen", dative: "dat" }[C_L[c.m[6]]] || null });
     }
   });
-  // one dictionary-form question for a verb, when there is one
-  const v = pool.find(c => (c.kind === "verb" || c.kind === "nonfinite") && !EASY.has(c.lemma) && c.lemma.toLowerCase() !== c.w.toLowerCase());
-  if (v && qs.length < max + 1) {
-    const others = shuffle(lex.freq.map(f => lex.lemmas[f[0]][0]).filter(l => /(o|or)$/.test(l) && l !== v.lemma).slice(0, 300), r).slice(0, 3);
-    qs.push({ q: `What is the dictionary form of “${v.w}”?`, ans: v.lemma, opts: shuffle([v.lemma, ...others], r), why: v.pp ? v.pp + (v.gloss ? ` (${v.gloss})` : "") : v.gloss, c: v, concept: null });
+  // An irregular perfect: what an examiner asks once the translation is done.
+  // Only real verbs with an irregular perfect; spell the verb as its dictionary entry does (video, not uideo).
+  const pv = pool.find(c => c.pos === "V-" && c.pp && /^\w+o, \w+(are|ere|ire), \w+i\b/.test(c.pp) && !/(avi|ivi|ii)$/.test(c.pp.split(", ")[2]) && !EASY.has(c.lemma));
+  if (pv && qs.length <= max) {
+    const parts = pv.pp.split(", "), perf = parts[2].replace(/ \(.*\)$/, ""), head = parts[0];
+    const stem = parts[1].replace(/(are|ere|ire)$/, "");
+    const decoys = shuffle([stem + "avi", stem + "ivi", stem + "ui", stem + "i"].filter(x => x !== perf), r).slice(0, 3);
+    qs.push({ q: `Give the perfect of “${head}”.`, ans: perf, opts: shuffle([perf, ...decoys], r), why: pv.pp + (pv.gloss ? ` (${pv.gloss})` : ""), c: { ...pv, w: head }, concept: "perf" });
   }
   return qs;
 }
@@ -228,6 +262,7 @@ function WelcomeCard({ onClose }) {
     <section className="reveal rounded-lg border border-rubric bg-rubrictint px-5 py-4" aria-label="Welcome">
       <h2 className="latin text-[1.1rem] font-bold text-ink">Welcome to Lectio Vulgata</h2>
       <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-[15px] leading-snug text-ink">
+        <li>Built for students who have finished Latin 1–3: the focus is sight translation of the five exam texts, at exam difficulty. Common vocabulary and beginner verses are left out.</li>
         <li>Each day, press <strong>Start today’s session</strong>. It mixes reviews, vocabulary, passages from your weakest exam part, and a short oral mock.</li>
         <li>Translate, then <strong>Check Translation</strong> and grade yourself honestly. The page adapts to those grades.</li>
         <li>Tap any Latin word for its parsing. Turn on <strong>Accents</strong> to read aloud with the Breviary’s stress marks, or <strong>Structure</strong> to see the verbs and clauses.</li>
