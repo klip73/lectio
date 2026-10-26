@@ -480,6 +480,32 @@ MANUAL.update({
  "cognosco": "come to know, learn; recognize", "intellego": "understand, perceive", "pono": "put, place, lay down; establish", "mitto": "send",
  "accipio": "receive, accept, take", "reddo": "give back, render, repay", "quaero": "seek, ask", "inuenio": "find", "inuenio ": "find", "principium": "beginning; principle", "obiectio": "objection", "conclusio": "conclusion",
 })
+# Scholastic senses for the Summa, where Whitaker's classical meanings mislead.
+MANUAL.update({
+ "cognitio": "knowledge, cognition; act of knowing", "conuenio": "belong to, befit; agree, come together (conuenit: it is fitting)",
+ "agens": "agent, active cause (that which acts)", "pertineo": "pertain to, belong to", "importo": "signify, imply, convey (a meaning)",
+ "contingo": "happen; be contingent (contingit: it happens)", "exsisto": "exist; arise", "existo": "exist; arise",
+ "arbitrium": "choice, judgment (liberum arbitrium: free will)", "determino": "determine, define, specify",
+ "manifestus": "evident, manifest, clear", "respectus": "relation, reference (respectu: in relation to)",
+ "proprietas": "property, distinguishing characteristic (of a divine Person: personal property)", "circa": "about, concerning; around",
+ "differo": "differ; (also) postpone", "daemon": "demon, evil spirit", "competo": "belong to, be fitting for",
+ "contineo": "contain, hold together; include", "causo": "cause, bring about", "materialis": "material; of or as matter",
+ "singularis": "singular, individual; unique", "habitus": "habit (a stable disposition); state", "appeto": "desire, seek, tend toward",
+ "sumo": "take, assume; take (a term) in a sense", "paternitas": "paternity, fatherhood (of God the Father)",
+ "apprehendo": "apprehend, grasp (with the mind)", "habitudo": "relation, relationship; condition", "refero": "refer, relate; bring back",
+ "dilectio": "love (especially of charity)", "missio": "mission, sending (of a divine Person)", "hypostasis": "hypostasis: an individual subsistent; person",
+ "idea": "idea, exemplar form (in the divine mind)", "defectus": "defect, deficiency, lack", "sensitiuus": "sensitive (belonging to sense), sentient",
+ "diuersus": "different, diverse; various", "quantitas": "quantity, magnitude", "actus": "act, actuality (as opposed to potency)",
+ "potentia": "power; potency, potentiality", "substantia": "substance", "accidens": "accident (a non-essential property)",
+ "forma": "form", "materia": "matter", "species": "species; appearance; (intelligible) species", "ratio": "reason; notion, aspect, meaning (ratio)",
+ "esse": "being, existence (the act of being)", "subsistentia": "subsistence", "subsisto": "subsist, exist in itself",
+ "intellectus": "intellect, understanding", "voluntas": "will", "uoluntas": "will", "obiectum": "object (of a power or act)",
+ "principium": "principle, source; beginning", "finis": "end, purpose; limit", "perfectio": "perfection, completeness",
+ "operatio": "operation, activity", "processio": "procession (of the divine Persons)", "relatio": "relation",
+ "notio": "notion (in Trinitarian theology: a mark identifying a Person)", "suppositum": "supposit, individual subject",
+ "praedico": "predicate, affirm of; (also) preach", "praedicatio": "predication; preaching", "univocus": "univocal", "uniuocus": "univocal",
+ "aequiuocus": "equivocal", "analogia": "analogy, proportion", "creatura": "creature, created thing", "beatitudo": "happiness, beatitude",
+})
 MANUAL_LC = {k.lower(): v for k, v in MANUAL.items()}
 glossed = 0
 gl = []
