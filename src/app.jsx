@@ -544,7 +544,16 @@ const n1 = w => w.toLowerCase().replace(/j/g, "i").replace(/v/g, "u");
 
 let lexPromise = null;
 const bookCache = {};
-function getJSON(url) { return fetch(url).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }); }
+/* The offline copy carries every data file gzipped in window.__LV_DATA. */
+async function unpackData(b64) {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const stream = new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(stream).text());
+}
+function getJSON(url) {
+  const pack = window.__LV_DATA;
+  if (pack) { const k = url.replace(/^data\//, ""); return pack[k] ? unpackData(pack[k]) : Promise.reject(new Error("missing " + k)); }
+  return fetch(url).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }); }
 function loadLex() { if (!lexPromise) lexPromise = getJSON("data/lexicon.json").catch(e => { lexPromise = null; throw e; }); return lexPromise; }
 function loadBook(code) { if (!bookCache[code]) bookCache[code] = getJSON("data/" + code + ".json").catch(e => { delete bookCache[code]; throw e; }); return bookCache[code]; }
 function useNT(code) {
@@ -939,7 +948,7 @@ function AccentText({ text }) {
   return text.replace(/[A-Za-z]+/g, w => accentWord(w, aids.acc));
 }
 
-function WordPanel({ lex, word, entry, onClose }) {
+function WordPanel({ lex, word, entry, onClose, where }) {
   if (!lex || word == null) return null;
   const r = readings(entry);
   const items = r.ids.map(id => describe(lex, id));
@@ -968,6 +977,7 @@ function WordPanel({ lex, word, entry, onClose }) {
           </li>
         ))}
       </ul>
+      <ReportParse word={word} where={where} items={items} />
     </div>
   );
 }
@@ -1358,6 +1368,7 @@ function MistakeSummary({ log }) {
 }
 
 /*@include aids.jsx*/
+/*@include extras.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -1547,7 +1558,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
 
 /* Adaptive passage choice within one exam part: due reviews first, then an unseen passage
    whose difficulty gives about a 65% chance of success, favouring your weakest grammar. */
-function pickPassage(prog, part, idx, curKey) {
+function pickPassage(prog, part, idx, curKey, blind) {
   const now = Date.now();
   const codes = new Set(partBooks(part).map(b => b[0]));
   const due = Object.entries(prog.pcards || {}).filter(([k, c]) => c.due <= now && k !== curKey && codes.has(k.split(".")[0]))
@@ -1561,7 +1572,7 @@ function pickPassage(prog, part, idx, curKey) {
     const d = r[3] / 100, p = pSuccess(a.t, d);
     const tags = r[4] ? r[4].split(",") : [];
     const weak = tags.length ? tags.reduce((s, t) => s + (1 - (prog.skill[t] ? prog.skill[t].s : 0.5)), 0) / tags.length : 0.5;
-    const sc = -Math.abs(p - 0.65) * 4 + weak * 0.8 + Math.random() * 0.5;
+    const sc = -Math.abs(p - 0.65) * 4 + weak * 0.8 + Math.random() * 0.5 - (blind && familiar(r[0], r[1]) ? 1.5 : 0);
     if (sc > bs) { bs = sc; best = { key, d: r[3], p, tags }; }
   });
   if (!best) return null;
@@ -1575,11 +1586,12 @@ const WC = t => (t.match(WORD_RE) || []).length;
 const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 const SIZES = { short: { w: 25, label: "Short (about 25 words, 1–2 sentences)" }, medium: { w: 50, label: "Medium (about 50 words)" }, long: { w: 100, label: "Long (about 100 words, written-exam size)" } };
 const SENT_RE = /[^.;:?!]+[.;:?!]+["”’)]*\s*|[^.;:?!]+$/g;
-async function pickSection(part, size) {
+async function pickSection(part, size, blind) {
   const target = (SIZES[size] || SIZES.short).w;
   const { idx } = await loadPassages();
   const all = idx[part] || [];
-  const pool = all.filter(r => r[3] >= 25 && r[3] <= 90);
+  let pool = all.filter(r => r[3] >= 25 && r[3] <= 90);
+  if (blind && BLIND_PARTS.has(part)) { const fresh = pool.filter(r => !familiar(r[0], r[1])); if (fresh.length) pool = fresh; }
   const src = pool.length ? pool : all;
   const r = src[Math.floor(Math.random() * src.length)];
   const [code, c, v] = r;
@@ -1631,7 +1643,7 @@ const GRADE_L = { got: "Got it", partly: "Partly", review: "Needs review" };
 const GRADE_C = { got: "text-ok", partly: "text-mid", review: "text-warn" };
 const GRADE_BG = { got: "bg-oktint text-ok", partly: "bg-midtint text-mid", review: "bg-warntint text-warn" };
 
-function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setFocusMode }) {
+function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setFocusMode, blind, setBlind }) {
   const saved = useMemo(() => {
     const x = readLocal(EXAM_KEY) || {};
     let cfg = { mins: 5, help: false, ...(x.cfg || {}) };
@@ -1678,7 +1690,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
     try {
       const parts = cfg.scope === "mock" ? PART_IDS : [cfg.scope];
       const sections = [];
-      for (const p of parts) sections.push(await pickSection(p, cfg.size));
+      for (const p of parts) sections.push(await pickSection(p, cfg.size, blind));
       await loadLex();
       setRun({ sections, mins: cfg.mins, help: cfg.help, oral: !!cfg.oral, partner: !!cfg.partner, size: cfg.size, start: Date.now(), lookups: 0, mock: cfg.scope === "mock" });
       setNow(Date.now());
@@ -1744,6 +1756,12 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
               <input id="exam-help" type="checkbox" checked={cfg.help} onChange={e => setCfg({ ...cfg, help: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />
               Allow word lookups (counted)
             </label>
+            {setBlind && (
+              <label htmlFor="exam-blind" className="flex items-center gap-2 text-[14px] text-ink sm:col-span-2">
+                <input id="exam-blind" type="checkbox" checked={!!blind} onChange={e => setBlind(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />
+                Blind: hide New Testament and Psalm references until the end, and avoid the Gospels and best-known psalms
+              </label>
+            )}
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Btn variant="primary" onClick={start} disabled={busy}>{busy ? "Preparing…" : "Start sitting"}</Btn>
@@ -1788,7 +1806,8 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
   }
 
   const secs = Math.min(elapsed, limit || elapsed);
-  const title = (run.mock ? "Mock exam: all five parts" : (data ? passageLabel(run.sections[0].b, run.sections[0].c, data[0].rows, data[0].book) : "")) + (run.oral ? " (oral)" : "");
+  const hideRef = part => blind && running && BLIND_PARTS.has(part);
+  const title = (run.mock ? "Mock exam: all five parts" : hideRef(run.sections[0].part) ? PART_INFO[run.sections[0].part].short + " · reference hidden" : (data ? passageLabel(run.sections[0].b, run.sections[0].c, data[0].rows, data[0].book) : "")) + (run.oral ? " (oral)" : "");
   const results = (data || []).map((d, i) => {
     const s = run.sections[i];
     const tkey = `exam:${run.start}:${i}`;
@@ -1826,7 +1845,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
           if (v) { wordText = (v[1].match(WORD_RE) || [])[k]; wordEntry = v[3][k]; }
         }
         const label = passageLabel(s.b, s.c, d.rows, d.book) + (isExcerpt(d.rows) ? " (opening)" : "");
-        const sub = passageSub(s.b, s.c, d.book);
+        const sub = hideRef(s.part) ? "" : passageSub(s.b, s.c, d.book);
         const g = sessionGrade(`${run.start}:${i}`);
         const suggest = tres ? tres.verdict : cov && cov.total ? (cov.hit / cov.total >= 0.8 ? "got" : cov.hit / cov.total >= 0.5 ? "partly" : "review") : null;
         const over = feedbackScores(tres);
@@ -1836,7 +1855,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
             <article className="rounded-lg border border-rule bg-leaf px-5 py-6 sm:px-8 sm:py-7">
               <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <span className="smallcaps text-[14px] font-semibold text-rubric">{run.mock ? `Part ${PART_IDS.indexOf(s.part) + 1} · ${PART_INFO[s.part].short}` : PART_INFO[s.part].short}</span>
-                <span className="text-[13px] text-soft">{label}</span>
+                <span className="text-[13px] text-soft">{hideRef(s.part) ? "Reference hidden" : label}</span>
               </div>
               {sub && <p className="mb-2 text-[13px] italic text-soft">{sub}</p>}
               <p lang="la" className={`lt latin mt-2 text-[1.18rem] leading-[1.85] text-ink sm:text-[1.28rem]${s.part === "hy" ? " whitespace-pre-line" : ""}`}>
@@ -1850,10 +1869,11 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
                   </span>
                 ))}
               </p>
-              <WordPanel lex={lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} />
+              <WordPanel lex={lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={label} />
               {(run.help || run.end) && <p className="mt-3 text-[12px] text-soft">{run.end ? "Tap any word to check its parsing." : `Word lookups are on and counted: ${run.lookups || 0} so far.`}</p>}
             </article>
 
+            {run.oral && <RecordAloud id={tkey} hint="Record your reading and construe, then play it back when you reveal the answer." />}
             {run.partner && running && (
               <details className="rounded-lg border border-rule bg-paper px-4 py-3">
                 <summary className="cursor-pointer text-[14px] font-medium text-rubric">Examiner’s key (for your partner)</summary>
@@ -2156,6 +2176,7 @@ function App() {
 
   const curPart = partOf(pos.b);
   const pinfo = PART_INFO[curPart];
+  const hideRef = !!prefs.blind && BLIND_PARTS.has(curPart) && !showDR;
   const pdiff = pidx && pkey && pidx.byKey[pkey] ? pidx.byKey[pkey].d : null;
   function goPassage(p, why = "") { setPos(p); setPosWhy(why); resetView(); }
   async function switchPart(pid, adaptive) {
@@ -2166,7 +2187,7 @@ function App() {
       const x = pidx || await loadPassages().catch(() => null);
       if (x) {
         if (!pidx) setPidx(x);
-        const pk = pickPassage(prog, pid, x.idx, null);
+        const pk = pickPassage(prog, pid, x.idx, null, prefs.blind);
         if (pk) return goPassage(parseKey(pk.key), pk.why);
       }
     }
@@ -2175,7 +2196,7 @@ function App() {
   }
   function nextPassage() {
     if (order === "adaptive" && pidx) {
-      const pk = pickPassage(prog, curPart, pidx.idx, pkey);
+      const pk = pickPassage(prog, curPart, pidx.idx, pkey, prefs.blind);
       if (pk) return goPassage(parseKey(pk.key), pk.why);
     }
     const due = duePassages(prog).filter(k => k !== pkey && partOf(k.split(".")[0]) === curPart);
@@ -2397,7 +2418,7 @@ function App() {
             <Btn onClick={() => setFocusMode(false)}>Exit focus</Btn>
           </div>
           <ReadingAids prefs={prefs} setPrefs={setPrefs} text="" voice={null} />
-          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
+          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} blind={!!prefs.blind} setBlind={v => setPrefs(p => ({ ...p, blind: v }))} />
         </div>
       </AidsContext.Provider>
     );
@@ -2469,9 +2490,11 @@ function App() {
             {(prog.mistakes || []).length > 0 && (
               <div className="border-t border-rule pt-4"><MistakeSummary log={prog.mistakes} /></div>
             )}
+            <div className="border-t border-rule pt-4"><ReportsPanel /></div>
             <div className="border-t border-rule pt-4">
               <BackupPanel prog={prog} onRestore={data => { const merged = { ...data, exam: data.exam || prog.exam }; setProg(merged); persist(merged); undoRef.current = null; }} />
             </div>
+            <div className="border-t border-rule pt-4"><OfflinePanel /></div>
           </div>
         )}
       </section>
@@ -2494,7 +2517,7 @@ function App() {
       ) : mode === "exam" ? (
         <>
           <ReadingAids prefs={prefs} setPrefs={setPrefs} text="" voice={null} />
-          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} />
+          <ExamMode key={examKey} prog={prog} onRecord={recordSitting} sessionGrade={at => session["sit:" + at]} tutor={examTutor} onQuiz={answerQuiz} focusMode={focusMode} setFocusMode={setFocusMode} blind={!!prefs.blind} setBlind={v => setPrefs(p => ({ ...p, blind: v }))} />
         </>
       ) : mode === "drill" ? (
         <>
@@ -2549,7 +2572,7 @@ function App() {
             <p lang="la" className="lt latin initial text-[1.3rem] leading-[1.8] text-ink sm:text-[1.45rem]">
               <LatinWords text={verse.la} ids={drillIds} selected={word} onPick={k => setWord(word === k ? null : k)} marks={dMarks} />
             </p>
-            <WordPanel lex={drillNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} />
+            <WordPanel lex={drillNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={verse.ref} />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 {verse.k.map(t => <span key={t} className="rounded bg-paper px-2 py-0.5 text-[12px] text-soft">{CONCEPTS[t]}</span>)}
@@ -2563,6 +2586,8 @@ function App() {
             <p className="mt-3 text-[12px] text-soft">{drillIds ? "Tap any word for its dictionary form, meaning and parsing." : drillNT.err || "Loading word parsings…"}</p>
           </article>
 
+          {drillIds && <SkeletonCheck lex={drillNT.lex} verses={drillVerses} seed={verse.id} onAnswer={answerQuiz} />}
+          <RecordAloud id={"d:" + verse.id} />
           <TranslateBox draft={draft} setDraft={setDraft} showDR={showDR} setShowDR={setShowDR} showNotes={showNotes} setShowNotes={setShowNotes} onCheck={autoCheck} />
 
           {showDR && (
@@ -2621,7 +2646,8 @@ function App() {
 
           {/* Passage controls */}
           <div className="flex flex-wrap items-center gap-2">
-            {partBooks(curPart).length > 1 && (
+            {hideRef && <span className="min-w-0 flex-1 basis-40 text-[14px] italic text-soft">Blind: the reference shows when you check your translation.</span>}
+            {!hideRef && partBooks(curPart).length > 1 && (
               <>
                 <label htmlFor="book" className="sr-only">{pinfo.book}</label>
                 <select id="book" value={pos.b} onChange={e => goPassage({ b: e.target.value, c: 1, v: 1 })}
@@ -2633,15 +2659,15 @@ function App() {
                 </select>
               </>
             )}
-            <label htmlFor="chapter" className="sr-only">{pinfo.chap}</label>
-            <select id="chapter" value={pos.c} onChange={e => goPassage({ b: pos.b, c: +e.target.value, v: 1 })}
+            {!hideRef && <label htmlFor="chapter" className="sr-only">{pinfo.chap}</label>}
+            {!hideRef && <select id="chapter" value={pos.c} onChange={e => goPassage({ b: pos.b, c: +e.target.value, v: 1 })}
               className="min-w-0 flex-1 basis-40 rounded-md border border-rule bg-leaf px-3 py-2 text-[15px] text-ink">
               {(BOOK[pos.b] || BOOKS[0])[2].map((n, i) => {
                 const labels = (BOOK[pos.b] || BOOKS[0])[4];
                 const done = Object.keys(prog.pcards || {}).filter(k => k.startsWith(`${pos.b}.${i + 1}.`)).length;
                 return <option key={i} value={i + 1}>{labels ? labels[i] : `${pinfo.chap} ${i + 1}`}{done ? ` · ${done} done` : ""}</option>;
               })}
-            </select>
+            </select>}
             <Btn onClick={prevPassage} aria-label="Previous passage" disabled={blockIdx === 0 && pos.c === 1}>‹</Btn>
             <Btn onClick={() => blockIdx < blocks.length - 1 ? goPassage({ b: pos.b, c: pos.c, v: blocks[blockIdx + 1][0][0] }) : nextPassage()} aria-label="Following passage">›</Btn>
           </div>
@@ -2651,6 +2677,12 @@ function App() {
               <button type="button" className={`rounded px-2.5 py-1 ${order === "adaptive" ? "bg-ink text-paper" : "text-ink"}`} aria-pressed={order === "adaptive"} onClick={() => setOrder("adaptive")}>Matched to your level</button>
               <button type="button" className={`rounded px-2.5 py-1 ${order === "seq" ? "bg-ink text-paper" : "text-ink"}`} aria-pressed={order === "seq"} onClick={() => setOrder("seq")}>In order</button>
             </div>
+            {BLIND_PARTS.has(curPart) && (
+              <label htmlFor="blind" className="ml-1 flex items-center gap-1.5" title="So you read the Latin instead of recalling the English">
+                <input id="blind" type="checkbox" checked={!!prefs.blind} onChange={e => setPrefs(p => ({ ...p, blind: e.target.checked }))} className="h-4 w-4 accent-[#9a2b22]" />
+                Blind: hide references, skip the best-known passages
+              </label>
+            )}
           </div>
 
           {/* Passages in this chapter / article / hymn */}
@@ -2678,14 +2710,14 @@ function App() {
             ) : (
               <>
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <span className="smallcaps text-[15px] font-semibold text-rubric">{passageLabel(pos.b, pos.c, block, readNT.book)}</span>
+                  <span className="smallcaps text-[15px] font-semibold text-rubric">{hideRef ? `${pinfo.short} · reference hidden` : passageLabel(pos.b, pos.c, block, readNT.book)}</span>
                   <span className="text-[13px] text-soft">
                     {pdiff != null && <>{diffWord(pdiff)} · </>}
                     {status ? <span className={status.c}>{status.t}</span> : "Not yet translated"}
                   </span>
                 </div>
-                {passageSub(pos.b, pos.c, readNT.book) && <p className="text-[13px] text-soft">{passageSub(pos.b, pos.c, readNT.book)}</p>}
-                {posWhy && <p className="mt-1 text-[13px] italic text-soft">{posWhy}</p>}
+                {!hideRef && passageSub(pos.b, pos.c, readNT.book) && <p className="text-[13px] text-soft">{passageSub(pos.b, pos.c, readNT.book)}</p>}
+                {posWhy && !hideRef && <p className="mt-1 text-[13px] italic text-soft">{posWhy}</p>}
                 <div className="mt-3"><ReadingAids prefs={prefs} setPrefs={setPrefs} text={block.map(v => v[1]).join(" ")} voice={voice} /></div>
                 <p lang="la" className={`lt latin text-[1.22rem] leading-[1.85] text-ink sm:text-[1.32rem]${curPart === "hy" ? " whitespace-pre-line" : ""}`}>
                   {block.map((v, vi) => (
@@ -2696,7 +2728,7 @@ function App() {
                     </span>
                   ))}
                 </p>
-                <WordPanel lex={readNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} />
+                <WordPanel lex={readNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={passageLabel(pos.b, pos.c, block, readNT.book)} />
                 {ptags.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Grammar in this passage">
                     {ptags.map(t => <span key={t} className="rounded bg-paper px-2 py-0.5 text-[12px] text-soft">{CONCEPTS[t]}</span>)}
@@ -2705,7 +2737,7 @@ function App() {
                 {prefs.structure && <StructureKey />}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-soft">
                   <span>Tap any word for its dictionary form, meaning and parsing.</span>
-                  <ShareLink hash={`p-${pos.b}-${pos.c}-${block[0][0]}`} />
+                  {!hideRef && <ShareLink hash={`p-${pos.b}-${pos.c}-${block[0][0]}`} />}
                 </div>
               </>
             )}
@@ -2713,6 +2745,8 @@ function App() {
 
           {block && (
             <>
+              <SkeletonCheck lex={readNT.lex} verses={block} seed={pkey} hymn={curPart === "hy"} onAnswer={answerQuiz} />
+              <RecordAloud id={"p:" + pkey} />
               <TranslateBox draft={draft} setDraft={setDraft} showDR={showDR} setShowDR={setShowDR} onCheck={autoCheck} />
               {showDR && (
                 <section className="reveal flex flex-col gap-3 border-l-2 border-rubric pl-4" aria-label="Reference translation">
@@ -2736,7 +2770,7 @@ function App() {
 
       <footer className="flex flex-col gap-2 border-t border-rule pt-3 text-[13px] text-soft">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>{store === "cloud" ? "Progress saved to your Claude account." : "Progress saved in this browser only. Use a backup code to move it."}</span>
+          <span>{OFFLINE ? "Offline copy. Progress saved in this browser only; use a backup code to move it." : store === "cloud" ? "Progress saved to your Claude account." : "Progress saved in this browser only. Use a backup code to move it."}</span>
           <ClearButton onConfirm={() => {
             const fresh = { ...EMPTY, exam: prog.exam, updated: Date.now() };
             setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;

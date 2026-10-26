@@ -14,19 +14,21 @@ function accentWord(w, acc) {
 /* Structure view: what kind of job a word does in its clause, from its parsing. */
 const SUBORD = new Set(["ut", "uti", "cum", "quod", "quia", "quoniam", "si", "nisi", "ne", "dum", "donec", "postquam", "antequam", "priusquam",
   "quamvis", "quamquam", "licet", "ubi", "sicut", "quasi", "tamquam", "quando", "quatenus", "etsi", "etiamsi", "quomodo", "unde", "quare", "an", "num", "utrum"]);
+/* The structure class of one parsing: "st-v", "st-nf", "st-sub", "st-nom", "" (none of these) or null (morphology unknown). */
+function classOf(lex, id) {
+  const [li, pos, m] = lex.ana[id];
+  const lemma = lex.lemmas[li][0];
+  if (pos === "Pr" || (SUBORD.has(lemma) && (pos === "G-" || pos === "Dq" || pos === "Du" || pos === "Df" || pos === "C-"))) return "st-sub";
+  if (!m || m === "??") return null;
+  if (pos === "V-") return "imsn".includes(m[3]) && m[3] !== "n" ? "st-v" : "st-nf";
+  if (m[6] === "n" && /^(Nb|Ne|Pp|Pd|Px|A-)/.test(pos)) return "st-nom";
+  return "";
+}
 function structClass(lex, entry) {
   if (!lex) return "";
   const r = readings(entry);
   if (r.kind === "none") return "";
-  const classes = new Set((r.kind === "lookup" ? r.ids : r.ids.slice(0, 1)).map(id => {
-    const [li, pos, m] = lex.ana[id];
-    const lemma = lex.lemmas[li][0];
-    if (pos === "Pr" || (SUBORD.has(lemma) && (pos === "G-" || pos === "Dq" || pos === "Du" || pos === "Df" || pos === "C-"))) return "st-sub";
-    if (!m || m === "??") return "";
-    if (pos === "V-") return "imsn".includes(m[3]) && m[3] !== "n" ? "st-v" : "st-nf";
-    if (m[6] === "n" && /^(Nb|Ne|Pp|Pd|Px|A-)/.test(pos)) return "st-nom";
-    return "";
-  }));
+  const classes = new Set((r.kind === "lookup" ? r.ids : r.ids.slice(0, 1)).map(id => classOf(lex, id) || ""));
   return classes.size === 1 ? [...classes][0] : "";
 }
 function StructureKey() {
@@ -266,6 +268,7 @@ function WelcomeCard({ onClose }) {
         <li>Each day, press <strong>Start today’s session</strong>. It mixes reviews, vocabulary, passages from your weakest exam part, and a short oral mock.</li>
         <li>Translate, then <strong>Check Translation</strong> and grade yourself honestly. The page adapts to those grades.</li>
         <li>Tap any Latin word for its parsing. Turn on <strong>Accents</strong> to read aloud with the Breviary’s stress marks, or <strong>Structure</strong> to see the verbs and clauses.</li>
+        <li>Before translating, try <strong>Find the skeleton</strong> (verbs, clause openers, subjects, checked for you), and <strong>Record yourself</strong> construing aloud.</li>
         <li>Your progress is saved automatically. Use <strong>Skill map &amp; backup</strong> to move it to another device.</li>
       </ol>
       <div className="mt-3"><Btn variant="primary" onClick={onClose}>Got it</Btn></div>
