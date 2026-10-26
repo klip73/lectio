@@ -79,19 +79,41 @@ function RecordAloud({ id, hint }) {
 
 /* ---------- Find the skeleton: verbs, clause openers, nominatives, checked against the parsing ---------- */
 const SK_STEPS = [
-  { cls: "st-v", name: "Finite verbs", ask: "Tap every finite verb (indicative, subjunctive, imperative). Each one is the core of a clause.", concept: "order" },
-  { cls: "st-sub", name: "Clause openers", ask: "Now tap every clause opener: subordinating conjunctions, and relative or interrogative words.", concept: "rel" },
-  { cls: "st-nom", name: "Nominatives", ask: "Last, tap the nominatives: the subjects and anything agreeing with them.", concept: "order" }
+  { cls: "st-v", name: "Finite verbs", ask: "Tap every finite verb (indicative, subjunctive, imperative). Each one is the core of a clause. For a compound tense, tap both words (occisa est).", concept: "order" },
+  { cls: "st-sub", name: "Clause openers", ask: "Now tap every word that opens a subordinate clause: subordinating conjunctions, and relative or interrogative words. Et, nam, enim and the like join main clauses and aren’t counted.", concept: "rel" },
+  { cls: "st-nom", name: "Nominatives", ask: "Last, tap the nominatives: the subjects and everything agreeing with them, participles and numerals included.", concept: "order" }
 ];
-/* 1: certainly this kind of word, 0: certainly not, null: the parsing is ambiguous or missing (not counted). */
-function wordTruth(lex, entry, cls) {
+/* Does one parsing fit the step? true / false / null (morphology unknown). */
+function skFits(lex, id, step) {
+  const [, pos, m] = lex.ana[id];
+  if (step === 1) return classOf(lex, id) === "st-sub";
+  if (!m || m === "??") return null;
+  if (step === 0) return pos === "V-" && "ims".includes(m[3]);
+  return m[6] === "n";
+}
+const SK_JOINERS = new Set(["et", "atque", "ac", "que", "sed", "autem", "enim", "nam", "namque", "ergo", "igitur", "itaque", "tamen", "vero", "uero", "aut", "vel", "uel", "nec", "neque", "etiam", "quoque", "at", "ideo", "propterea", "unde"]);
+/* 1: certainly this kind of word, 0: certainly not, null: ambiguous or unknown (not counted). */
+function wordTruth(lex, entry, step) {
   const r = readings(entry);
   if (r.kind === "none" || !r.ids.length) return null;
-  const cs = (r.kind === "context" ? r.ids.slice(0, 1) : r.ids).map(id => classOf(lex, id));
-  if (r.kind === "compound") return cs.includes(cls) ? 1 : cs.includes(null) ? null : 0;
-  if (cs.every(c => c === cls)) return 1;
-  if (cs.some(c => c === cls || c === null)) return null;
-  return 0;
+  const fs = (r.kind === "context" ? r.ids.slice(0, 1) : r.ids).map(id => skFits(lex, id, step));
+  let t;
+  if (r.kind === "compound") t = fs.includes(true) ? 1 : fs.includes(null) ? null : 0;
+  else t = fs.every(f => f === true) ? 1 : fs.some(f => f !== false) ? null : 0;
+  if (t === 0 && step === 1 && r.ids.some(id => SK_JOINERS.has(lex.lemmas[lex.ana[id][0]][0]) || lex.ana[id][1] === "C-")) return null;
+  return t;
+}
+/* Compound tenses: a perfect or future participle or gerundive next to a form of sum is part of the verb. */
+function periphrastic(lex, words) {
+  const one = e => { const r = readings(e); return r.kind === "context" || (r.kind === "lookup" && r.ids.length === 1) ? lex.ana[r.ids[0]] : null; };
+  const isSum = a => a && lex.lemmas[a[0]][0] === "sum" && a[2] && "ims".includes(a[2][3]);
+  const isPtc = a => a && a[1] === "V-" && a[2] && ((a[2][3] === "p" && "rf".includes(a[2][2])) || a[2][3] === "g");
+  const out = new Set();
+  words.forEach((w, i) => {
+    if (!isPtc(one(w.e))) return;
+    for (const j of [i - 2, i - 1, i + 1, i + 2]) if (words[j] && words[j].v === w.v && isSum(one(words[j].e))) { out.add(w.key); break; }
+  });
+  return out;
 }
 function SkeletonCheck({ lex, verses, seed, hymn, onAnswer }) {
   const [open, setOpen] = useState(false);
@@ -103,9 +125,13 @@ function SkeletonCheck({ lex, verses, seed, hymn, onAnswer }) {
   useEffect(() => { reset(false); }, [seed]);
   const truth = useMemo(() => {
     if (!lex || !verses) return null;
-    return SK_STEPS.map(S => {
+    const words = [];
+    verses.forEach((v, vi) => (v[1].match(WORD_RE) || []).forEach((w, k) => words.push({ key: vi + ":" + k, v: vi, e: v[3] && v[3][k] })));
+    const peri = periphrastic(lex, words);
+    return SK_STEPS.map((S, step) => {
       const t = {};
-      verses.forEach((v, vi) => (v[1].match(WORD_RE) || []).forEach((w, k) => { t[vi + ":" + k] = wordTruth(lex, v[3] && v[3][k], S.cls); }));
+      words.forEach(w => { t[w.key] = wordTruth(lex, w.e, step); });
+      peri.forEach(k => { t[k] = step === 0 ? 1 : step === 2 ? null : t[k]; });
       return t;
     });
   }, [lex, verses]);

@@ -948,7 +948,7 @@ function AccentText({ text }) {
   return text.replace(/[A-Za-z]+/g, w => accentWord(w, aids.acc));
 }
 
-function WordPanel({ lex, word, entry, onClose, where }) {
+function WordPanel({ lex, word, entry, onClose, where, onTable }) {
   if (!lex || word == null) return null;
   const r = readings(entry);
   const items = r.ids.map(id => describe(lex, id));
@@ -977,6 +977,14 @@ function WordPanel({ lex, word, entry, onClose, where }) {
           </li>
         ))}
       </ul>
+      {onTable && (() => {
+        const lis = [...new Set(r.ids.map(id => lex.ana[id][0]))].filter(li => { const [l, , h] = lex.lemmas[li]; return h && MORPH.build(l, h) || MORPH.PRONOUNS[l]; });
+        return lis.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {lis.slice(0, 3).map(li => <button key={li} type="button" className="text-[13px] font-medium text-rubric underline underline-offset-2" onClick={() => onTable(li, word)}>All forms of <span lang="la" className="latin">{lex.lemmas[li][0]}</span> →</button>)}
+          </div>
+        );
+      })()}
       <ReportParse word={word} where={where} items={items} />
     </div>
   );
@@ -1369,6 +1377,8 @@ function MistakeSummary({ log }) {
 
 /*@include aids.jsx*/
 /*@include extras.jsx*/
+/*@include morph.js*/
+/*@include forms.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -2004,7 +2014,8 @@ function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
-  const [mode, setMode] = useState(["read", "vocab", "exam"].includes(ui0.mode) ? ui0.mode : "drill");
+  const [mode, setMode] = useState(["read", "vocab", "exam", "forms"].includes(ui0.mode) ? ui0.mode : "drill");
+  const [formsFocus, setFormsFocus] = useState(null);
   const [store, setStore] = useState("local");
   const [focus, setFocus] = useState("All");
   const [drill, setDrill] = useState(null);
@@ -2312,6 +2323,7 @@ function App() {
       try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
     }));
   }
+  function openTable(li, form) { setFormsFocus({ li, form, at: Date.now() }); setMode("forms"); setWord(null); showPractice(); }
   function todayStep(id) {
     setFocusMode(false);
     showPractice();
@@ -2508,10 +2520,13 @@ function App() {
         <button type="button" className={tabCls(mode === "vocab")} aria-pressed={mode === "vocab"} onClick={() => { setMode("vocab"); resetView(); }}>
           Vocabulary{dueV ? ` · ${dueV} due` : ""}
         </button>
+        <button type="button" className={tabCls(mode === "forms")} aria-pressed={mode === "forms"} onClick={() => { setMode("forms"); resetView(); }}>Forms</button>
         <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
       </nav>
 
-      {mode === "vocab" ? (
+      {mode === "forms" ? (
+        <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
+      ) : mode === "vocab" ? (
         <VocabMode prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
           includeCommon={!!prefs.vocabAll} setIncludeCommon={v => setPrefs(p => ({ ...p, vocabAll: v }))} />
       ) : mode === "exam" ? (
@@ -2572,7 +2587,7 @@ function App() {
             <p lang="la" className="lt latin initial text-[1.3rem] leading-[1.8] text-ink sm:text-[1.45rem]">
               <LatinWords text={verse.la} ids={drillIds} selected={word} onPick={k => setWord(word === k ? null : k)} marks={dMarks} />
             </p>
-            <WordPanel lex={drillNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={verse.ref} />
+            <WordPanel lex={drillNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={verse.ref} onTable={openTable} />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 {verse.k.map(t => <span key={t} className="rounded bg-paper px-2 py-0.5 text-[12px] text-soft">{CONCEPTS[t]}</span>)}
@@ -2728,7 +2743,7 @@ function App() {
                     </span>
                   ))}
                 </p>
-                <WordPanel lex={readNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={passageLabel(pos.b, pos.c, block, readNT.book)} />
+                <WordPanel lex={readNT.lex} word={wordText} entry={wordEntry} onClose={() => setWord(null)} where={passageLabel(pos.b, pos.c, block, readNT.book)} onTable={openTable} />
                 {ptags.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Grammar in this passage">
                     {ptags.map(t => <span key={t} className="rounded bg-paper px-2 py-0.5 text-[12px] text-soft">{CONCEPTS[t]}</span>)}
