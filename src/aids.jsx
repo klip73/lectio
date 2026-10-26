@@ -269,6 +269,7 @@ function WelcomeCard({ onClose }) {
         <li>Translate, then <strong>Check Translation</strong> and grade yourself honestly. The page adapts to those grades.</li>
         <li>Tap any Latin word for its parsing. Turn on <strong>Accents</strong> to read aloud with the Breviary’s stress marks, or <strong>Structure</strong> to see the verbs and clauses.</li>
         <li>Before translating, try <strong>Find the skeleton</strong> (verbs, clause openers, subjects, checked for you), and <strong>Record yourself</strong> construing aloud.</li>
+        <li><strong>Guide</strong> has the grammar examiners ask about, what to expect in each of the five texts, and Church pronunciation. <strong>Forms</strong> has full tables for any word and a conjugation and declension trainer.</li>
         <li>Your progress is saved automatically. Use <strong>Skill map &amp; backup</strong> to move it to another device.</li>
       </ol>
       <div className="mt-3"><Btn variant="primary" onClick={onClose}>Got it</Btn></div>

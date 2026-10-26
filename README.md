@@ -18,6 +18,8 @@ It ships three ways, all built from the same source:
       extras.jsx     recording, find-the-skeleton, blind reading, parse reports, offline download
       morph.js       Latin morphology: every form of a verb / noun / adjective / pronoun from its dictionary entry
       forms.jsx      Forms tab: tables and the conjugation and declension trainer
+      guide-data.js  Guide content: grammar topics, the five texts, pronunciation, Summa vocabulary
+      guide.jsx      Guide tab, and the progress file (save / load)
       page.html      page template: fonts, colour tokens, small CSS
       tw.css         Tailwind setup
     tools/
@@ -31,6 +33,7 @@ It ships three ways, all built from the same source:
       data/validate.py         text checks; must report 0 errors before publishing
       data/cache/corpora.json  output of corpora.py, so a rebuild doesn't need the Gutenberg file
       forms/check.mjs          checks morph.js against every parsed word in the texts
+      guide/check.mjs          checks every Guide example is quoted exactly from its text
     tests/                     headless-browser tests (see tests/README.md)
 
 `app.jsx` pulls in the other source files with `/*@include name*/`. Edit the source, never the built HTML.
@@ -58,7 +61,7 @@ Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' pr
 
 ## Before publishing
 
-1. `python3 -I tools/data/validate.py ../data`: 0 errors.
+1. `python3 -I tools/data/validate.py ../data`: 0 errors; `node tools/guide/check.mjs ../data`: 0 not found.
 2. `cd tests && python3 mkpage.py && python3 run4.py && python3 run8.py && python3 run12.py`: each ends `ERRORS: []`.
 3. Build all three versions.
 4. Publish: the online page with `data/*.json` and `lectio-offline.html` as its files; upload `lectio-app/index.html` and `sw.js` to the GitHub Pages repository.

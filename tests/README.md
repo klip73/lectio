@@ -8,6 +8,7 @@ Headless-browser tests (Python Playwright, Chromium). From `tests/`:
     python3 run8.py        # skeleton, recording, reports, blind mode, exam; the offline copy with no network
     python3 run12.py       # Forms: tables, search, word links, trainer (write, parse, agreement, pronouns)
     python3 run14.py       # answer checking for the trainer (alternative spellings, several right parsings)
+    python3 run16.py       # Guide (topics, links to passages and drills, terms) and the progress file
     python3 run15.py       # skeleton answers for Apocalypse 9:18-19 (compound tenses, nominatives)
 
 Each prints what it saw and ends with `ERRORS: []` when the page raised no errors.

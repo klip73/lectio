@@ -1379,6 +1379,8 @@ function MistakeSummary({ log }) {
 /*@include extras.jsx*/
 /*@include morph.js*/
 /*@include forms.jsx*/
+/*@include guide-data.js*/
+/*@include guide.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -2014,7 +2016,7 @@ function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
-  const [mode, setMode] = useState(["read", "vocab", "exam", "forms"].includes(ui0.mode) ? ui0.mode : "drill");
+  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide"].includes(ui0.mode) ? ui0.mode : "drill");
   const [formsFocus, setFormsFocus] = useState(null);
   const [store, setStore] = useState("local");
   const [focus, setFocus] = useState("All");
@@ -2323,6 +2325,9 @@ function App() {
       try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
     }));
   }
+  function openLemma(lemma) { setFormsFocus({ li: -1, lemma, at: Date.now() }); setMode("forms"); showPractice(); }
+  function openRef(at) { setMode("read"); goPassage({ b: at[0], c: at[1], v: at[2] }, "Opened from the Guide."); showPractice(); }
+  function drillConcept(t) { setDrill(t); setMode("drill"); goTo(pickNext(prog, verse.id, focus, t)); showPractice(); }
   function openTable(li, form) { setFormsFocus({ li, form, at: Date.now() }); setMode("forms"); setWord(null); showPractice(); }
   function todayStep(id) {
     setFocusMode(false);
@@ -2506,6 +2511,7 @@ function App() {
             <div className="border-t border-rule pt-4">
               <BackupPanel prog={prog} onRestore={data => { const merged = { ...data, exam: data.exam || prog.exam }; setProg(merged); persist(merged); undoRef.current = null; }} />
             </div>
+            <div className="border-t border-rule pt-4"><ProgressFile prog={prog} onRestore={data => { const merged = { ...data, exam: data.exam || prog.exam }; setProg(merged); persist(merged); undoRef.current = null; }} /></div>
             <div className="border-t border-rule pt-4"><OfflinePanel /></div>
           </div>
         )}
@@ -2520,11 +2526,14 @@ function App() {
         <button type="button" className={tabCls(mode === "vocab")} aria-pressed={mode === "vocab"} onClick={() => { setMode("vocab"); resetView(); }}>
           Vocabulary{dueV ? ` · ${dueV} due` : ""}
         </button>
+        <button type="button" className={tabCls(mode === "guide")} aria-pressed={mode === "guide"} onClick={() => { setMode("guide"); resetView(); }}>Guide</button>
         <button type="button" className={tabCls(mode === "forms")} aria-pressed={mode === "forms"} onClick={() => { setMode("forms"); resetView(); }}>Forms</button>
         <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
       </nav>
 
-      {mode === "forms" ? (
+      {mode === "guide" ? (
+        <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />
+      ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
       ) : mode === "vocab" ? (
         <VocabMode prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
