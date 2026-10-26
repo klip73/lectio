@@ -11,8 +11,9 @@ const { compile } = require("tailwindcss");
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const args = process.argv.slice(2);
-const offline = args.includes("--offline");
-const out = args.find(a => !a.startsWith("--")) || path.join(root, "..", offline ? "lectio-offline.html" : "lectio-vulgata.html");
+const app = args.includes("--app");
+const offline = app || args.includes("--offline");
+const out = args.find(a => !a.startsWith("--")) || path.join(root, "..", app ? "lectio-app/index.html" : offline ? "lectio-offline.html" : "lectio-vulgata.html");
 // app.jsx may pull in other source files with /*@include name.jsx*/
 const src = readFileSync(path.join(root, "src/app.jsx"), "utf8").replace(/\/\*@include ([\w.-]+)\*\//g, (_, f) => readFileSync(path.join(root, "src", f), "utf8"));
 
@@ -58,7 +59,29 @@ if (offline) {
   const reactTags = /<script src="https:\/\/cdnjs[^"]*react\.production\.min\.js"><\/script>\s*<script src="https:\/\/cdnjs[^"]*react-dom\.production\.min\.js"><\/script>/;
   if (!reactTags.test(page)) throw new Error("React script tags not found");
   page = page.replace(reactTags, () => `<script>${reactJs.replace(/<\/script/gi, "<\\/script")}</script>\n<script>window.__LV_BUILT=${JSON.stringify(built)};window.__LV_DATA=${JSON.stringify(pack)};</script>`);
-  page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>\n${page}\n</body></html>`;
+  let head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">`;
+  if (app) {
+    head += `<meta name="theme-color" content="#9a2b22"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lectio"><meta name="apple-mobile-web-app-status-bar-style" content="default">`;
+    page = page.replace("window.__LV_DATA=", "window.__LV_APP=true;window.__LV_DATA=");
+    page += `<script>if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});</script>`;
+  }
+  page = `<!doctype html><html lang="en"><head>${head}</head><body>\n${page}\n</body></html>`;
 }
+const { mkdirSync, copyFileSync } = await import("node:fs");
+mkdirSync(path.dirname(out), { recursive: true });
 writeFileSync(out, page);
+if (app) {
+  // The rest of the app: manifest, icons, and a service worker that keeps everything for offline use.
+  const { createHash } = await import("node:crypto");
+  const dir = path.dirname(out);
+  for (const f of ["icon-192.png", "icon-512.png", "apple-touch-icon.png"]) copyFileSync(path.join(root, "tools/app", f), path.join(dir, f));
+  writeFileSync(path.join(dir, "manifest.webmanifest"), JSON.stringify({
+    name: "Lectio Vulgata", short_name: "Lectio", description: "Latin exam practice for all five parts, adapting to what you know.",
+    start_url: "./", scope: "./", display: "standalone", background_color: "#f8f6f0", theme_color: "#9a2b22",
+    icons: [{ src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }]
+  }, null, 2));
+  const version = createHash("sha256").update(page).digest("hex").slice(0, 12);
+  writeFileSync(path.join(dir, "sw.js"), readFileSync(path.join(root, "tools/app/sw.js"), "utf8").replace("__VERSION__", version));
+  console.log(`app version ${version} in ${dir}`);
+}
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);

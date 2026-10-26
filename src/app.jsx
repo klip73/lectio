@@ -1955,7 +1955,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
 const ARTIFACT_URL = "https://claude.ai/artifact/X6N5DSQ3q196vb6ZEzgjty";
 function ShareLink({ hash }) {
   const [msg, setMsg] = useState("");
-  const url = `${ARTIFACT_URL}#${hash}`;
+  const url = `${APP ? location.origin + location.pathname : ARTIFACT_URL}#${hash}`;
   function copy() {
     const done = () => { setMsg("Link copied"); setTimeout(() => setMsg(""), 2500); };
     try { navigator.clipboard.writeText(url).then(done, () => setMsg(url)); } catch (e) { setMsg(url); }
@@ -2770,7 +2770,7 @@ function App() {
 
       <footer className="flex flex-col gap-2 border-t border-rule pt-3 text-[13px] text-soft">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>{OFFLINE ? "Offline copy. Progress saved in this browser only; use a backup code to move it." : store === "cloud" ? "Progress saved to your Claude account." : "Progress saved in this browser only. Use a backup code to move it."}</span>
+          <span>{APP ? "App version. Progress saved on this device only; use a backup code to move it." : OFFLINE ? "Offline copy. Progress saved in this browser only; use a backup code to move it." : store === "cloud" ? "Progress saved to your Claude account." : "Progress saved in this browser only. Use a backup code to move it."}</span>
           <ClearButton onConfirm={() => {
             const fresh = { ...EMPTY, exam: prog.exam, updated: Date.now() };
             setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;

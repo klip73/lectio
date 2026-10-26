@@ -1,5 +1,7 @@
 /* ---------- Offline copy: all data packed into the page ---------- */
 const OFFLINE = typeof window !== "undefined" && !!window.__LV_DATA;
+/* The installable phone app: the offline copy served from its own site, with a home-screen icon. */
+const APP = typeof window !== "undefined" && !!window.__LV_APP;
 
 /* ---------- Construe aloud: record yourself and play it back ---------- */
 const RECORDINGS = new Map(); // id -> { url, secs }, kept until the page is closed
@@ -274,6 +276,13 @@ function OfflinePanel() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState(false);
+  if (APP) {
+    return (
+      <p className="text-[14px] text-soft">
+        This is the app version{window.__LV_BUILT ? `, made ${window.__LV_BUILT}` : ""}. Once it has opened, it works with no signal. Progress is kept on this device, separate from the online page: use a backup code to move it either way. New versions arrive by themselves the next time you open it online. Claude’s mistake marking needs the online page.
+      </p>
+    );
+  }
   if (OFFLINE) {
     return (
       <p className="text-[14px] text-soft">
