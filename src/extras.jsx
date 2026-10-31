@@ -338,7 +338,7 @@ function OfflinePanel() {
     <div className="flex flex-col gap-2">
       <p className="text-[14px] text-soft">
         Download an offline copy: the whole page and all five texts in one file (about 6 MB). Open it in Chrome, Edge, Firefox or Safari on a laptop or desktop; it needs no internet, and it can record you reading aloud.
-        Phones often won’t run a saved page. Progress in the copy is separate: copy a backup code above and restore it there.
+        For a phone, use the app instead: open <a href="https://klip73.github.io/lectio/" target="_blank" rel="noopener" className="text-rubric underline">klip73.github.io/lectio</a> and choose Add to Home Screen; it works offline too. Progress in the copy is separate: copy a backup code above and restore it there.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Btn onClick={get} disabled={busy}>{busy ? "Preparing…" : "Download offline copy"}</Btn>
