@@ -2,7 +2,7 @@
 
 Headless-browser tests (Python Playwright, Chromium). From `tests/`:
 
-    python3 mkpage.py      # builds t.html from ../../lectio-vulgata.html, bundles React, links ../../data
+    python3 mkpage.py      # builds t.html from ../dist/lectio-vulgata.html, bundles React, links ../data
     python3 run4.py        # main flows: welcome, Today, vocabulary, passages, aids, quiz, tutor, exam, focus, links
     python3 run6.py        # vocabulary cards (dictionary entries, Summa meanings, "I know this")
     python3 run8.py        # skeleton, recording, reports, blind mode, exam; the offline copy with no network
@@ -12,4 +12,4 @@ Headless-browser tests (Python Playwright, Chromium). From `tests/`:
     python3 run15.py       # skeleton answers for Apocalypse 9:18-19 (compound tenses, nominatives)
 
 Each prints what it saw and ends with `ERRORS: []` when the page raised no errors.
-Also run `node ../tools/forms/check.mjs ../../data`: the form generator against every parsed word in the texts (about 99%).
+Also run `node ../tools/forms/check.mjs ../data`: the form generator against every parsed word in the texts (about 99%).

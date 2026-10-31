@@ -1,2 +1,8 @@
-node_modules/
-*.pyc
+sources/
+tests/t.html
+tests/react-bundle.js
+tests/data
+*.png
+!docs/*.png
+!tools/app/*.png
+__pycache__/

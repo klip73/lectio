@@ -6,9 +6,9 @@ It ships three ways, all built from the same source:
 
 | Version | File | Where it lives | Notes |
 |---|---|---|---|
-| Online | `lectio-vulgata.html` + `data/` | claude.ai artifact (owner's account) | Progress syncs to the Claude account; Claude's mistake marking |
-| Offline copy | `lectio-offline.html` | downloaded from the online page | One 6 MB file, all data packed inside; desktop browsers |
-| Phone app | `lectio-app/` | GitHub Pages | Installable, works offline once opened, can record audio |
+| Online | `dist/lectio-vulgata.html` + `data/` | claude.ai artifact (owner's account) | Progress syncs to the Claude account; Claude's mistake marking |
+| Offline copy | `dist/lectio-offline.html` | downloaded from the online page | One 6 MB file, all data packed inside; desktop browsers |
+| Phone app | `docs/` | GitHub Pages: https://klip73.github.io/lectio/ (served from `docs/` on `main`) | Installable, works offline once opened, can record audio |
 
 ## Layout
 
@@ -44,27 +44,27 @@ Needs Node with `esbuild` and `tailwindcss` (v4) installed (the build looks in `
 
 Page only (the usual case):
 
-    node tools/build_page.mjs              # ../lectio-vulgata.html
-    node tools/build_page.mjs --offline    # ../lectio-offline.html
-    node tools/build_page.mjs --app        # ../lectio-app/ (index.html, sw.js, manifest, icons)
+    node tools/build_page.mjs              # dist/lectio-vulgata.html
+    node tools/build_page.mjs --offline    # dist/lectio-offline.html
+    node tools/build_page.mjs --app        # docs/ (index.html, sw.js, manifest, icons)
 
 Data (only when the texts, parsings or dictionary change):
 
     sh tools/data/fetch_sources.sh ../sources            # ~220 MB, pinned versions
     python3 -I tools/data/corpora.py ../sources ../sources/pg17611.txt tools/data/cache/corpora.json   # optional: cache is included
-    python3 -I tools/data/build.py ../sources ../data tools/data/cache/corpora.json
-    python3 -I tools/data/apply_fixes.py ../data tools/data/fixes.json
-    python3 -I tools/data/validate.py ../data            # must say 0 errors
-    node tools/forms/check.mjs ../data                   # forms agreement, about 99%
+    python3 -I tools/data/build.py ../sources data tools/data/cache/corpora.json
+    python3 -I tools/data/apply_fixes.py data tools/data/fixes.json
+    python3 -I tools/data/validate.py data            # must say 0 errors
+    node tools/forms/check.mjs data                   # forms agreement, about 99%
 
 Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' progress survives a data rebuild.
 
 ## Before publishing
 
-1. `python3 -I tools/data/validate.py ../data`: 0 errors; `node tools/guide/check.mjs ../data`: 0 not found.
+1. `python3 -I tools/data/validate.py data`: 0 errors; `node tools/guide/check.mjs data`: 0 not found.
 2. `cd tests && python3 mkpage.py && python3 run4.py && python3 run8.py && python3 run12.py`: each ends `ERRORS: []`.
 3. Build all three versions.
-4. Publish: the online page with `data/*.json` and `lectio-offline.html` as its files; upload `lectio-app/index.html` and `sw.js` to the GitHub Pages repository.
+4. Publish: the online page from `dist/lectio-vulgata.html`, with `data/*.json` and `dist/lectio-offline.html` (published as `lectio-offline.html`) as its files. Commit and push `docs/`: GitHub Pages updates the phone app within a minute or two.
 
 ## Fixing a wrong parsing
 

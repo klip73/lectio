@@ -13,12 +13,12 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 const args = process.argv.slice(2);
 const app = args.includes("--app");
 const offline = app || args.includes("--offline");
-const out = args.find(a => !a.startsWith("--")) || path.join(root, "..", app ? "lectio-app/index.html" : offline ? "lectio-offline.html" : "lectio-vulgata.html");
+const out = args.find(a => !a.startsWith("--")) || path.join(root, app ? "docs/index.html" : offline ? "dist/lectio-offline.html" : "dist/lectio-vulgata.html");
 // app.jsx may pull in other source files with /*@include name.jsx*/
 const src = readFileSync(path.join(root, "src/app.jsx"), "utf8").replace(/\/\*@include ([\w.-]+)\*\//g, (_, f) => readFileSync(path.join(root, "src", f), "utf8"));
 
 // 0. The exam parts, books and chapter labels come from the data build.
-const lexicon = JSON.parse(readFileSync(path.join(root, "..", "data", "lexicon.json"), "utf8"));
+const lexicon = JSON.parse(readFileSync(path.join(root, "data", "lexicon.json"), "utf8"));
 const parts = lexicon.parts.map(p => ({ id: p.id, name: p.name, books: p.books }));
 const srcWithData = src.replace("/*PARTS_JSON*/[]", () => JSON.stringify(parts));
 if (srcWithData === src) throw new Error("PARTS_JSON marker missing");
@@ -52,7 +52,7 @@ if (offline) {
     bundle: true, minify: true, write: false, format: "iife", define: { "process.env.NODE_ENV": '"production"' }, legalComments: "none"
   });
   const reactJs = react.outputFiles[0].text;
-  const dataDir = path.join(root, "..", "data");
+  const dataDir = path.join(root, "data");
   const pack = {};
   for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });

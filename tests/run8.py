@@ -56,7 +56,7 @@ try:
         oc = b.new_context(viewport={"width": 1000, "height": 900}, offline=True)
         op = oc.new_page(); watch(op, "offline")
         t0 = time.time()
-        op.goto("file://" + __import__("os").path.abspath(__import__("os").path.join(__import__("os").path.dirname(__file__), "..", "..", "lectio-offline.html")) + ""); op.wait_for_selector("text=Today’s session", timeout=30000)
+        op.goto("file://" + __import__("os").path.abspath(__import__("os").path.join(__import__("os").path.dirname(__file__), "..", "dist", "lectio-offline.html")) + ""); op.wait_for_selector("text=Today’s session", timeout=30000)
         op.click("[aria-label='Welcome'] button:has-text('Got it')")
         op.click("nav button:has-text('Passages')"); op.wait_for_selector("text=Tap any word", timeout=20000)
         print("7 offline passage:", op.locator("article .smallcaps").first.inner_text(), "| %.1fs" % (time.time() - t0))
