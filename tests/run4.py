@@ -10,7 +10,7 @@ try:
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8765/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
         print("1 welcome:", pg.locator("[aria-label='Welcome']").count(), "| today steps:", pg.locator("[aria-label=\"Today's session\"] li").count())
-        pg.click("[aria-label='Welcome'] button:has-text('Got it')")
+        pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         # vocab via today
         pg.click("text=Learn 10 words"); pg.wait_for_selector("[aria-label='Deck']", timeout=10000)
         print("2 decks:", pg.locator("[aria-label='Deck'] button").count())

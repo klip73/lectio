@@ -8,7 +8,7 @@ try:
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8771/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
-        pg.click("[aria-label='Welcome'] button:has-text('Got it')")
+        pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         pg.click("nav button:has-text('Forms')"); pg.wait_for_selector("[aria-label='Forms of dico']", timeout=20000)
         sec = pg.locator("[aria-label='Forms of dico']")
         print("1 dico head:", sec.locator("h2").inner_text(), "|", sec.locator("p").first.inner_text())

@@ -11,7 +11,7 @@ try:
         ctx = b.new_context(viewport={"width": 430, "height": 950}, permissions=["microphone"])
         pg = ctx.new_page(); watch(pg, "online")
         pg.goto("http://127.0.0.1:8766/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
-        pg.click("[aria-label='Welcome'] button:has-text('Got it')")
+        pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         pg.click("nav button:has-text('Passages')"); pg.wait_for_selector("text=Tap any word", timeout=15000)
         # skeleton
         pg.click("text=Find the skeleton first"); pg.wait_for_selector("[aria-label='Find the skeleton']")
@@ -57,7 +57,7 @@ try:
         op = oc.new_page(); watch(op, "offline")
         t0 = time.time()
         op.goto("file://" + __import__("os").path.abspath(__import__("os").path.join(__import__("os").path.dirname(__file__), "..", "dist", "lectio-offline.html")) + ""); op.wait_for_selector("text=Today’s session", timeout=30000)
-        op.click("[aria-label='Welcome'] button:has-text('Got it')")
+        op.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         op.click("nav button:has-text('Passages')"); op.wait_for_selector("text=Tap any word", timeout=20000)
         print("7 offline passage:", op.locator("article .smallcaps").first.inner_text(), "| %.1fs" % (time.time() - t0))
         op.locator("[aria-label='Exam part'] button").nth(1).click(); op.wait_for_selector("text=Tap any word", timeout=20000)

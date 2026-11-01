@@ -9,7 +9,7 @@ try:
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8775/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
-        pg.click("[aria-label='Welcome'] button:has-text('Got it')")
+        pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         pg.click("nav button:has-text('Guide')"); pg.wait_for_timeout(300)
         print("1 topics:", pg.locator("details summary").count(), "| groups:", pg.locator("section h2").all_inner_texts())
         pg.locator("summary:has-text('Ablative absolute')").click(); pg.wait_for_timeout(200)
