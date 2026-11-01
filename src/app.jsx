@@ -1381,6 +1381,7 @@ function MistakeSummary({ log }) {
 /*@include forms.jsx*/
 /*@include guide-data.js*/
 /*@include guide.jsx*/
+/*@include placement.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -1981,7 +1982,7 @@ function ShareLink({ hash }) {
 }
 
 /* ---------- Exam readiness, per part ---------- */
-function Readiness({ prog, onPick }) {
+function Readiness({ prog, onPick, onPlace }) {
   return (
     <div className="mt-4 border-t border-rule pt-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
@@ -2002,12 +2003,18 @@ function Readiness({ prog, onPick }) {
                 <span className="block h-full rounded-full" style={{ width: `${ok ? r : 0}%`, background: color }} />
               </span>
               <span className="num w-[6.5rem] text-right text-[13px] text-soft" title={ok ? `Based on ${a.n} graded passages` : ""}>
-                {ok ? <>{r}% <span className="text-[11px]">{a.n < 8 ? "rough" : a.n < 20 ? "fair" : "solid"}</span></> : a && a.n ? `${a.n} of 3 done` : "not yet"}
+                {ok ? <>{r}% <span className="text-[11px]">{a.n < 8 ? "rough" : a.n < 20 ? "fair" : "solid"}</span></> : a && a.n ? `${a.n} of 3 done` : "not placed"}
               </span>
             </button>
           );
         })}
       </div>
+      {onPlace && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+          <button type="button" className="font-medium text-rubric underline underline-offset-2" onClick={() => onPlace(PARTS.map(p => p.id))}>Placement check, all five parts (about 10 minutes)</button>
+          <span className="text-soft">or tap a part, then “Check my level”.</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -2018,6 +2025,8 @@ function App() {
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
   const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide"].includes(ui0.mode) ? ui0.mode : "drill");
   const [formsFocus, setFormsFocus] = useState(null);
+  const [placeParts, setPlaceParts] = useState(null);
+  const placeRes = useRef(null);
   const [store, setStore] = useState("local");
   const [focus, setFocus] = useState("All");
   const [drill, setDrill] = useState(null);
@@ -2325,6 +2334,25 @@ function App() {
       try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
     }));
   }
+  function startPlacement(parts) { setPlaceParts(parts); setMode("place"); resetView(); setPrefs(p => ({ ...p, welcomed: true })); showPractice(); }
+  function finishPlacement(res, go) {
+    if (res) {
+      placeRes.current = res;
+      const cur = progRef.current, ab = { ...(cur.ability || {}) };
+      Object.entries(res).forEach(([p, r]) => {
+        const a = ab[p], w = a && a.n >= 3 ? Math.min(a.n, 10) : 0;
+        const t = (a ? a.t : 0) * w / (w + 6) + r.t * 6 / (w + 6);
+        ab[p] = { t: +Math.max(-0.3, Math.min(1.3, t)).toFixed(3), n: (a ? a.n : 0) + 4 };
+      });
+      const next = { ...cur, ability: ab, updated: Date.now() };
+      setProg(next); persist(next);
+    }
+    if (go) {
+      const r = placeRes.current || {};
+      const pid = Object.keys(r).sort((a, b) => r[a].t - r[b].t)[0] || "nt";
+      switchPart(pid, true); showPractice();
+    }
+  }
   function openLemma(lemma) { setFormsFocus({ li: -1, lemma, at: Date.now() }); setMode("forms"); showPractice(); }
   function openRef(at) { setMode("read"); goPassage({ b: at[0], c: at[1], v: at[2] }, "Opened from the Guide."); showPractice(); }
   function drillConcept(t) { setDrill(t); setMode("drill"); goTo(pickNext(prog, verse.id, focus, t)); showPractice(); }
@@ -2339,7 +2367,10 @@ function App() {
       return setMode("drill");
     }
     if (id === "vocab") return setMode("vocab");
-    if (id === "passage") return switchPart(focusPart ? focusPart.id : "nt", true);
+    if (id === "passage") {
+      if (focusPart && untried) return startPlacement([focusPart.id]);
+      return switchPart(focusPart ? focusPart.id : "nt", true);
+    }
     if (id === "oral") {
       // Set up a fresh short oral mock, unless a sitting is still running; then remount the exam view so it reads that set-up.
       const x = readLocal(EXAM_KEY) || {};
@@ -2457,8 +2488,8 @@ function App() {
         </div>
       </header>
 
-      {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} />}
-      <TodayCard day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} />
+      {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      <TodayCard day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
       {/* Progress ledger */}
       <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Your progress">
@@ -2468,7 +2499,7 @@ function App() {
           <Stat value={wordsKnown} label="words known" />
           <Stat value={dueDrill + dueP + dueV} label="due for review" />
         </div>
-        <Readiness prog={prog} onPick={pid => { switchPart(pid, true); showPractice(); }} />
+        <Readiness prog={prog} onPick={pid => { switchPart(pid, true); showPractice(); }} onPlace={startPlacement} />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[14px] text-soft">{pace || "Set your exam date (in Skill map & backup) to see your countdown."} {focusText}</p>
           <button type="button" onClick={() => setShowStats(s => !s)} aria-expanded={showStats}
@@ -2531,7 +2562,9 @@ function App() {
         <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
       </nav>
 
-      {mode === "guide" ? (
+      {mode === "place" && placeParts ? (
+        <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
+      ) : mode === "guide" ? (
         <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />
       ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
@@ -2668,6 +2701,12 @@ function App() {
             ))}
           </div>
 
+          {!((prog.ability || {})[curPart] && prog.ability[curPart].n >= 3) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rubric bg-rubrictint px-4 py-2.5 text-[14px] text-ink">
+              <span className="min-w-0 flex-1 basis-60">Not placed in {pinfo.short} yet. A 3-minute check sets your starting level, so passages fit you from the first one.</span>
+              <Btn variant="primary" onClick={() => startPlacement([curPart])}>Check my level</Btn>
+            </div>
+          )}
           {/* Passage controls */}
           <div className="flex flex-wrap items-center gap-2">
             {hideRef && <span className="min-w-0 flex-1 basis-40 text-[14px] italic text-soft">Blind: the reference shows when you check your translation.</span>}

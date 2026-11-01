@@ -20,6 +20,7 @@ It ships three ways, all built from the same source:
       forms.jsx      Forms tab: tables and the conjugation and declension trainer
       guide-data.js  Guide content: grammar topics, the five texts, pronunciation, Summa vocabulary
       guide.jsx      Guide tab, and the progress file (save / load)
+      placement.jsx  placement check: adaptive, objective questions that set the starting level in each part
       page.html      page template: fonts, colour tokens, small CSS
       tw.css         Tailwind setup
     tools/

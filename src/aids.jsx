@@ -226,11 +226,11 @@ function ExaminerQuiz({ lex, verses, seed, onAnswer, showKey = false }) {
 const DAY_KEY = "lectio-vulgata-day";
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 function readDay() { const d = readLocal(DAY_KEY); return d && d.date === todayStr() ? d : { date: todayStr(), reviews: 0, vocab: 0, passages: 0, oral: 0, quiz: 0 }; }
-function TodayCard({ day, dueCount, focusName, onStep, examLeft }) {
+function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst }) {
   const steps = [
     { id: "reviews", label: dueCount ? `Clear your reviews (${dueCount} due)` : "Reviews: nothing due", done: dueCount === 0, n: day.reviews },
     { id: "vocab", label: "Learn 10 words", done: day.vocab >= 10, n: `${Math.min(day.vocab, 10)}/10` },
-    { id: "passage", label: `Translate 2 passages${focusName ? ` in ${focusName}` : ""}`, done: day.passages >= 2, n: `${Math.min(day.passages, 2)}/2` },
+    { id: "passage", label: placeFirst ? `Place yourself in ${focusName}, then translate` : `Translate 2 passages${focusName ? ` in ${focusName}` : ""}`, done: day.passages >= 2, n: `${Math.min(day.passages, 2)}/2` },
     { id: "oral", label: "One short oral mock exam", done: day.oral >= 1, n: day.oral ? "done" : "" }
   ];
   const next = steps.find(s => !s.done);
@@ -259,12 +259,13 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft }) {
     </section>
   );
 }
-function WelcomeCard({ onClose }) {
+function WelcomeCard({ onClose, onPlace }) {
   return (
     <section className="reveal rounded-lg border border-rubric bg-rubrictint px-5 py-4" aria-label="Welcome">
       <h2 className="latin text-[1.1rem] font-bold text-ink">Welcome to Lectio Vulgata</h2>
       <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-[15px] leading-snug text-ink">
         <li>Built for students who have finished Latin 1–3: the focus is sight translation of the five exam texts, at exam difficulty. Common vocabulary and beginner verses are left out.</li>
+        <li>Start with <strong>Find my level</strong>: a short placement check in each of the five parts, so everything starts at your level.</li>
         <li>Each day, press <strong>Start today’s session</strong>. It mixes reviews, vocabulary, passages from your weakest exam part, and a short oral mock.</li>
         <li>Translate, then <strong>Check Translation</strong> and grade yourself honestly. The page adapts to those grades.</li>
         <li>Tap any Latin word for its parsing. Turn on <strong>Accents</strong> to read aloud with the Breviary’s stress marks, or <strong>Structure</strong> to see the verbs and clauses.</li>
@@ -272,7 +273,10 @@ function WelcomeCard({ onClose }) {
         <li><strong>Guide</strong> has the grammar examiners ask about, what to expect in each of the five texts, and Church pronunciation. <strong>Forms</strong> has full tables for any word and a conjugation and declension trainer.</li>
         <li>Your progress is saved automatically. Use <strong>Skill map &amp; backup</strong> to move it to another device.</li>
       </ol>
-      <div className="mt-3"><Btn variant="primary" onClick={onClose}>Got it</Btn></div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {onPlace && <Btn variant="primary" onClick={onPlace}>Find my level (about 10 minutes)</Btn>}
+        <Btn variant={onPlace ? "plain" : "primary"} onClick={onClose}>{onPlace ? "Skip for now" : "Got it"}</Btn>
+      </div>
     </section>
   );
 }
