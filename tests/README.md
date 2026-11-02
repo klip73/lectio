@@ -11,6 +11,7 @@ Headless-browser tests (Python Playwright, Chromium). From `tests/`:
     python3 run16.py       # Guide (topics, links to passages and drills, terms) and the progress file
     python3 run17.py       # placement check: estimator accuracy on simulated students, passage picking in every part, the screens
     python3 run18.py       # the Office: today's day, views, words, days read and streak, far dates; offline copy; the app offline
+    python3 run19.py       # navigation groups, the liturgical calendar, prayers, the Library (place kept, word help)
     python3 run15.py       # skeleton answers for Apocalypse 9:18-19 (compound tenses, nominatives)
 
 Each prints what it saw and ends with `ERRORS: []` when the page raised no errors.

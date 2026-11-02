@@ -83,30 +83,68 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
   );
 }
 const PROPERS = /^(Introitus|Oratio|Lectio|Epistola|Graduale|Tractus|Allel[uú][ij]a|Sequentia|Evangelium|Offertorium|Secreta|Pr[æa]fatio|Communio|Postcommunio)(\s|$)/;
-/* Office or Mass of one day: the text, sections, word help. */
-function DayText({ date, hour, onTap, onTable, view }) {
-  const [day, setDay] = useState(null);
-  const [err, setErr] = useState("");
+/* Word help shared by the Liturgy and the Library: tap a word, see its parsing; it joins the vocabulary deck. */
+function useWordHelp(formsLoad, onTap) {
   const [word, setWord] = useState(null);
   const [lex, setLex] = useState(null);
   const [forms, setForms] = useState(null);
-  const [showEn, setShowEn] = useState(!!(readLocal(OFFICE_KEY) || {}).en);
-  useEffect(() => { const p = readLocal(OFFICE_KEY) || {}; writeLocal(OFFICE_KEY, { ...p, en: showEn }); }, [showEn]);
-  useEffect(() => {
-    let alive = true; setDay(null); setErr(""); setWord(null);
-    officeDay(date, hour).then(d => alive && setDay(d)).catch(() => alive && setErr("This didn’t load. Check your connection and try again."));
-    return () => { alive = false; };
-  }, [date, hour]);
   useEffect(() => {
     if (!word || !lex || !forms || !onTap) return;
     const ids = forms[normForm(word)];
     if (ids) onTap([...new Set(ids.slice(0, 1).map(id => lex.lemmas[lex.ana[id][0]][0]))]);
   }, [word, lex, forms]);
-  function pickWord(w) {
-    setWord(word === w ? null : w);
+  function pick(w) {
+    setWord(x => (x === w ? null : w));
     if (!lex) loadLex().then(setLex).catch(() => {});
-    if (!forms) officeGet("forms").then(setForms).catch(() => {});
+    if (!forms) formsLoad().then(setForms).catch(() => {});
   }
+  function panel(where, onTable) {
+    if (!word) return null;
+    const entry = forms ? (forms[normForm(word)] || null) : undefined;
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-20 max-h-[45vh] overflow-auto border-t border-rule bg-paper px-4 pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+        <div className="mx-auto max-w-[46rem]">
+          {lex && forms ? (entry ? <WordPanel lex={lex} word={word} entry={entry} onClose={() => setWord(null)} where={where} onTable={onTable} />
+            : <div className="mt-4 flex items-baseline justify-between gap-3 text-[15px]"><span><span lang="la" className="latin font-bold">{word}</span> <span className="text-soft">isn’t in the parsed texts. Try the Forms tab or a dictionary.</span></span><button type="button" onClick={() => setWord(null)} className="text-[13px] text-soft underline">Close</button></div>)
+            : <p className="mt-4 text-[14px] text-soft">Looking up…</p>}
+        </div>
+      </div>
+    );
+  }
+  return { word, pick, panel, clear: () => setWord(null) };
+}
+/* A run of Latin/English sections, with section chips, the English switch and word help. */
+function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }) {
+  const help = useWordHelp(() => officeGet("forms"), onTap);
+  const [showEn, setShowEn] = useState(!!(readLocal(OFFICE_KEY) || {}).en);
+  useEffect(() => { const p = readLocal(OFFICE_KEY) || {}; writeLocal(OFFICE_KEY, { ...p, en: showEn }); }, [showEn]);
+  useEffect(() => { help.clear(); }, [keyBase]);
+  const chips = showChips ? sections.map(x => ({ i: x.i, name: x.name || (x.s[0].find(l => /^\*Lectio/.test(l)) || "").replace(/\*/g, "") })).filter(x => x.name && x.name.length < 40) : [];
+  const anyEn = sections.some(x => x.s[1] && x.s[1].length);
+  return (
+    <>
+      {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" /> English beside the Latin</label>}
+      {chips.length > 1 && (
+        <nav className="flex flex-wrap gap-1.5" aria-label="Sections">
+          {chips.map(c => <button key={c.i} type="button" onClick={() => { const el = document.getElementById("office-" + c.i); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+            className="rounded border border-rule bg-paper px-2 py-0.5 text-[12px] text-ink hover:border-soft">{c.name.replace(/^Psalmus /, "Ps ")}</button>)}
+        </nav>
+      )}
+      {sections.length ? sections.map(x => <OfficeSection key={keyBase + x.i} sec={x.s} i={x.i} showEn={showEn} onWord={help.pick} sel={help.word} />)
+        : <p className="text-[14px] text-soft">Nothing to show in this view today.</p>}
+      {help.panel(where, onTable)}
+    </>
+  );
+}
+/* Office or Mass of one day. */
+function DayText({ date, hour, onTap, onTable, view }) {
+  const [day, setDay] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let alive = true; setDay(null); setErr("");
+    officeDay(date, hour).then(d => alive && setDay(d)).catch(() => alive && setErr("This didn’t load. Check your connection and try again."));
+    return () => { alive = false; };
+  }, [date, hour]);
   if (err) return <p className="text-[14px] text-warn">{err}</p>;
   if (!day) return <p className="text-[15px] text-soft">Loading…</p>;
   if (day.missing) return null;
@@ -114,32 +152,91 @@ function DayText({ date, hour, onTap, onTable, view }) {
   const omitted = x => x.s[0].length <= 1 && /\{omittitur\}/.test(x.s[0][0] || "");
   const shown = view === "lessons" ? secs.filter(x => !omitted(x) && (/^(Hymnus|Lectio|Oratio)/.test(x.name) || x.s[0].some(l => /^\*Lectio \d/.test(l))))
     : view === "propers" ? secs.filter(x => PROPERS.test(x.name)) : secs.filter(x => !omitted(x) || view === "full");
-  const chips = shown.map(x => ({ i: x.i, name: x.name || (x.s[0].find(l => /^\*Lectio/.test(l)) || "").replace(/\*/g, "") })).filter(x => x.name && x.name.length < 40);
-  const entry = word && forms ? (forms[normForm(word)] || null) : undefined;
+  return <Sections sections={shown} keyBase={date + hour + view} onTap={onTap} onTable={onTable} where={day.t} />;
+}
+/* The priest's prayers, and the Breviary's appendix. */
+let prayersPromise = null;
+function loadPrayers() { if (!prayersPromise) prayersPromise = getJSON("data/prayers.json").catch(e => { prayersPromise = null; throw e; }); return prayersPromise; }
+function PrayersView({ onTap, onTable }) {
+  const [P, setP] = useState(null);
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState(null);
+  useEffect(() => { loadPrayers().then(setP).catch(() => setErr("The prayers didn’t load. Check your connection and try again.")); }, []);
+  if (err) return <p className="text-[14px] text-warn">{err}</p>;
+  if (!P) return <p className="text-[15px] text-soft">Loading…</p>;
+  const it = open && P.items.find(x => x.id === open);
+  if (it) return (
+    <div className="flex flex-col gap-3">
+      <button type="button" className="self-start text-[14px] text-rubric underline underline-offset-2" onClick={() => setOpen(null)}>‹ All prayers</button>
+      <h2 className="latin text-[1.15rem] font-bold text-ink">{it.title}</h2>
+      <p lang="la" className="latin -mt-2 text-[14px] italic text-soft">{it.la}</p>
+      <Sections sections={it.rows.map((s, i) => ({ s, i, name: "" }))} keyBase={it.id} onTap={onTap} onTable={onTable} where={it.title} showChips={false} />
+    </div>
+  );
   return (
-    <>
-      <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" /> English beside the Latin</label>
-      {chips.length > 1 && (
-        <nav className="flex flex-wrap gap-1.5" aria-label="Sections">
-          {chips.map(c => <button key={c.i} type="button" onClick={() => { const el = document.getElementById("office-" + c.i); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-            className="rounded border border-rule bg-paper px-2 py-0.5 text-[12px] text-ink hover:border-soft">{c.name.replace(/^Psalmus /, "Ps ")}</button>)}
-        </nav>
-      )}
-      {shown.length ? shown.map(x => <OfficeSection key={date + hour + x.i} sec={x.s} i={x.i} showEn={showEn} onWord={pickWord} sel={word} />)
-        : <p className="text-[14px] text-soft">Nothing to show in this view today.</p>}
-      {word && (
-        <div className="fixed inset-x-0 bottom-0 z-20 max-h-[45vh] overflow-auto border-t border-rule bg-paper px-4 pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
-          <div className="mx-auto max-w-[46rem]">
-            {lex && forms ? (entry ? <WordPanel lex={lex} word={word} entry={entry} onClose={() => setWord(null)} where={day.t} onTable={onTable} />
-              : <div className="mt-4 flex items-baseline justify-between gap-3 text-[15px]"><span><span lang="la" className="latin font-bold">{word}</span> <span className="text-soft">isn’t in the parsed texts. Try the Forms tab or a dictionary.</span></span><button type="button" onClick={() => setWord(null)} className="text-[13px] text-soft underline">Close</button></div>)
-              : <p className="mt-4 text-[14px] text-soft">Looking up…</p>}
-          </div>
-        </div>
-      )}
-    </>
+    <section className="grid gap-2 sm:grid-cols-2" aria-label="Prayers">
+      {P.items.map(x => (
+        <button key={x.id} type="button" onClick={() => setOpen(x.id)} className="rounded-lg border border-rule bg-leaf px-4 py-3 text-left hover:border-soft">
+          <span className="block text-[15px] font-semibold text-ink">{x.title}</span>
+          <span lang="la" className="latin block text-[13px] italic text-soft">{x.la}</span>
+        </button>
+      ))}
+      <p className="text-[12px] text-soft sm:col-span-2">From the Missal and the Breviary’s appendix, as published by Divinum Officium; English where they translate it.</p>
+    </section>
   );
 }
-
+/* A month of the calendar: each day's feast and class; tap a day to read its Office or Mass. */
+function CalendarView({ date, onPick }) {
+  const [month, setMonth] = useState(date.slice(0, 7));
+  const [days, setDays] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let alive = true; setDays(null); setErr("");
+    officeGet("index").then(idx => {
+      const yr = +month.slice(0, 4);
+      if (!idx.years.includes(yr)) return alive && setDays({});
+      return officeGet("days-" + yr).then(d => alive && setDays(d));
+    }).catch(() => alive && setErr("The calendar didn’t load. Check your connection and try again."));
+    return () => { alive = false; };
+  }, [month]);
+  const [y, m] = month.split("-").map(Number);
+  const shiftM = n => { const d = new Date(y, m - 1 + n, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
+  const n = new Date(y, m, 0).getDate();
+  const today = isoOf(new Date());
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const cls = k => ({ "I. classis": 1, "II. classis": 2, "III. classis": 3, "IV. classis": 4 })[k] || 0;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Btn onClick={() => shiftM(-1)} aria-label="Previous month">‹</Btn>
+        <h2 className="latin min-w-[10rem] text-center text-[1.1rem] font-bold text-ink">{new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</h2>
+        <Btn onClick={() => shiftM(1)} aria-label="Next month">›</Btn>
+      </div>
+      {err && <p className="text-[14px] text-warn">{err}</p>}
+      {!days && !err && <p className="text-[15px] text-soft">Loading…</p>}
+      {days && !Object.keys(days).length && <p className="text-[14px] text-soft">No texts for this year in this build.</p>}
+      {days && Object.keys(days).length > 0 && (
+        <ol className="flex flex-col divide-y divide-[var(--rule)] rounded-lg border border-rule bg-leaf" aria-label="Days of the month">
+          {Array.from({ length: n }, (_, i) => {
+            const iso = `${month}-${String(i + 1).padStart(2, "0")}`, d = days[iso.slice(5)];
+            const wd = new Date(y, m - 1, i + 1).getDay(), c = d ? cls(d.k) : 0;
+            return (
+              <li key={iso}>
+                <button type="button" disabled={!d} onClick={() => onPick(iso)}
+                  className={`grid w-full grid-cols-[3.2rem_1fr_auto] items-baseline gap-2 px-3 py-1.5 text-left hover:bg-paper ${iso === today ? "bg-rubrictint" : ""}`}>
+                  <span className={`num text-[13px] ${wd === 0 ? "font-bold text-rubric" : "text-soft"}`}>{DOW[wd]} {i + 1}</span>
+                  <span lang="la" className={`latin min-w-0 truncate text-[14px] ${c && c <= 2 ? "font-bold text-ink" : "text-ink"}`}>{d ? d.t : "—"}</span>
+                  <span className="num text-[11px] text-soft">{c ? ["", "I", "II", "III", "IV"][c] : ""}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <p className="text-[12px] text-soft">Bold: first- and second-class days. Tap a day to read its Office.</p>
+    </div>
+  );
+}
 /* ----- the 1960 Code of Rubrics ----- */
 let rubricsPromise = null;
 function loadRubrics() { if (!rubricsPromise) rubricsPromise = getJSON("data/rubrics.json").catch(e => { rubricsPromise = null; throw e; }); return rubricsPromise; }
@@ -225,7 +322,7 @@ function RubricsView() {
 /* ----- the Liturgy tab ----- */
 function OfficeMode({ prog, onRead, onTable, onTap }) {
   const pref0 = readLocal(OFFICE_KEY) || {};
-  const [part, setPart0] = useState(["office", "mass", "rubrics"].includes(pref0.part) ? pref0.part : "office");
+  const [part, setPart0] = useState(["office", "mass", "calendar", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
   const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
   const [mview, setMview] = useState(pref0.mview === "full" ? "full" : "lessons");
   const [xview, setXview] = useState(pref0.xview === "full" ? "full" : "propers");
@@ -249,7 +346,7 @@ function OfficeMode({ prog, onRead, onTable, onTap }) {
     const t2 = new Date(t.getFullYear(), t.getMonth() + 1, 1);
     const names = ["index", "common", "forms", "days-" + t.getFullYear(), "days-" + t2.getFullYear(), ...["m", "d", "x"].flatMap(g => [g + "-" + m1, g + "-" + m2])];
     [...new Set(names)].reduce((p, n) => p.then(() => officeFetch(n).catch(() => {})), Promise.resolve());
-    loadRubrics().catch(() => {});
+    loadRubrics().catch(() => {}); loadPrayers().catch(() => {});
   }, []);
   function shift(n) { const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() + n); setDate(isoOf(d)); }
   const today = isoOf(new Date());
@@ -272,12 +369,14 @@ function OfficeMode({ prog, onRead, onTable, onTap }) {
   const title = day && !day.missing ? (part === "mass" && day.ht && day.ht.x ? day.ht.x.split(" ~ ")[0] : part === "office" && day.ht && day.ht[hour] ? day.ht[hour].split(" ~ ")[0] : day.t) : "";
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-1" role="group" aria-label="Liturgy section">
+      <div className="flex flex-wrap gap-1 self-start rounded-lg border border-rule bg-paper p-1" role="group" aria-label="Liturgy section">
         <button type="button" className={tabCls(part === "office")} aria-pressed={part === "office"} onClick={() => setPart("office")}>Office</button>
         <button type="button" className={tabCls(part === "mass")} aria-pressed={part === "mass"} onClick={() => setPart("mass")}>Mass</button>
+        <button type="button" className={tabCls(part === "calendar")} aria-pressed={part === "calendar"} onClick={() => setPart("calendar")}>Calendar</button>
+        <button type="button" className={tabCls(part === "prayers")} aria-pressed={part === "prayers"} onClick={() => setPart("prayers")}>Prayers</button>
         <button type="button" className={tabCls(part === "rubrics")} aria-pressed={part === "rubrics"} onClick={() => setPart("rubrics")}>Rubrics</button>
       </div>
-      {part === "rubrics" ? <RubricsView /> : (
+      {part === "rubrics" ? <RubricsView /> : part === "prayers" ? <PrayersView onTap={onTap} onTable={onTable} /> : part === "calendar" ? <CalendarView date={date} onPick={iso => { setDate(iso); setPart("office"); }} /> : (
         <>
           <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="The day">
             <div className="flex flex-wrap items-center gap-2">

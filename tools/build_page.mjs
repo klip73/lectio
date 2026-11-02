@@ -64,6 +64,8 @@ if (offline) {
   // The offline copy carries the whole Office too; the phone app fetches it day by day instead (and keeps what it has fetched).
   // The single offline file must stay under 16 MB, so it carries Matins and the Mass (not the other hours, "d-" files).
   if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f))) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
+  const libDir = path.join(root, "data", "library");
+  if (!app) for (const f of readdirSync(libDir).filter(f => f.endsWith(".json")).sort()) pack["library/" + f] = gzipSync(readFileSync(path.join(libDir, f)), { level: 9 }).toString("base64");
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const reactTags = /<script src="https:\/\/cdnjs[^"]*react\.production\.min\.js"><\/script>\s*<script src="https:\/\/cdnjs[^"]*react-dom\.production\.min\.js"><\/script>/;
   if (!reactTags.test(page)) throw new Error("React script tags not found");
@@ -94,6 +96,7 @@ if (app) {
   const { rmSync, cpSync } = await import("node:fs");
   rmSync(path.join(dir, "data"), { recursive: true, force: true });
   cpSync(officeDir, path.join(dir, "data", "office"), { recursive: true });
+  cpSync(path.join(root, "data", "library"), path.join(dir, "data", "library"), { recursive: true });
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);

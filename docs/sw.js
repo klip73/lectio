@@ -1,5 +1,5 @@
 /* Keeps Lectio Vulgata working with no signal. A new version replaces the old one the next time the app is opened online. */
-const VERSION = "lectio-bce5a64dbed0";
+const VERSION = "lectio-303ab09c5f6c";
 const FONTS = "lectio-fonts";
 const OFFICE = "lectio-office-c9a4c8a253";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
@@ -22,7 +22,7 @@ self.addEventListener("fetch", e => {
       return;
     }
     // The Office: each file is kept once fetched, so days already opened (or saved for the year) work offline.
-    if (url.pathname.includes("/data/office/")) {
+    if (url.pathname.includes("/data/office/") || url.pathname.includes("/data/library/")) {
       e.respondWith(caches.open(OFFICE).then(c => c.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }))));
       return;
     }

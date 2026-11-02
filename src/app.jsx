@@ -1385,6 +1385,7 @@ function MistakeSummary({ log }) {
 /*@include guide.jsx*/
 /*@include placement.jsx*/
 /*@include office.jsx*/
+/*@include library.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -2022,12 +2023,16 @@ function Readiness({ prog, onPick, onPlace }) {
   );
 }
 
+const STUDY_MODES = ["drill", "read", "vocab", "forms", "exam"];
 function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
-  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide", "office"].includes(ui0.mode) ? ui0.mode : "drill");
+  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide", "office", "library"].includes(ui0.mode) ? ui0.mode : "drill");
   const [formsFocus, setFormsFocus] = useState(null);
+  const [lastStudy, setLastStudy] = useState(() => (STUDY_MODES.includes(ui0.study) ? ui0.study : "read"));
+  useEffect(() => { if (STUDY_MODES.includes(mode)) setLastStudy(mode); }, [mode]);
+  const group = STUDY_MODES.includes(mode) || mode === "place" ? "study" : mode === "office" ? "liturgy" : mode;
   const [placeParts, setPlaceParts] = useState(null);
   const placeRes = useRef(null);
   const [store, setStore] = useState("local");
@@ -2068,7 +2073,7 @@ function App() {
   const drillNT = useNT(mode === "drill" ? at.b : null);
   const readNT = useNT(mode === "read" ? pos.b : null);
 
-  useEffect(() => { writeLocal(UI_KEY, { mode, pos, order, posByPart }); }, [mode, pos, order, posByPart]);
+  useEffect(() => { writeLocal(UI_KEY, { mode, pos, order, posByPart, study: lastStudy }); }, [mode, pos, order, posByPart, lastStudy]);
   useEffect(() => { writeLocal(PREFS_KEY, prefs); }, [prefs]);
   useEffect(() => { writeLocal(DAY_KEY, day); }, [day]);
   useEffect(() => { if (prefs.accents && !accMap) loadAccents().then(setAccMap).catch(() => setPrefs(p => ({ ...p, accents: false }))); }, [prefs.accents, accMap]);
@@ -2567,21 +2572,27 @@ function App() {
       </section>
 
       {/* Mode switch */}
-      <nav ref={practiceRef} className="flex scroll-mt-4 flex-wrap items-center gap-1 rounded-lg border border-rule bg-paper p-1 self-start" aria-label="Practice mode">
-        <button type="button" className={tabCls(mode === "drill")} aria-pressed={mode === "drill"} onClick={() => { setMode("drill"); resetView(); }}>Verse drill</button>
-        <button type="button" className={tabCls(mode === "read")} aria-pressed={mode === "read"} onClick={() => { setMode("read"); resetView(); }}>
-          Passages{dueP ? ` · ${dueP} due` : ""}
-        </button>
-        <button type="button" className={tabCls(mode === "vocab")} aria-pressed={mode === "vocab"} onClick={() => { setMode("vocab"); resetView(); }}>
-          Vocabulary{dueV ? ` · ${dueV} due` : ""}
-        </button>
-        <button type="button" className={tabCls(mode === "guide")} aria-pressed={mode === "guide"} onClick={() => { setMode("guide"); resetView(); }}>Guide</button>
-        <button type="button" className={tabCls(mode === "forms")} aria-pressed={mode === "forms"} onClick={() => { setMode("forms"); resetView(); }}>Forms</button>
-        <button type="button" className={tabCls(mode === "office")} aria-pressed={mode === "office"} onClick={() => { setMode("office"); resetView(); }}>Liturgy</button>
-        <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
-      </nav>
+      {/* Navigation: four groups; Study has its own row of practice modes. */}
+      <div ref={practiceRef} className="flex scroll-mt-4 flex-col gap-2">
+        <nav className="grid grid-cols-4 gap-1 rounded-lg border border-rule bg-paper p-1" aria-label="Section">
+          {[["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
+            <button key={g} type="button" aria-pressed={group === g} className={`${tabCls(group === g)} text-center`}
+              onClick={() => { setMode(g === "study" ? (STUDY_MODES.includes(lastStudy) ? lastStudy : "read") : g === "liturgy" ? "office" : g); resetView(); }}>{l}</button>
+          ))}
+        </nav>
+        {group === "study" && (
+          <nav className="flex flex-wrap items-center gap-1 self-start" aria-label="Practice mode">
+            {[["drill", "Verse drill"], ["read", `Passages${dueP ? ` · ${dueP} due` : ""}`], ["vocab", `Vocabulary${dueV ? ` · ${dueV} due` : ""}`], ["forms", "Forms"], ["exam", "Exam sitting"]].map(([m, l]) => (
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); resetView(); }}
+                className={`rounded-md border px-3 py-1 text-[14px] ${mode === m ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
+            ))}
+          </nav>
+        )}
+      </div>
 
-      {mode === "office" ? (
+      {mode === "library" ? (
+        <LibraryMode onTap={addTapped} onTable={openTable} />
+      ) : mode === "office" ? (
         <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} />
       ) : mode === "place" && placeParts ? (
         <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />

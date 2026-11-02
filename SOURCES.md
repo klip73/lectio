@@ -5,8 +5,8 @@ Every text and dictionary the page uses, where it comes from, and its licence. `
 | Folder | What | Where | Licence |
 |---|---|---|---|
 | `bd` | Clementine Vulgate and Douay-Rheims (Challoner) | github.com/scrollmapper/bible_databases @ e1b254c | public domain texts |
-| `do` | Breviary hymns and Matins lessons (Latin and English) | github.com/DivinumOfficium/divinum-officium @ daa8217 | MIT |
-| `tll` | Summa Theologiae, Latin (The Latin Library, via CLTK) | github.com/cltk/lat_text_latin_library @ 76229ac | public domain text |
+| `do` | Breviary hymns and Matins lessons; the whole Office and Mass of each day (1960 rubrics), the Code of Rubrics, the prayers before and after Mass and the Breviary appendix (Latin and English) | github.com/DivinumOfficium/divinum-officium @ daa8217 | MIT |
+| `tll` | Summa Theologiae, Latin; and the Library texts: Imitation of Christ, Rule of St Benedict, Confessions, Leo, Ambrose, Anselm, Bonaventure, Creeds (The Latin Library, via CLTK) | github.com/cltk/lat_text_latin_library @ 76229ac | public domain text |
 | `pg17611.txt` | Summa Theologica, English, First Part (Dominican Fathers) | gutenberg.org/ebooks/17611 | public domain (Gutenberg licence) |
 | `pt` | PROIEL treebank: parsed Vulgate New Testament | github.com/proiel/proiel-treebank @ 8e38896 | CC BY-NC-SA 4.0 |
 | `ud-ITTB` | Index Thomisticus treebank (Aquinas) | github.com/UniversalDependencies/UD_Latin-ITTB @ b19bcbd | CC BY-NC-SA 3.0 |

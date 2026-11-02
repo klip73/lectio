@@ -21,7 +21,8 @@ It ships three ways, all built from the same source:
       guide-data.js  Guide content: grammar topics, the five texts, pronunciation, Summa vocabulary
       guide.jsx      Guide tab, and the progress file (save / load)
       placement.jsx  placement check: adaptive, objective questions that set the starting level in each part
-      office.jsx     Liturgy tab: each day's Office (all eight hours) and Mass in Latin and English, with rubrics; the 1960 Code of Rubrics
+      office.jsx     Liturgy: each day's Office (all eight hours) and Mass in Latin and English, with rubrics; calendar; prayers; the 1960 Code of Rubrics
+      library.jsx    Library: classic Church texts in Latin, chapter by chapter, with word help and your place kept
       page.html      page template: fonts, colour tokens, small CSS
       tw.css         Tailwind setup
     tools/
@@ -39,6 +40,8 @@ It ships three ways, all built from the same source:
       office/build_office.py   generates each day's eight hours and Mass with the Divinum Officium programs (1960 rubrics)
       office/pack_office.py    packs them into data/office/ (days per year, shared sections, per-month files for Matins / other hours / Mass, word index)
       rubrics/build_rubrics.py converts the 1960 Code of Rubrics (General, Breviary, Missal; tables; Rubricarum instructum) into data/rubrics.json
+      office/build_prayers.py  the prayers before and after Mass and the Breviary's appendix (Litanies, Commendation of a soul…) into data/prayers.json
+      library/build_library.py the Latin library (Imitation of Christ, Rule of St Benedict, Confessions, Leo, Ambrose, Anselm, Bonaventure, Creeds) into data/library/
       office/perllib/          a three-function stand-in for Perl's CGI module, so the Divinum Officium programs run from the command line
     tests/                     headless-browser tests (see tests/README.md)
 
@@ -69,6 +72,9 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     python3 -I tools/office/build_office.py ../sources/do tools/office/perllib ../office-raw 2026-11-01 3713   # about 30 minutes
     python3 -I tools/office/pack_office.py ../office-raw data
     python3 -I tools/rubrics/build_rubrics.py ../sources/do data
+    python3 -I tools/office/build_prayers.py ../sources/do tools/office/perllib data
+    git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
+    python3 -I tools/library/build_library.py ../sources/tll data
 
 The current build covers 1 November 2026 to 31 December 2036. Before then, rebuild with a later end date: ten years take about half an hour.
 
