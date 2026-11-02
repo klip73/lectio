@@ -226,7 +226,7 @@ function ExaminerQuiz({ lex, verses, seed, onAnswer, showKey = false }) {
 const DAY_KEY = "lectio-vulgata-day";
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 function readDay() { const d = readLocal(DAY_KEY); return d && d.date === todayStr() ? d : { date: todayStr(), reviews: 0, vocab: 0, passages: 0, oral: 0, quiz: 0 }; }
-function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst }) {
+function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst, office, officeRead, onOffice }) {
   const steps = [
     { id: "reviews", label: dueCount ? `Clear your reviews (${dueCount} due)` : "Reviews: nothing due", done: dueCount === 0, n: day.reviews },
     { id: "vocab", label: "Learn 10 words", done: day.vocab >= 10, n: `${Math.min(day.vocab, 10)}/10` },
@@ -256,6 +256,13 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst }) {
         {next ? <Btn variant="primary" onClick={() => onStep(next.id)}>{steps.some(s => s.done) ? "Continue" : "Start"}: {next.label.replace(/ \(.*\)$/, "").replace(/^Clear your reviews$/, "Clear your reviews")} →</Btn>
           : <p className="text-[14px] text-ok">Today’s session is done. Anything more is a bonus.</p>}
       </div>
+      {office && (
+        <button type="button" onClick={onOffice} className="mt-3 flex w-full flex-wrap items-baseline gap-x-2 border-t border-rule pt-3 text-left text-[14px]">
+          <span className="smallcaps font-semibold text-rubric">Today’s Office</span>
+          <span lang="la" className="latin min-w-0 flex-1 truncate text-ink">{office.t}</span>
+          <span className={officeRead ? "text-ok" : "text-rubric underline underline-offset-2"}>{officeRead ? "✓ read" : "Read Matins →"}</span>
+        </button>
+      )}
     </section>
   );
 }

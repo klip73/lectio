@@ -552,7 +552,7 @@ async function unpackData(b64) {
 }
 function getJSON(url) {
   const pack = window.__LV_DATA;
-  if (pack) { const k = url.replace(/^data\//, ""); return pack[k] ? unpackData(pack[k]) : Promise.reject(new Error("missing " + k)); }
+  if (pack) { const k = url.replace(/^data\//, "").replace(/\?.*$/, ""); if (pack[k]) return unpackData(pack[k]); }
   return fetch(url).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }); }
 function loadLex() { if (!lexPromise) lexPromise = getJSON("data/lexicon.json").catch(e => { lexPromise = null; throw e; }); return lexPromise; }
 function loadBook(code) { if (!bookCache[code]) bookCache[code] = getJSON("data/" + code + ".json").catch(e => { delete bookCache[code]; throw e; }); return bookCache[code]; }
@@ -825,10 +825,12 @@ function coverage(user, ref) {
 const LOCAL_KEY = "lectio-vulgata-v2";
 const DRAFT_KEY = "lectio-vulgata-drafts";
 const UI_KEY = "lectio-vulgata-ui";
-const EMPTY = { v: 6, cards: {}, pcards: {}, vcards: {}, vtap: [], sittings: [], mistakes: [], skill: {}, ability: {}, exam: "", updated: 0 };
+const EMPTY = { v: 6, cards: {}, pcards: {}, vcards: {}, vtap: [], sittings: [], mistakes: [], skill: {}, ability: {}, oread: [], exam: "", updated: 0 };
+/* Days the Office was read, as day numbers (days since 1 Jan 2000), sorted, unique. */
+function cleanRead(a) { return Array.isArray(a) ? [...new Set(a.filter(n => Number.isInteger(n) && n > 9000 && n < 40000))].sort((x, y) => x - y).slice(-20000) : []; }
 function normalizeProg(p) {
   return { ...EMPTY, ...p, cards: p.cards || {}, pcards: p.pcards || {}, vcards: p.vcards || {},
-    vtap: Array.isArray(p.vtap) ? p.vtap : [], sittings: Array.isArray(p.sittings) ? p.sittings : [], mistakes: Array.isArray(p.mistakes) ? p.mistakes : [], skill: p.skill || {}, ability: p.ability && typeof p.ability === "object" ? p.ability : {} };
+    vtap: Array.isArray(p.vtap) ? p.vtap : [], sittings: Array.isArray(p.sittings) ? p.sittings : [], mistakes: Array.isArray(p.mistakes) ? p.mistakes : [], skill: p.skill || {}, ability: p.ability && typeof p.ability === "object" ? p.ability : {}, oread: cleanRead(p.oread) };
 }
 function readLocal(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
 function writeLocal(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
@@ -873,7 +875,7 @@ function decodeBackup(code) {
         concept: CONCEPTS[m.concept] ? m.concept : null, latin: s60(m.latin, 40), fix: s60(m.fix, 60) })).slice(-20);
     const ability = {};
     Object.entries(d.ability || {}).forEach(([k, a]) => { if (PART_IDS.includes(k) && a && Number.isFinite(+a.t) && Number.isFinite(+a.n)) ability[k] = { t: Math.max(-0.3, Math.min(1.3, +a.t)), n: Math.max(0, Math.floor(+a.n)) }; });
-    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
+    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
   } catch (e) { return null; }
 }
 
@@ -1382,6 +1384,7 @@ function MistakeSummary({ log }) {
 /*@include guide-data.js*/
 /*@include guide.jsx*/
 /*@include placement.jsx*/
+/*@include office.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -2023,7 +2026,7 @@ function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
-  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide"].includes(ui0.mode) ? ui0.mode : "drill");
+  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide", "office"].includes(ui0.mode) ? ui0.mode : "drill");
   const [formsFocus, setFormsFocus] = useState(null);
   const [placeParts, setPlaceParts] = useState(null);
   const placeRes = useRef(null);
@@ -2334,6 +2337,13 @@ function App() {
       try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
     }));
   }
+  function markRead(n, on) {
+    const cur = progRef.current;
+    const next = { ...cur, oread: cleanRead(on ? [...(cur.oread || []), n] : (cur.oread || []).filter(x => x !== n)), updated: Date.now() };
+    setProg(next); persist(next);
+  }
+  const [officeToday, setOfficeToday] = useState(null);
+  useEffect(() => { officeDay(isoOf(new Date())).then(d => { if (d && !d.missing) setOfficeToday(d); }).catch(() => {}); }, []);
   function startPlacement(parts) { setPlaceParts(parts); setMode("place"); resetView(); setPrefs(p => ({ ...p, welcomed: true })); showPractice(); }
   function finishPlacement(res, go) {
     if (res) {
@@ -2489,7 +2499,7 @@ function App() {
       </header>
 
       {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
-      <TodayCard day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
+      <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
       {/* Progress ledger */}
       <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Your progress">
@@ -2559,10 +2569,13 @@ function App() {
         </button>
         <button type="button" className={tabCls(mode === "guide")} aria-pressed={mode === "guide"} onClick={() => { setMode("guide"); resetView(); }}>Guide</button>
         <button type="button" className={tabCls(mode === "forms")} aria-pressed={mode === "forms"} onClick={() => { setMode("forms"); resetView(); }}>Forms</button>
+        <button type="button" className={tabCls(mode === "office")} aria-pressed={mode === "office"} onClick={() => { setMode("office"); resetView(); }}>Office</button>
         <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
       </nav>
 
-      {mode === "place" && placeParts ? (
+      {mode === "office" ? (
+        <OfficeMode prog={prog} onRead={markRead} onTable={openTable} />
+      ) : mode === "place" && placeParts ? (
         <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
       ) : mode === "guide" ? (
         <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />

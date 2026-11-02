@@ -46,7 +46,7 @@ try:
         for i in range(15):
             sec = pg.locator("[aria-label='Placement question']"); sec.locator("p[lang='la']").wait_for(timeout=20000)
             for _ in range(2):
-                btn = sec.locator("button.rounded-md.border:not([disabled])").first
+                btn = sec.locator("button.rounded-md.border.text-left:not([disabled])").first
                 if btn.count(): btn.click(); pg.wait_for_timeout(50)
             sec.locator("button:has-text('Next passage'), button:has-text('See my level')").click()
         print("3 result:", pg.locator("[aria-label='Placement result']").inner_text().replace("\n", " | ")[:420])

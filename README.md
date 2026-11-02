@@ -21,6 +21,7 @@ It ships three ways, all built from the same source:
       guide-data.js  Guide content: grammar topics, the five texts, pronunciation, Summa vocabulary
       guide.jsx      Guide tab, and the progress file (save / load)
       placement.jsx  placement check: adaptive, objective questions that set the starting level in each part
+      office.jsx     the Office: each day's Matins in Latin and English, words tappable, days read kept with progress
       page.html      page template: fonts, colour tokens, small CSS
       tw.css         Tailwind setup
     tools/
@@ -35,6 +36,9 @@ It ships three ways, all built from the same source:
       data/cache/corpora.json  output of corpora.py, so a rebuild doesn't need the Gutenberg file
       forms/check.mjs          checks morph.js against every parsed word in the texts
       guide/check.mjs          checks every Guide example is quoted exactly from its text
+      office/build_office.py   generates each day's Matins with the Divinum Officium programs (1960 rubrics)
+      office/pack_office.py    packs it into data/office/ (days per year, shared sections, sections per month, word index)
+      office/perllib/          a three-function stand-in for Perl's CGI module, so the Divinum Officium programs run from the command line
     tests/                     headless-browser tests (see tests/README.md)
 
 `app.jsx` pulls in the other source files with `/*@include name*/`. Edit the source, never the built HTML.
@@ -57,6 +61,14 @@ Data (only when the texts, parsings or dictionary change):
     python3 -I tools/data/apply_fixes.py data tools/data/fixes.json
     python3 -I tools/data/validate.py data            # must say 0 errors
     node tools/forms/check.mjs data                   # forms agreement, about 99%
+
+The Office (only when extending the years, or when Divinum Officium corrects its texts):
+
+    git -C ../sources/do sparse-checkout add web/cgi-bin web/www     # the full Divinum Officium programs and texts
+    python3 -I tools/office/build_office.py ../sources/do tools/office/perllib ../office-raw 2026-11-01 3713   # about 8 minutes
+    python3 -I tools/office/pack_office.py ../office-raw data
+
+The current build covers 1 November 2026 to 31 December 2036. Before then, rebuild with a later end date: generation takes about eight minutes for ten years.
 
 Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' progress survives a data rebuild.
 

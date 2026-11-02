@@ -20,7 +20,13 @@ const src = readFileSync(path.join(root, "src/app.jsx"), "utf8").replace(/\/\*@i
 // 0. The exam parts, books and chapter labels come from the data build.
 const lexicon = JSON.parse(readFileSync(path.join(root, "data", "lexicon.json"), "utf8"));
 const parts = lexicon.parts.map(p => ({ id: p.id, name: p.name, books: p.books }));
-const srcWithData = src.replace("/*PARTS_JSON*/[]", () => JSON.stringify(parts));
+// The Office data's version: a hash of its files, so phones re-fetch after a rebuild.
+const { createHash: _ch } = await import("node:crypto");
+const { readdirSync: _rd } = await import("node:fs");
+const officeDir = path.join(root, "data", "office");
+const officeFiles = _rd(officeDir).filter(f => f.endsWith(".json")).sort();
+const officeVer = officeFiles.reduce((h, f) => h.update(f).update(readFileSync(path.join(officeDir, f))), _ch("sha256")).digest("hex").slice(0, 10);
+const srcWithData = src.replace("/*PARTS_JSON*/[]", () => JSON.stringify(parts)).replace('const OFFICE_VER = "dev"; /*OFFICE_VER*/', `const OFFICE_VER = "${officeVer}";`);
 if (srcWithData === src) throw new Error("PARTS_JSON marker missing");
 
 // 1. JavaScript
@@ -55,6 +61,8 @@ if (offline) {
   const dataDir = path.join(root, "data");
   const pack = {};
   for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
+  // The offline copy carries the whole Office too; the phone app fetches it day by day instead (and keeps what it has fetched).
+  if (!app) for (const f of officeFiles) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const reactTags = /<script src="https:\/\/cdnjs[^"]*react\.production\.min\.js"><\/script>\s*<script src="https:\/\/cdnjs[^"]*react-dom\.production\.min\.js"><\/script>/;
   if (!reactTags.test(page)) throw new Error("React script tags not found");
@@ -81,7 +89,10 @@ if (app) {
     icons: [{ src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }]
   }, null, 2));
   const version = createHash("sha256").update(page).digest("hex").slice(0, 12);
-  writeFileSync(path.join(dir, "sw.js"), readFileSync(path.join(root, "tools/app/sw.js"), "utf8").replace("__VERSION__", version));
+  writeFileSync(path.join(dir, "sw.js"), readFileSync(path.join(root, "tools/app/sw.js"), "utf8").replace("__VERSION__", version).replace("__OFFICE__", officeVer));
+  const { rmSync, cpSync } = await import("node:fs");
+  rmSync(path.join(dir, "data"), { recursive: true, force: true });
+  cpSync(officeDir, path.join(dir, "data", "office"), { recursive: true });
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);

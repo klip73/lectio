@@ -1,0 +1,43 @@
+"""Pack the generated Office for the page.
+Usage: python3 -I tools/office/pack_office.py <raw dir from build_office.py> data
+Writes data/office/: index.json (years), days-YYYY.json, common.json (sections used on 30 or more days: psalms, fixed prayers),
+MM.json (every other section used in that calendar month), forms.json (word form -> parsing ids, for tapping words)."""
+import sys, os, re, json, glob, collections, unicodedata
+RAW, DATA = sys.argv[1], sys.argv[2]
+OUT = os.path.join(DATA, "office"); os.makedirs(OUT, exist_ok=True)
+P = json.load(open(os.path.join(RAW, "pieces.json")))
+use, months, years = collections.Counter(), collections.defaultdict(set), []
+for f in sorted(glob.glob(os.path.join(RAW, "days-*.json"))):
+    yr = re.search(r"days-(\d+)", f).group(1); years.append(int(yr))
+    days = json.load(open(f))
+    for md, d in days.items():
+        for k in set(d["m"]): use[k] += 1; months[k].add(md[:2])
+    json.dump(days, open(os.path.join(OUT, f"days-{yr}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+common = {k: P[k] for k in P if use[k] >= 30}
+json.dump(common, open(os.path.join(OUT, "common.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+for m in [f"{i:02d}" for i in range(1, 13)]:
+    part = {k: P[k] for k in P if use[k] < 30 and m in months[k]}
+    json.dump(part, open(os.path.join(OUT, f"{m}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+# Word index: every form in the Office text that the parsed corpora know.
+def norm(w):
+    w = unicodedata.normalize("NFD", w.lower()).replace("æ", "ae").replace("œ", "oe")
+    w = "".join(c for c in w if not unicodedata.combining(c))
+    return w.replace("j", "i").replace("v", "u")
+lex = json.load(open(os.path.join(DATA, "lexicon.json")))
+known = collections.defaultdict(collections.Counter)
+for p in lex["parts"]:
+    for b in p["books"]:
+        book = json.load(open(os.path.join(DATA, b[0] + ".json")))
+        for ch in book["ch"]:
+            for v in ch:
+                for w, e in zip(re.findall(r"[A-Za-z]+", v[1]), v[3]):
+                    ids = [e] if isinstance(e, int) and e >= 0 else e if isinstance(e, list) else []
+                    for i in ids: known[norm(w)][i] += 1
+words = set()
+for la, en in P.values():
+    for line in la:
+        words.update(norm(w) for w in re.findall(r"[^\W\d_]+", re.sub(r"\^[^^]*\^|\*[^*]*\*", " ", line)))
+forms = {w: [i for i, _ in known[w].most_common(4)] for w in sorted(words) if w in known}
+json.dump(forms, open(os.path.join(OUT, "forms.json"), "w"), separators=(",", ":"))
+json.dump({"years": years, "rubrics": "1960", "source": "Divinum Officium"}, open(os.path.join(OUT, "index.json"), "w"))
+print(f"years {years[0]}-{years[-1]}; common {len(common)} sections; forms {len(forms)} of {len(words)} words known")
