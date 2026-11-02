@@ -2337,6 +2337,14 @@ function App() {
       try { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) { el.scrollIntoView(); }
     }));
   }
+  /* Words tapped while reading the Office or Mass join the vocabulary deck, like words tapped in passages. */
+  function addTapped(lemmas) {
+    const cur = progRef.current, have = cur.vtap || [];
+    const fresh = lemmas.filter(l => l && !have.includes(l) && !(cur.vcards || {})[l] && !BASIC.has(l));
+    if (!fresh.length) return;
+    const next = { ...cur, vtap: [...fresh, ...have].slice(0, 300), updated: Date.now() };
+    setProg(next); persist(next);
+  }
   function markRead(n, on) {
     const cur = progRef.current;
     const next = { ...cur, oread: cleanRead(on ? [...(cur.oread || []), n] : (cur.oread || []).filter(x => x !== n)), updated: Date.now() };
@@ -2569,12 +2577,12 @@ function App() {
         </button>
         <button type="button" className={tabCls(mode === "guide")} aria-pressed={mode === "guide"} onClick={() => { setMode("guide"); resetView(); }}>Guide</button>
         <button type="button" className={tabCls(mode === "forms")} aria-pressed={mode === "forms"} onClick={() => { setMode("forms"); resetView(); }}>Forms</button>
-        <button type="button" className={tabCls(mode === "office")} aria-pressed={mode === "office"} onClick={() => { setMode("office"); resetView(); }}>Office</button>
+        <button type="button" className={tabCls(mode === "office")} aria-pressed={mode === "office"} onClick={() => { setMode("office"); resetView(); }}>Liturgy</button>
         <button type="button" className={tabCls(mode === "exam")} aria-pressed={mode === "exam"} onClick={() => { setMode("exam"); resetView(); }}>Exam sitting</button>
       </nav>
 
       {mode === "office" ? (
-        <OfficeMode prog={prog} onRead={markRead} onTable={openTable} />
+        <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} />
       ) : mode === "place" && placeParts ? (
         <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
       ) : mode === "guide" ? (

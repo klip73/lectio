@@ -1,16 +1,20 @@
-"""Build the daily Office (Matins) for a range of dates with the Divinum Officium programs (1960 rubrics).
+"""Build the daily Office (all eight hours) and the Mass for a range of dates with the Divinum Officium programs (1960 rubrics).
 Usage: python3 -I tools/office/build_office.py <divinum-officium repo> tools/office/perllib <raw out dir> <first date YYYY-MM-DD> <days>
 Writes <out>/days-YYYY.json (each day: title, rank, tempora, and the ids of its sections) and <out>/pieces.json (each section once,
 Latin and English as lines; ^...^ marks red rubric text, *...* marks a heading)."""
 import sys, os, re, json, html, hashlib, subprocess, datetime
 from concurrent.futures import ThreadPoolExecutor
-DO, LIB, OUT, FIRST, NDAYS = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
+DO, LIB, OUT, FIRST, NDAYS = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3]), sys.argv[4], int(sys.argv[5])
 HORAS = os.path.join(DO, "web", "cgi-bin", "horas")
-HOURS = {"m": "prayMatutinum"}
+# m Matins, l Lauds, p Prime, t Terce, s Sext, n None, v Vespers, c Compline; x the Mass (with its rubrics).
+HOURS = {"m": "prayMatutinum", "l": "prayLaudes", "p": "prayPrima", "t": "prayTertia", "s": "praySexta", "n": "prayNona", "v": "prayVesperae", "c": "prayCompletorium", "x": "praySanctaMissa"}
 
+MISSA = os.path.join(DO, "web", "cgi-bin", "missa")
 def run(date, cmd):
-    r = subprocess.run(["perl", "-I" + LIB, "officium.pl", f"date={date.strftime('%m-%d-%Y')}", "version=Rubrics 1960 - 1960",
-                        f"command={cmd}", "lang1=Latin", "lang2=English"], cwd=HORAS, capture_output=True, timeout=120)
+    mass = cmd == "praySanctaMissa"
+    args = ["perl", "-I" + LIB, "missa.pl" if mass else "officium.pl", f"date={date.strftime('%m-%d-%Y')}", "version=Rubrics 1960 - 1960",
+            f"command={cmd}", "lang1=Latin", "lang2=English"] + (["rubrics=1"] if mass else [])
+    r = subprocess.run(args, cwd=MISSA if mass else HORAS, capture_output=True, timeout=120)
     return r.stdout.decode("utf-8", "replace")
 
 def cell(h):
@@ -50,19 +54,25 @@ def main():
     pieces = json.load(open(pieces_path)) if os.path.exists(pieces_path) else {}
     start = datetime.date.fromisoformat(FIRST)
     dates = [start + datetime.timedelta(d) for d in range(NDAYS)]
+    jobs = [(d, h) for d in dates for h in HOURS]
     with ThreadPoolExecutor(8) as ex:
-        pages = list(ex.map(lambda d: run(d, HOURS["m"]), dates))
+        pages = dict(zip(jobs, ex.map(lambda j: run(j[0], HOURS[j[1]]), jobs)))
     years = {}
-    for d, page in zip(dates, pages):
-        title, tempora, rows = parse(page)
-        ids = []
-        for la, en in rows:
-            key = hashlib.sha1(json.dumps([la, en], ensure_ascii=False).encode()).hexdigest()[:10]
-            pieces[key] = [la, en]
-            ids.append(key)
-        name, _, rank = title.partition("~")
+    for d in dates:
+        rec = {}
+        for h in HOURS:
+            title, tempora, rows = parse(pages[(d, h)])
+            ids = []
+            for la, en in rows:
+                key = hashlib.sha1(json.dumps([la, en], ensure_ascii=False).encode()).hexdigest()[:10]
+                pieces[key] = [la, en]
+                ids.append(key)
+            name, _, rank = title.partition("~")
+            if h == "m": rec.update({"t": name.strip(), "k": rank.strip(), "o": tempora.replace("Tempora: ", "")})
+            elif name.strip() and name.strip() != rec.get("t"): rec.setdefault("ht", {})[h] = name.strip() + (" ~ " + rank.strip() if rank.strip() else "")
+            rec.setdefault("h", {})[h] = ids
         y = years.setdefault(d.year, json.load(open(os.path.join(OUT, f"days-{d.year}.json"))) if os.path.exists(os.path.join(OUT, f"days-{d.year}.json")) else {})
-        y[d.strftime("%m-%d")] = {"t": name.strip(), "k": rank.strip(), "o": tempora.replace("Tempora: ", ""), "m": ids}
+        y[d.strftime("%m-%d")] = rec
     for yr, days in years.items():
         json.dump(days, open(os.path.join(OUT, f"days-{yr}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
     json.dump(pieces, open(pieces_path, "w"), ensure_ascii=False, separators=(",", ":"))

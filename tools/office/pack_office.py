@@ -1,23 +1,32 @@
 """Pack the generated Office for the page.
 Usage: python3 -I tools/office/pack_office.py <raw dir from build_office.py> data
-Writes data/office/: index.json (years), days-YYYY.json, common.json (sections used on 30 or more days: psalms, fixed prayers),
-MM.json (every other section used in that calendar month), forms.json (word form -> parsing ids, for tapping words)."""
+Writes data/office/: index.json (years), days-YYYY.json, common.json (sections used on 30 or more days: psalms, fixed prayers,
+the Ordinary of the Mass), and per calendar month m-MM.json (Matins), d-MM.json (the other hours), x-MM.json (the Mass) with every
+other section used that month; forms.json (word form -> parsing ids, for tapping words)."""
 import sys, os, re, json, glob, collections, unicodedata
 RAW, DATA = sys.argv[1], sys.argv[2]
 OUT = os.path.join(DATA, "office"); os.makedirs(OUT, exist_ok=True)
 P = json.load(open(os.path.join(RAW, "pieces.json")))
-use, months, years = collections.Counter(), collections.defaultdict(set), []
+GROUP = {"m": "m", "x": "x"}   # every other hour is in group "d"
+use, where, years = collections.Counter(), collections.defaultdict(set), []
+for f in glob.glob(os.path.join(OUT, "*.json")): os.remove(f)
 for f in sorted(glob.glob(os.path.join(RAW, "days-*.json"))):
     yr = re.search(r"days-(\d+)", f).group(1); years.append(int(yr))
     days = json.load(open(f))
     for md, d in days.items():
-        for k in set(d["m"]): use[k] += 1; months[k].add(md[:2])
+        seen = set()
+        for h, ids in d["h"].items():
+            for k in ids:
+                if k not in seen: use[k] += 1; seen.add(k)
+                where[k].add(GROUP.get(h, "d") + "-" + md[:2])
     json.dump(days, open(os.path.join(OUT, f"days-{yr}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 common = {k: P[k] for k in P if use[k] >= 30}
 json.dump(common, open(os.path.join(OUT, "common.json"), "w"), ensure_ascii=False, separators=(",", ":"))
-for m in [f"{i:02d}" for i in range(1, 13)]:
-    part = {k: P[k] for k in P if use[k] < 30 and m in months[k]}
-    json.dump(part, open(os.path.join(OUT, f"{m}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+for g in "mdx":
+    for m in [f"{i:02d}" for i in range(1, 13)]:
+        name = f"{g}-{m}"
+        part = {k: P[k] for k in P if use[k] < 30 and name in where[k]}
+        json.dump(part, open(os.path.join(OUT, name + ".json"), "w"), ensure_ascii=False, separators=(",", ":"))
 # Word index: every form in the Office text that the parsed corpora know.
 def norm(w):
     w = unicodedata.normalize("NFD", w.lower()).replace("æ", "ae").replace("œ", "oe")
