@@ -62,7 +62,8 @@ if (offline) {
   const pack = {};
   for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
   // The offline copy carries the whole Office too; the phone app fetches it day by day instead (and keeps what it has fetched).
-  if (!app) for (const f of officeFiles) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
+  // The single offline file must stay under 16 MB, so it carries Matins and the Mass (not the other hours, "d-" files).
+  if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f))) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const reactTags = /<script src="https:\/\/cdnjs[^"]*react\.production\.min\.js"><\/script>\s*<script src="https:\/\/cdnjs[^"]*react-dom\.production\.min\.js"><\/script>/;
   if (!reactTags.test(page)) throw new Error("React script tags not found");

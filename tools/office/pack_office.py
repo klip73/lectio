@@ -10,15 +10,28 @@ P = json.load(open(os.path.join(RAW, "pieces.json")))
 GROUP = {"m": "m", "x": "x"}   # every other hour is in group "d"
 use, where, years = collections.Counter(), collections.defaultdict(set), []
 for f in glob.glob(os.path.join(OUT, "*.json")): os.remove(f)
+alldays = {}
 for f in sorted(glob.glob(os.path.join(RAW, "days-*.json"))):
     yr = re.search(r"days-(\d+)", f).group(1); years.append(int(yr))
-    days = json.load(open(f))
+    alldays[yr] = days = json.load(open(f))
     for md, d in days.items():
         seen = set()
         for h, ids in d["h"].items():
             for k in ids:
                 if k not in seen: use[k] += 1; seen.add(k)
                 where[k].add(GROUP.get(h, "d") + "-" + md[:2])
+# Short ids (base 36, most-used first) keep the day files small.
+def b36(n):
+    d = "0123456789abcdefghijklmnopqrstuvwxyz"; s = ""
+    while True:
+        s = d[n % 36] + s; n //= 36
+        if not n: return s
+short = {k: b36(i) for i, k in enumerate(sorted(P, key=lambda k: (-use[k], k)))}
+P = {short[k]: v for k, v in P.items()}
+use = collections.Counter({short[k]: n for k, n in use.items()})
+where = {short[k]: v for k, v in where.items()}
+for yr, days in alldays.items():
+    for d in days.values(): d["h"] = {h: [short[k] for k in ids] for h, ids in d["h"].items()}
     json.dump(days, open(os.path.join(OUT, f"days-{yr}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 common = {k: P[k] for k in P if use[k] >= 30}
 json.dump(common, open(os.path.join(OUT, "common.json"), "w"), ensure_ascii=False, separators=(",", ":"))
@@ -43,7 +56,7 @@ for p in lex["parts"]:
                     ids = [e] if isinstance(e, int) and e >= 0 else e if isinstance(e, list) else []
                     for i in ids: known[norm(w)][i] += 1
 words = set()
-for la, en in P.values():
+for la, en in P.values():  # (P is keyed by short id now)
     for line in la:
         words.update(norm(w) for w in re.findall(r"[^\W\d_]+", re.sub(r"\^[^^]*\^|\*[^*]*\*", " ", line)))
 forms = {w: [i for i, _ in known[w].most_common(4)] for w in sorted(words) if w in known}

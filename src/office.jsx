@@ -82,7 +82,7 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
     </section>
   );
 }
-const PROPERS = /^(Introitus|Oratio|Lectio|Epistola|Graduale|Tractus|Allel[uú][ij]a|Sequentia|Evangelium|Offertorium|Secreta|Pr[æa]fatio|Communio|Postcommunio)/;
+const PROPERS = /^(Introitus|Oratio|Lectio|Epistola|Graduale|Tractus|Allel[uú][ij]a|Sequentia|Evangelium|Offertorium|Secreta|Pr[æa]fatio|Communio|Postcommunio)(\s|$)/;
 /* Office or Mass of one day: the text, sections, word help. */
 function DayText({ date, hour, onTap, onTable, view }) {
   const [day, setDay] = useState(null);
@@ -303,15 +303,16 @@ function OfficeMode({ prog, onRead, onTable, onTap }) {
           {day && !day.missing && part === "office" && (
             <>
               <div className="flex flex-wrap gap-1" role="group" aria-label="Hour">
-                {HOURS_L.map(([k, en, la]) => <button key={k} type="button" aria-pressed={hour === k} onClick={() => setHour(k)} title={la}
+                {HOURS_L.filter(([k]) => !(OFFLINE && !APP) || k === "m").map(([k, en, la]) => <button key={k} type="button" aria-pressed={hour === k} onClick={() => setHour(k)} title={la}
                   className={`rounded-md border px-2.5 py-1 text-[14px] ${hour === k ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{en}</button>)}
               </div>
-              {hour === "m" && (
+              {OFFLINE && !APP && <p className="text-[13px] text-soft">This offline copy carries Matins and the Mass. The other hours are in the phone app and the online page.</p>}
+              {(hour === "m" || (OFFLINE && !APP)) && (
                 <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-0.5 text-[14px]" role="group" aria-label="How much to show">
                   {[["lessons", "Hymn, lessons, prayer"], ["full", "Full Matins"]].map(([k, l]) => <button key={k} type="button" aria-pressed={mview === k} onClick={() => setMview(k)} className={`rounded px-2.5 py-1 ${mview === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
                 </div>
               )}
-              <DayText date={date} hour={hour} onTap={onTap} onTable={onTable} view={hour === "m" ? mview : "hour"} />
+              <DayText date={date} hour={OFFLINE && !APP ? "m" : hour} onTap={onTap} onTable={onTable} view={hour === "m" || (OFFLINE && !APP) ? mview : "hour"} />
             </>
           )}
           {day && !day.missing && part === "mass" && (
