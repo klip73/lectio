@@ -107,6 +107,7 @@ if (app) {
   rmSync(path.join(dir, "data"), { recursive: true, force: true });
   cpSync(officeDir, path.join(dir, "data", "office"), { recursive: true });
   cpSync(path.join(root, "data", "library"), path.join(dir, "data", "library"), { recursive: true });
+  cpSync(path.join(root, "data", "summa"), path.join(dir, "data", "summa"), { recursive: true });
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);

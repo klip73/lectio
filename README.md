@@ -43,6 +43,8 @@ It ships three ways, all built from the same source:
       office/pack_office.py    packs them into data/office/ (days per year, shared sections, per-month files for Matins / other hours / Mass, word index)
       rubrics/build_rubrics.py converts the 1960 Code of Rubrics (General, Breviary, Missal; tables; Rubricarum instructum) into data/rubrics.json
       office/build_prayers.py  the prayers before and after Mass and the Breviary's appendix (Litanies, Commendation of a soul…) into data/prayers.json
+      summa/generated_forms.mjs every form morph.js makes for every dictionary word (fallback lemmas for the Summa)
+      summa/build_summa.py     the whole Summa in Latin (all four parts) for My class list, each word linked to its parsings
       library/build_library.py the Latin library (Imitation of Christ, Rule of St Benedict, Confessions, Leo, Ambrose, Anselm, Bonaventure, Creeds) into data/library/
       office/perllib/          a three-function stand-in for Perl's CGI module, so the Divinum Officium programs run from the command line
     tests/                     headless-browser tests (see tests/README.md)
@@ -75,6 +77,9 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     python3 -I tools/office/pack_office.py ../office-raw data
     python3 -I tools/rubrics/build_rubrics.py ../sources/do data
     python3 -I tools/office/build_prayers.py ../sources/do tools/office/perllib data
+    git clone https://github.com/androur/Summa-Theologica-Latin ../sources/summa-latin
+    node tools/summa/generated_forms.mjs data /tmp/genforms.json
+    python3 -I tools/summa/build_summa.py ../sources/summa-latin/SummaTheologica.txt data /tmp/genforms.json
     git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
     python3 -I tools/library/build_library.py ../sources/tll data
 

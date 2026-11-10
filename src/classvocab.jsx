@@ -14,46 +14,70 @@ function stPart(la, prev) {
   if (/^\s*(Videtur|Praeterea|Ulterius)/i.test(la)) return "obj";
   return prev || "obj";
 }
+/* The whole Summa (data/summa/), for any part a class reads: index of parts and questions, and 20-question files. */
+const SM_PART = { "1": "I", "1-2": "I-II", "2-2": "II-II", "3": "III" };
+let summaIdx = null;
+const loadSummaIndex = () => (summaIdx = summaIdx || getJSON("data/summa/index.json").catch(e => { summaIdx = null; throw e; }));
+const summaChunks = {};
+const loadSummaQ = (p, q) => { const k = `${p}-${Math.floor((q - 1) / 20)}`; summaChunks[k] = summaChunks[k] || getJSON(`data/summa/${k}.json`).catch(e => { delete summaChunks[k]; throw e; }); return summaChunks[k].then(c => c[String(q)]); };
 function sectionLabel(s) {
+  const parts = s.parts && s.parts.length < 4 ? " · " + s.parts.map(p => ST_PARTS.find(x => x[0] === p)[1]).join(", ") : "";
+  if (s.t === "sm") return `Summa ${SM_PART[s.p]} q. ${s.q}, ${s.a ? "a. " + s.a : "all articles"}${parts}`;
   const bk = BOOK[s.b];
   if (!bk) return "?";
   if (s.t === "nt") return `${bk[1]} ${s.c1}${s.c2 && s.c2 !== s.c1 ? "–" + s.c2 : ""}`;
   const q = (bk[1].match(/\d+/) || [""])[0];
   const art = s.a ? `a. ${(bk[4] && bk[4][s.a - 1] || "Article " + s.a).replace(/\D+/g, "")}` : "all articles";
-  const parts = s.parts && s.parts.length < 4 ? " · " + s.parts.map(p => ST_PARTS.find(x => x[0] === p)[1]).join(", ") : "";
   return `Summa I q. ${q}, ${art}${parts}`;
 }
 /* The words of the chosen sections: [lemma, count, ref, example with [[word]], analysis id], most frequent first. */
 async function classWords(sections, lex, basic) {
   const found = {}, order = [];
   let total = 0, unknown = 0;
+  /* One paragraph (a verse, or a paragraph of an article): its text, each word's parsing entry, and where it is. */
+  function take(text, ents, ref) {
+    const words = text.match(WORD_RE) || [];
+    words.forEach((w, k) => {
+      total++;
+      const rd = readings(ents && ents[k]);
+      if (!(rd.kind === "context" || rd.kind === "lookup")) { unknown++; return; }
+      const [li, pos] = lex.ana[rd.ids[0]];
+      const [lemma, gloss] = lex.lemmas[li];
+      if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase()))) return;
+      if (!found[lemma]) {
+        const a = Math.max(0, k - 7), z = Math.min(words.length, k + 8);
+        /* Rebuild the snippet from the text so punctuation survives; mark the word itself. */
+        let from = 0, to = text.length, at = 0, atEnd = 0;
+        const re = new RegExp(WORD_RE.source, "g"); let m, i = 0;
+        while ((m = re.exec(text))) { if (i === a) from = m.index; if (i === k) { at = m.index; atEnd = m.index + m[0].length; } if (i === z - 1) to = m.index + m[0].length; i++; }
+        const ex = (a > 0 ? "… " : "") + text.slice(from, at) + "[[" + text.slice(at, atEnd) + "]]" + text.slice(atEnd, to) + (z < words.length ? " …" : "");
+        found[lemma] = [lemma, 0, ref, ex, rd.kind === "context" ? rd.ids[0] : -1];
+        order.push(lemma);
+      }
+      found[lemma][1]++;
+    });
+  }
   for (const s of sections) {
+    if (s.t === "sm") {
+      const q = await loadSummaQ(s.p, s.q);
+      if (!q) continue;
+      (s.a ? [s.a] : q.a.map((_, i) => i + 1)).forEach(a => {
+        let part = null;
+        (q.a[a - 1] || []).forEach((par, j) => {
+          part = stPart(par, part);
+          if (s.parts && !s.parts.includes(part)) return;
+          take(par, q.w[a - 1][j], `Summa ${SM_PART[s.p]} q. ${s.q} a. ${a}`);
+        });
+      });
+      continue;
+    }
     const book = await loadBook(s.b);
     const chs = s.t === "nt" ? Array.from({ length: (s.c2 || s.c1) - s.c1 + 1 }, (_, i) => s.c1 + i) : s.a ? [s.a] : book.ch.map((_, i) => i + 1);
     for (const c of chs) {
       let part = null;
       for (const v of book.ch[c - 1] || []) {
         if (s.t === "st") { part = stPart(v[1], part); if (s.parts && !s.parts.includes(part)) continue; }
-        const words = v[1].match(WORD_RE) || [];
-        words.forEach((w, k) => {
-          total++;
-          const rd = readings(v[3] && v[3][k]);
-          if (!(rd.kind === "context" || rd.kind === "lookup")) { unknown++; return; }
-          const [li, pos] = lex.ana[rd.ids[0]];
-          const [lemma, gloss] = lex.lemmas[li];
-          if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase()))) return;
-          if (!found[lemma]) {
-            const a = Math.max(0, k - 7), z = Math.min(words.length, k + 8);
-            /* Rebuild the snippet from the verse text so punctuation survives; mark the word itself. */
-            let from = 0, to = v[1].length, at = 0, atEnd = 0;
-            const re = new RegExp(WORD_RE.source, "g"); let m, i = 0;
-            while ((m = re.exec(v[1]))) { if (i === a) from = m.index; if (i === k) { at = m.index; atEnd = m.index + m[0].length; } if (i === z - 1) to = m.index + m[0].length; i++; }
-            const ex = (a > 0 ? "… " : "") + v[1].slice(from, at) + "[[" + v[1].slice(at, atEnd) + "]]" + v[1].slice(atEnd, to) + (z < words.length ? " …" : "");
-            found[lemma] = [lemma, 0, refText([s.b, c, v[0]]), ex, rd.kind === "context" ? rd.ids[0] : -1];
-            order.push(lemma);
-          }
-          found[lemma][1]++;
-        });
+        take(v[1], v[3], refText([s.b, c, v[0]]));
       }
     }
   }
@@ -146,11 +170,16 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
   const [cls, setCls0] = useState(readClass);
   const setCls = c => { setCls0(c); writeClass(c); };
   const [t, setT] = useState("nt");
-  const ntBooks = partBooks("nt"), stBooks = partBooks("st");
+  const ntBooks = partBooks("nt");
   const [b, setB] = useState(ntBooks[0][0]);
   const [c1, setC1] = useState(1), [c2, setC2] = useState(1);
-  const [qb, setQb] = useState(stBooks[0][0]);
+  const [sidx, setSidx] = useState(null);
+  const [sp, setSp] = useState("2-2");
+  const [sq, setSq] = useState(1);
   const [art, setArt] = useState(0);
+  useEffect(() => { if (t === "st" && !sidx) loadSummaIndex().then(setSidx).catch(() => {}); }, [t]);
+  const spart = sidx && sidx.parts.find(x => x.id === sp);
+  const sques = spart && spart.qs.find(x => x[0] === sq);
   const [parts, setParts] = useState(["sc", "resp"]);
   const [busy, setBusy] = useState(false);
   const [stats, setStats] = useState(null);
@@ -165,7 +194,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
     } finally { setBusy(false); }
   }
   function add() {
-    const s = t === "nt" ? { t, b, c1: Math.min(c1, c2), c2: Math.max(c1, c2) } : { t, b: qb, a: art, parts: parts.length ? parts : ST_PARTS.map(p => p[0]) };
+    const s = t === "nt" ? { t, b, c1: Math.min(c1, c2), c2: Math.max(c1, c2) } : { t: "sm", p: sp, q: sq, a: art, parts: parts.length ? parts : ST_PARTS.map(p => p[0]) };
     rebuild({ ...cls, sections: [...cls.sections, s] });
   }
   const vc = prog.vcards || {};
@@ -207,15 +236,23 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <label htmlFor="cv-q" className="sr-only">Question</label>
-                <select id="cv-q" value={qb} onChange={e => { setQb(e.target.value); setArt(0); }} className={`${sel} min-w-0 flex-1 basis-60`}>{stBooks.map(x => <option key={x[0]} value={x[0]}>{x[1].length > 70 ? x[1].slice(0, 68) + "…" : x[1]}</option>)}</select>
-                <label htmlFor="cv-a" className="sr-only">Article</label>
-                <select id="cv-a" value={art} onChange={e => setArt(+e.target.value)} className={sel}>
-                  <option value={0}>All articles</option>
-                  {(BOOK[qb][4] || BOOK[qb][2].map((_, i) => "Article " + (i + 1))).map((l, i) => <option key={i} value={i + 1}>{l}</option>)}
-                </select>
-              </div>
+              {!sidx ? <p className="text-[14px] text-soft">Loading the Summa…</p> : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label htmlFor="cv-p" className="sr-only">Part</label>
+                  <select id="cv-p" value={sp} onChange={e => { setSp(e.target.value); setSq(1); setArt(0); }} className={sel}>
+                    {sidx.parts.map(x => <option key={x.id} value={x.id}>{SM_PART[x.id]} · {x.name}</option>)}
+                  </select>
+                  <label htmlFor="cv-q" className="sr-only">Question</label>
+                  <select id="cv-q" value={sq} onChange={e => { setSq(+e.target.value); setArt(0); }} className={`${sel} min-w-0 flex-1 basis-60`}>
+                    {spart.qs.map(x => <option key={x[0]} value={x[0]}>q. {x[0]}: {x[1].length > 60 ? x[1].slice(0, 58) + "…" : x[1]}</option>)}
+                  </select>
+                  <label htmlFor="cv-a" className="sr-only">Article</label>
+                  <select id="cv-a" value={art} onChange={e => setArt(+e.target.value)} className={`${sel} min-w-0 max-w-full basis-full`}>
+                    <option value={0}>All articles</option>
+                    {sques && sques[2].map((l, i) => <option key={i} value={i + 1}>a. {i + 1}{l ? ": " + (l.length > 70 ? l.slice(0, 68) + "…" : l) : ""}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex flex-wrap gap-x-4 gap-y-1" role="group" aria-label="Parts of the article">
                 {ST_PARTS.map(([k, l]) => (
                   <label key={k} className="flex items-center gap-1.5 text-[14px] text-ink">
@@ -223,7 +260,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
                   </label>
                 ))}
               </div>
-              <p className="text-[12px] text-soft">The Summa here covers questions 1–87 of the First Part (those in the exam texts). If your class reads one that isn’t listed, tell whoever maintains the app.</p>
+              <p className="text-[12px] text-soft">The whole Summa, all four parts (Latin text of the Corpus Thomisticum). A few unusual word forms have no parsing and are left out.</p>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">

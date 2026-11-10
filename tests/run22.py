@@ -18,7 +18,9 @@ try:
         n1 = pg.locator("[aria-label='Words in these sections'] strong.num").first.inner_text()
         print("1 Matthew 5–7:", n1, "words |", pg.locator("[aria-label='My class sections'] li").all_inner_texts())
         pg.click("[aria-label='Text'] button:has-text('Summa')")
-        pg.select_option("#cv-q", "st2"); pg.select_option("#cv-a", "3")
+        pg.wait_for_selector("#cv-p", timeout=10000)
+        pg.select_option("#cv-p", "2-2"); pg.select_option("#cv-q", "27"); pg.select_option("#cv-a", "2")
+        print("  II-II q.27 a.2 option:", pg.locator("#cv-a option:checked").inner_text(), "| question:", pg.locator("#cv-q option:checked").inner_text())
         print("  parts ticked:", [pg.locator("[aria-label='Parts of the article'] label").nth(i).inner_text() for i in range(4) if pg.locator("[aria-label='Parts of the article'] input").nth(i).is_checked()])
         pg.click("button:has-text('Add this section')"); pg.wait_for_timeout(2500)
         print("2 with Summa:", pg.locator("[aria-label='Words in these sections'] strong.num").first.inner_text(), "words |", pg.locator("[aria-label='My class sections'] li").all_inner_texts())
@@ -27,7 +29,7 @@ try:
         # only the Summa section: are the words from sed contra / respondeo only?
         pg.locator("[aria-label='My class sections'] li").first.locator("button").click(); pg.wait_for_timeout(1500)
         words = json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-class')"))["words"]
-        print("3 Summa q2 a3 sc+resp only:", len(words), "words | examples:", [w[3][:50] for w in words[:2]], "| refs:", sorted(set(w[2] for w in words)))
+        print("3 Summa II-II q27 a2 sc+resp only:", len(words), "words | examples:", [w[3][:50] for w in words[:2]], "| refs:", sorted(set(w[2] for w in words)))
         has_obj = any("Videtur" in w[3] or "Praeterea" in w[3] for w in words)
         print("  any objection text in examples:", has_obj)
         # quiz
