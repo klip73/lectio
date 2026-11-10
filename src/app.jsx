@@ -1118,10 +1118,13 @@ function getSample() {
   return samplePromise;
 }
 const TUTOR_OFF = ["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"];
-function tutorErrorText(code) {
+function tutorErrorText(code, detail) {
+  detail = typeof detail === "string" ? detail.replace(/\s+/g, " ").trim().slice(0, 220) : "";
   if (TUTOR_OFF.includes(code)) return "Mistake marking is turned off for this page, so only the key-word check is shown.";
   if (code === "rate_limited") return window.claude && window.claude.use ? "You’ve reached your Claude usage limit for now. Try again later." : "Today’s free AI allowance on your key is used up. It resets overnight.";
-  if (code === "bad_key") return "Google didn’t accept your Gemini key. Check it in Skill map & backup → AI marking.";
+  if (code === "bad_key" && /free tier|billing|FREE_TIER/i.test(detail)) return "Google has switched off its free tier for this key’s project (“Free tier unavailable” in AI Studio). It’s an account flag on Google’s side, not the key. Fixes: verify your age in your Google Account, then make a key in a new project, or make one with a different Google account.";
+  if (code === "bad_key") return "Google didn’t accept your Gemini key for marking." + (detail ? ` Google says: “${detail}”` : "") + " Check it in Skill map & backup → AI marking.";
+  if (code === "failed" && detail) return `The check didn’t finish. Google says: “${detail}”`;
   if (code === "no_key") return "Add a free Gemini key to have this marked.";
   if (code === "offline") return "You’re offline. AI marking needs a connection.";
   if (code === "region") return "Google’s free AI isn’t offered in your region.";
@@ -1368,7 +1371,7 @@ function MistakeSummary({ log }) {
   const recent = log.slice(-5).reverse();
   return (
     <div>
-      <p className="mb-2 text-[14px] text-soft">Your most frequent mistakes, from Claude’s checks. These lower the matching skills above, so the drill brings you more of them.</p>
+      <p className="mb-2 text-[14px] text-soft">Your most frequent mistakes, from the AI’s marking. These lower the matching skills above, so the drill brings you more of them.</p>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {top.map(([k, n]) => (
           <span key={k} className="num rounded bg-rubrictint px-2 py-0.5 text-[13px] text-ink">
@@ -2210,7 +2213,7 @@ function App() {
       const code = e && e.code;
       if (code === "cancelled") { setFbs(f => { const n = { ...f }; delete n[key]; return n; }); return; }
       if (TUTOR_OFF.includes(code)) setTutorAvail(false);
-      setFbs(f => ({ ...f, [key]: { status: "error", text: t, code, msg: tutorErrorText(code) } }));
+      setFbs(f => ({ ...f, [key]: { status: "error", text: t, code, msg: tutorErrorText(code, e && e.msg) } }));
     } finally {
       if (ctlRef.current[key] === ctl) delete ctlRef.current[key];
     }
@@ -2570,7 +2573,7 @@ function App() {
                 className="rounded-md border border-rule bg-paper px-2 py-1 text-[14px] text-ink" />
             </div>
             <div>
-              <p className="mb-2 text-[14px] text-soft">Grammar skills, updated by every grade you give and by the mistakes Claude marks. Tap one to drill it.</p>
+              <p className="mb-2 text-[14px] text-soft">Grammar skills, updated by every grade you give and by the mistakes the AI marks. Tap one to drill it.</p>
               <div className="flex flex-col gap-2">
                 {Object.keys(CONCEPTS)
                   .sort((a, b) => (prog.skill[a] ? prog.skill[a].s : 2) - (prog.skill[b] ? prog.skill[b].s : 2))

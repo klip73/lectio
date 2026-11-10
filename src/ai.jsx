@@ -26,7 +26,7 @@ function pickModels(names) {
 async function geminiModels(key, force) {
   const a = readAi();
   if (!force && a.models && a.models.at > Date.now() - 7 * 864e5) return a.models;
-  const r = await fetch(`${GEM_API}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
+  const r = await fetch(`${GEM_API}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });   // listing works with the header for both key types
   if (!r.ok) throw await geminiErr(r);
   const j = await r.json();
   const names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""));
@@ -44,7 +44,8 @@ async function geminiErr(r) {
     const m = det.match(/"retryDelay":"(\d+(?:\.\d+)?)s"/);
     return { code: "rate_limited", msg, daily, wait: m ? +m[1] : daily ? 0 : 15 };
   }
-  if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg: msg + (/ACCESS_TOKEN_TYPE_UNSUPPORTED/.test(JSON.stringify(body)) ? " (token type unsupported)" : "") };
+  const reason = (JSON.stringify(body).match(/"reason":"([A-Z_]+)"/) || [])[1];
+  if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg: `${msg}${reason ? ` (${reason}, ${r.status})` : ` (${r.status})`}` };
   if (r.status === 404) return { code: "no_model", msg };
   if (r.status === 400 && /location|region|country/i.test(msg)) return { code: "region", msg };
   return { code: "failed", msg };
@@ -93,9 +94,11 @@ async function geminiCall(prompt, opts = {}) {
     const m = order[oi];
     let r;
     try {
-      r = await fetch(`${GEM_API}/models/${m}:generateContent`, {
+      /* Two ways to send the key: the header (usual), or ?key= (some newer AQ. keys are accepted only one way). */
+      const viaQuery = readAi().auth === "query";
+      r = await fetch(`${GEM_API}/models/${m}:generateContent${viaQuery ? `?key=${encodeURIComponent(key)}` : ""}`, {
         method: "POST", signal: opts.signal,
-        headers: { "content-type": "application/json", "x-goog-api-key": key },
+        headers: viaQuery ? { "content-type": "application/json" } : { "content-type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } })
       });
     } catch (e) {
@@ -109,6 +112,19 @@ async function geminiCall(prompt, opts = {}) {
         tried[m] = true;
         await sleep((last.wait + 1) * 1000, opts.signal);
         order.splice(oi + 1, 0, m);
+        continue;
+      }
+      /* Refused: try sending the key the other way once, then the other model. */
+      if (last.code === "bad_key" && !tried["auth"]) {
+        tried["auth"] = true;
+        writeAi({ ...readAi(), auth: readAi().auth === "query" ? "header" : "query" });
+        order.splice(oi + 1, 0, m);
+        continue;
+      }
+      if (last.code === "bad_key" && m !== models.lite && !tried["badmodel"]) {
+        tried["badmodel"] = true;
+        writeAi({ ...readAi(), auth: readAi().auth === "query" ? "header" : "query" });   // back to the first way
+        tried["auth"] = false;
         continue;
       }
       if ((last.code === "rate_limited" || last.code === "no_model") && m !== models.lite) {
@@ -179,6 +195,7 @@ function AiSetup({ onDone }) {
       )}
       {state.msg && <p className={`text-[14px] ${state.s === "err" ? "text-warn" : "text-ok"}`} aria-live="polite">{state.msg}</p>}
       <p className="text-[12px] leading-snug text-soft">
+        If AI Studio shows <b>“Free tier unavailable”</b> next to your key, Google has flagged that project: verify your age at myaccount.google.com (Personal info → Birthday), then in AI Studio make a key in a <i>new</i> project; if it still says unavailable, use a different Google account. Don’t add billing.{" "}
         Free: Google gives each key a daily allowance (a few dozen careful markings, then several hundred quicker ones; it resets overnight). Never add billing to the key and it can never cost anything.
         The key stays on this device only. Google may use what you send on the free tier (the Latin and your translation) to improve its products, so don’t type anything personal into a translation.
       </p>

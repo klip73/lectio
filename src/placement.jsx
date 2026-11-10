@@ -139,7 +139,7 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel, ai }) {
       if (!result) throw { code: "invalid_json" };
       if (st.current && it === item) { setTr(t => ({ ...t, status: "done", result })); scoreTranslation(qi, result.verdict); }
     } catch (e) {
-      setTr(t => ({ ...t, status: "error", msg: tutorErrorText(e && e.code) }));
+      setTr(t => ({ ...t, status: "error", msg: tutorErrorText(e && e.code, e && e.msg) }));
     }
   }
   function next() {

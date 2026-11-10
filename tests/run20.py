@@ -6,13 +6,17 @@ here = os.path.dirname(os.path.abspath(__file__))
 srv = subprocess.Popen([sys.executable, "-m", "http.server", "8783", "--bind", "127.0.0.1", "--directory", here], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1); errs = []; calls = []
 FB = {"v": "partly", "s": "Sense right; one tense slip.", "ok": "Good word order.", "i": [{"sev": "error", "t": "tense", "la": "erat", "vs": "1", "you": "is", "fix": "was", "why": "erat is imperfect of sum.", "c": "null"}]}
-state = {"flash429": False}
+state = {"flash429": False, "queryOnly": False}
 def gemini(route):
     req = route.request; url = req.url
     if req.method == "OPTIONS":
         return route.fulfill(status=204, headers={"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST"})
     h = {"access-control-allow-origin": "*", "content-type": "application/json"}
     key = req.headers.get("x-goog-api-key", "")
+    if ":generateContent" in url and state["queryOnly"]:
+        if key: return route.fulfill(status=401, headers=h, body=json.dumps({"error": {"code": 401, "message": "Request had invalid authentication credentials.", "status": "UNAUTHENTICATED", "details": [{"reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED"}]}}))
+        key = url.split("key=")[1] if "key=" in url else ""
+        key = key.replace("%2E", ".").replace("%2e", ".")
     if not key.startswith("AQ.GOOD"):
         return route.fulfill(status=400, headers=h, body=json.dumps({"error": {"code": 400, "message": "API key not valid. Please pass a valid API key.", "status": "INVALID_ARGUMENT"}}))
     if "/models?" in url:
@@ -81,6 +85,14 @@ try:
         print("  marked:", pg.locator("[aria-label='Placement question'] .smallcaps.font-semibold").last.inner_text(), "| prompt sent:", calls[n0:][0][1][:40] if calls[n0:] else None)
         print("  then grammar question:", pg.locator("[aria-label='Placement question'] p.font-medium").count())
         pg.click("text=Stop the check"); pg.wait_for_timeout(500)
+        if pg.locator("button:has-text('Remove key')").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        # A key Google accepts only as ?key=: the app switches over by itself
+        state["queryOnly"] = True
+        pg.click("nav[aria-label='Practice mode'] button:has-text('Passages')"); pg.wait_for_selector("#translation", timeout=15000)
+        pg.fill("#translation", "Another try at this passage in plain English words"); n0 = len(calls)
+        pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=15000)
+        print("7 query-only key: marked; auth now:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')")).get("auth"))
+        state["queryOnly"] = False
         if pg.locator("button:has-text('Remove key')").count() == 0: pg.click("button:has-text('Skill map & backup')")
         # Remove key → setup offered again
         pg.click("button:has-text('Remove key')"); pg.wait_for_timeout(300)

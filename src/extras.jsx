@@ -305,14 +305,14 @@ function OfflinePanel() {
   if (APP) {
     return (
       <p className="text-[14px] text-soft">
-        This is the app version{window.__LV_BUILT ? `, made ${window.__LV_BUILT}` : ""}. Once it has opened, it works with no signal. Progress is kept on this device, separate from the online page: use a backup code to move it either way. New versions arrive by themselves the next time you open it online. Claude’s mistake marking needs the online page.
+        This is the app version{window.__LV_BUILT ? `, made ${window.__LV_BUILT}` : ""}. Once it has opened, it works with no signal. Progress is kept on this device, separate from the online page: use a backup code to move it either way. New versions arrive by themselves the next time you open it online. AI marking works here with a free Gemini key (AI marking, above).
       </p>
     );
   }
   if (OFFLINE) {
     return (
       <p className="text-[14px] text-soft">
-        This is the offline copy{window.__LV_BUILT ? `, made ${window.__LV_BUILT}` : ""}. It needs no internet. Progress is kept in this browser, separate from the online page: use a backup code to move it either way. For updates, download a fresh copy from the online page. Claude’s mistake marking needs the online page.
+        This is the offline copy{window.__LV_BUILT ? `, made ${window.__LV_BUILT}` : ""}. It needs no internet. Progress is kept in this browser, separate from the online page: use a backup code to move it either way. For updates, download a fresh copy from the online page. AI marking works here online, with a free Gemini key (AI marking, above).
       </p>
     );
   }
