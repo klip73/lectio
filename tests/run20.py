@@ -52,6 +52,8 @@ try:
         print("  bad key:", pg.locator("text=isn’t valid").count() > 0)
         pg.fill("#ai-key", "AQ.GOODGOODGOODGOOD-GOODGOODGOODGOOD_123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=Gemini key added", timeout=5000)
         print("  saved:", pg.locator("text=Gemini key added").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["models"])
+        pg.click("button:has-text('Test AI')"); pg.wait_for_selector("text=Working:", timeout=10000)
+        print("  test button:", pg.locator("text=Working:").inner_text()[:90])
         # Read: Check Translation marks automatically
         pg.click("button:has-text('Hide Translation')"); pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=10000)
         print("2 read auto-marked:", pg.locator("text=Mostly right").count() > 0, "| issue:", pg.locator("ol li:has(.smallcaps)").first.inner_text().replace("\n", " ")[:80], "| calls:", calls[-1][0])

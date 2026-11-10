@@ -46,16 +46,16 @@ async function geminiErr(r) {
   }
   const reason = (JSON.stringify(body).match(/"reason":"([A-Z_]+)"/) || [])[1];
   if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg: `${msg}${reason ? ` (${reason}, ${r.status})` : ` (${r.status})`}` };
-  if (r.status === 404) return { code: "no_model", msg };
+  if (r.status === 404) return { code: "no_model", msg: `${msg} (404)` };
   if (r.status === 400 && /location|region|country/i.test(msg)) return { code: "region", msg };
-  return { code: "failed", msg };
+  return { code: "failed", msg: `${msg || r.statusText || "no message"} (${r.status})` };
 }
 function parseJsonText(t) {
   const s = (t || "").replace(/^\s*```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
   try { return JSON.parse(s); } catch (e) {}
   const a = s.search(/[\[{]/), z = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
   if (a >= 0 && z > a) { try { return JSON.parse(s.slice(a, z + 1)); } catch (e) {} }
-  throw { code: "invalid_json" };
+  throw { code: "invalid_json", msg: "Unreadable reply: " + s.slice(0, 120) };
 }
 /* Count today's markings (Pacific midnight is when Google resets the free allowance; a local day is close enough). */
 function countUse(model) {
@@ -127,17 +127,23 @@ async function geminiCall(prompt, opts = {}) {
         tried["auth"] = false;
         continue;
       }
-      if ((last.code === "rate_limited" || last.code === "no_model") && m !== models.lite) {
+      if ((last.code === "rate_limited" || last.code === "no_model" || last.code === "failed") && m !== models.lite) {
         if (last.code === "rate_limited" && last.daily) writeAi({ ...readAi(), full: today });
         continue;
       }
       throw last;
     }
-    const j = await r.json();
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
     const c = (j.candidates || [])[0];
-    const text = c && c.content && (c.content.parts || []).map(p => p.text || "").join("");
-    if (!text) throw { code: "refused" };
+    const text = c && c.content && (c.content.parts || []).filter(p => !p.thought).map(p => p.text || "").join("");
+    if (!text) {
+      last = { code: "refused", msg: `No answer from ${m}: ${(j.promptFeedback && j.promptFeedback.blockReason) || (c && c.finishReason) || "empty reply"}` };
+      if (m !== models.lite && !tried["empty"]) { tried["empty"] = true; continue; }
+      throw last;
+    }
     countUse(m);
+    writeAi({ ...readAi(), lastModel: m });
     return parseJsonText(text);
   }
   throw last || { code: "failed" };
@@ -163,6 +169,16 @@ function AiSetup({ onDone }) {
       setState({ s: "err", msg: e.code === "bad_key" ? "Google says this key isn’t valid. Copy it again from AI Studio." : e.code === "region" ? "Google’s free AI isn’t offered in your region." : "Couldn’t reach Google. Check your connection and try again." });
     }
   }
+  async function test() {
+    setState({ s: "busy", msg: "" });
+    try {
+      const r = await geminiSample().json('Reply with only this JSON, filling in the parsing: {"word":"amavit","parse":"..."}');
+      setState({ s: "ok", msg: `Working: ${readAi().lastModel || "Gemini"} answered “${String((r && r.parse) || JSON.stringify(r)).slice(0, 80)}”.` });
+    } catch (e) {
+      setState({ s: "err", msg: `Not working: ${tutorErrorText(e && e.code, e && e.msg)}${e && e.code ? ` [${e.code}]` : ""}` });
+    }
+    setA(readAi());
+  }
   function remove() { const n = { ...readAi() }; delete n.key; delete n.models; writeAi(n); setA(n); aiChanged(); setState({ s: "idle", msg: "" }); }
   const use = a.use && a.use.d === new Date().toDateString() ? a.use : null;
   return (
@@ -176,6 +192,7 @@ function AiSetup({ onDone }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-[14px] text-ok">✓ Gemini key added (…{a.key.slice(-4)})</span>
           {use && <span className="num text-[13px] text-soft">{use.n} marking{use.n === 1 ? "" : "s"} today</span>}
+          <Btn onClick={test} disabled={state.s === "busy"}>{state.s === "busy" ? "Testing…" : "Test AI"}</Btn>
           <button type="button" onClick={remove} className="text-[13px] text-soft underline">Remove key</button>
         </div>
       ) : (

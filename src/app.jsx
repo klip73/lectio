@@ -1131,7 +1131,7 @@ function tutorErrorText(code, detail) {
   if (code === "session_expired") return "Sign in to Claude again, then try again.";
   if (code === "refused") return "Claude couldn’t check this translation. Try rewording it.";
   if (code === "prompt_too_large") return "This translation is too long to check in one go.";
-  return "The check didn’t finish. Try again.";
+  return "The check didn’t finish." + (detail ? ` (${detail})` : code ? ` (${code})` : "") + " Try again, or use Test AI in Skill map & backup → AI marking.";
 }
 
 /* Compact parsing notes: only words whose form matters (verbs, nouns, adjectives, pronouns). */
@@ -1191,6 +1191,7 @@ v: got = no errors (minor allowed), partly = sense right with errors, review = s
 function cleanFeedback(raw) {
   if (!raw || typeof raw !== "object") return null;
   const str = (x, n) => (typeof x === "string" ? x.trim().slice(0, n) : "");
+  if (Array.isArray(raw)) raw = raw.length && raw[0] && (raw[0].i || raw[0].v) ? raw[0] : { i: raw };   // some models reply with the issue list alone
   const list = Array.isArray(raw.i) ? raw.i : Array.isArray(raw.issues) ? raw.issues : [];
   const issues = list.slice(0, 6).map(x => {
     const i = x || {};
