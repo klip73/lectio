@@ -16,11 +16,12 @@ function LibraryMode({ onTap, onTable }) {
   const topRef = useRef(null);
   useEffect(() => { libGet("index").then(setIdx).catch(() => setErr("The library didn’t load. Check your connection and try again.")); }, []);
   useEffect(() => {
-    if (!open) { setWork(null); return; }
+    if (!open || open === "summa") { setWork(null); return; }
     let alive = true; setWork(null);
     libGet(open).then(w => alive && setWork(w)).catch(() => alive && setErr("This book didn’t load. Check your connection and try again."));
     return () => { alive = false; };
   }, [open]);
+  if (open === "summa") return <SummaReader onTap={onTap} onTable={onTable} onBack={() => setPos({ ...pos, _open: null })} />;
   if (err) return <p className="text-[14px] text-warn">{err}</p>;
   if (!idx) return <p className="text-[15px] text-soft">Loading the library…</p>;
   if (!open) {
@@ -30,6 +31,11 @@ function LibraryMode({ onTap, onTable }) {
           <h2 className="latin text-[1.15rem] font-bold text-ink">Library</h2>
           <p className="mt-1 text-[14px] leading-snug text-soft">Classics of the Church in Latin, for reading a little every day. Latin only: tap any word for its parsing, and it joins your vocabulary deck. Your place in each book is kept.</p>
         </section>
+        <button type="button" onClick={() => setPos({ ...pos, _open: "summa" })} className="rounded-lg border border-rubric bg-leaf px-4 py-3 text-left hover:bg-rubrictint">
+          <span lang="la" className="latin block text-[1.08rem] font-bold text-ink">Summa Theologiae</span>
+          <span className="block text-[13px] text-rubric">St Thomas Aquinas · complete</span>
+          <span className="mt-1 block text-[13px] leading-snug text-soft">All four parts, every question and article, Latin beside the Dominican English. Tap any word for its parsing; add any article to your class quiz in one tap.</span>
+        </button>
         <div className="grid gap-2 sm:grid-cols-2">
           {idx.works.map(w => {
             const at = pos[w.id];

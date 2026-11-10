@@ -8,6 +8,7 @@ function readClass() { const c = readLocal(CLASS_KEY); return c && typeof c === 
 const writeClass = c => writeLocal(CLASS_KEY, c);
 /* Which part of a Summa article a paragraph is. */
 function stPart(la, prev) {
+  if (/^\s*Ad \w+ sic proceditur/i.test(la)) return "obj";   // the article's opening: "Ad secundum sic proceditur. Videtur quod…"
   if (/^\s*Sed contra/i.test(la)) return "sc";
   if (/^\s*Respondeo/i.test(la)) return "resp";
   if (/^\s*Ad (primum|secundum|tertium|quartum|quintum|sextum|septimum|octavum|nonum|decimum|undecimum|duodecimum|\w+um) /i.test(la)) return "ad";
@@ -114,6 +115,18 @@ function classInfo(l, lex, V, own) {
   if (li === undefined) return o ? { lemma: l, head: o.head, gloss: o.gloss, full: o.gloss, pos: "" } : null;
   return { lemma: l, head: (o && !o.gloss && o.head) || lex.lemmas[li][2] || l, gloss: o && o.gloss ? o.gloss : shortGloss(lex.lemmas[li][1]), full: o && o.gloss ? o.gloss : lex.lemmas[li][1], pos: V.posOf[li] };
 }
+/* Recompute a class list's words from its sections and own words, and save it. Also used by the Summa reader's "Add to my class quiz". */
+async function rebuildClass(next, lex) {
+  const { words, total, unknown } = await classWords(next.sections, lex, next.basic);
+  /* the student's own words come first (their teacher's list), then the sections' words */
+  const ownW = (next.own || []).map(o => [ownKey(o), 1, "Your list", "", -1]);
+  const same = (a, b) => a === b || n1(a) === n1(b);
+  const merged = [...ownW, ...words.filter(w => !ownW.some(o => same(o[0], w[0])))];
+  ownW.forEach(o => { const w = words.find(x => same(x[0], o[0])); if (w) { o[1] = w[1] + 1; o[2] = w[2]; o[3] = w[3]; o[4] = w[4]; } });
+  const cls = { ...next, words: merged };
+  writeClass(cls);
+  return { cls, total, unknown };
+}
 const shortGloss = g => (g || "").split(/[;(]/)[0].replace(/\s+/g, " ").trim().slice(0, 60);
 
 /* Quiz: multiple choice both ways; every answer also grades the word's flashcard. */
@@ -197,7 +210,7 @@ function ClassQuiz({ words, lex, V, n, onGrade, onDone, own }) {
   );
 }
 
-function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
+function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
   const [cls, setCls0] = useState(readClass);
   const setCls = c => { setCls0(c); writeClass(c); };
   const [t, setT] = useState("nt");
@@ -219,15 +232,8 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
   const nCh = BOOK[b] ? BOOK[b][2].length : 1;
   async function rebuild(next) {
     setBusy(true);
-    try {
-      const { words, total, unknown } = await classWords(next.sections, lex, next.basic);
-      /* the student's own words come first (their teacher's list), then the sections' words */
-      const ownW = (next.own || []).map(o => [ownKey(o), 1, "Your list", "", -1]);
-      const same = (a, b) => a === b || n1(a) === n1(b);
-      const merged = [...ownW, ...words.filter(w => !ownW.some(o => same(o[0], w[0])))];
-      ownW.forEach(o => { const w = words.find(x => same(x[0], o[0])); if (w) { o[1] = w[1] + 1; o[2] = w[2]; o[3] = w[3]; o[4] = w[4]; } });
-      setCls({ ...next, words: merged }); setStats({ total, unknown });
-    } finally { setBusy(false); }
+    try { const { cls: c, total, unknown } = await rebuildClass(next, lex); setCls0(c); setStats({ total, unknown }); }
+    finally { setBusy(false); }
   }
   const [ownText, setOwnText] = useState("");
   function addOwn() {
@@ -247,6 +253,8 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
   const sel = "rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink";
   if (quiz) {
     const pool = quiz.only ? words.filter(w => quiz.only.includes(w[0])) : words;
+    if (quiz.write) return <WriteQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade} ai={ai}
+      onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), write: true } : null)} />;
     return <ClassQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade}
       onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now() } : null)} />;
   }
@@ -335,7 +343,8 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
             {stats && stats.unknown > 0 && <span className="text-[12px] text-soft">{stats.unknown} of {stats.total} word forms had no parsing and are left out</span>}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Btn variant="primary" onClick={onLearn}>Learn with flashcards</Btn>
+            <Btn onClick={onLearn}>Learn with flashcards</Btn>
+            <Btn variant="primary" onClick={() => setQuiz({ n: 20, only: null, k: Date.now(), write: true })}>Write-it-out quiz (20)</Btn>
             <Btn onClick={() => setQuiz({ n: 20, only: null, k: Date.now() })}>Quiz me (20)</Btn>
             {words.length > 20 && <Btn onClick={() => setQuiz({ n: words.length, only: null, k: Date.now() })}>Quiz me on all {words.length}</Btn>}
             {words.length - knownN > 0 && knownN > 0 && <Btn onClick={() => { const left = words.filter(w => !(vc[w[0]] && vc[w[0]].box >= 2)).map(w => w[0]); setQuiz({ n: left.length, only: left, k: Date.now() }); }}>Quiz the {words.length - knownN} not yet known</Btn>}
@@ -365,5 +374,148 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
         </section>
       )}
     </div>
+  );
+}
+
+/* ---------- Write-it-out quiz, as in class: given the first form, write the rest of the dictionary entry and the meaning ----------
+   Verbs: the other principal parts; nouns: genitive and gender; adjectives: the other endings; other words: the meaning only.
+   Forms are checked part by part (accepting -are, -a -um, m./masc., gen.); the meaning loosely, with the student's own say. */
+const wNorm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/j/g, "i").replace(/v/g, "u");
+function entryParts(head, pos) {
+  const h = (head || "").replace(/\s+/g, " ").trim();
+  if (!h || !h.includes(",")) return null;
+  const gm = h.match(/\((m|f|n|c)\.?\)/), gender = gm ? gm[1] : null;
+  const bits = h.replace(/\([^)]*\)/g, "").split(",").map(x => x.trim()).filter(Boolean);
+  const first = bits[0], rest = bits.slice(1).map(x => x.replace(/^gen\.\s*/, ""));
+  const kind = /^V/.test(pos) ? "verb" : gender ? "noun" : /^(A|P)/.test(pos) ? "adj" : null;
+  if (!kind || !rest.length) return null;
+  return { first, rest, gender, kind };
+}
+/* does one student piece match one expected part? "-are" ~ "amare", "-a" ~ "-a", "bona" ~ "-a" */
+function partOk(got, want, first) {
+  const g = wNorm(got).replace(/[^a-z\- ]/g, "").trim(), w = wNorm(want).replace(/[^a-z\- ]/g, "").trim();
+  if (!g) return false;
+  if (g === w) return true;
+  const wfull = w.startsWith("-") ? w.slice(1) : w, gfull = g.startsWith("-") ? g.slice(1) : g;
+  if (g.startsWith("-")) return wfull.endsWith(gfull) && gfull.length >= 1;
+  if (w.startsWith("-")) return gfull.endsWith(wfull) && Math.abs(gfull.length - (wNorm(first).length + wfull.length - 2)) <= 3;
+  return gfull === wfull || gfull.replace(/ sum$/, "") === wfull.replace(/ sum$/, "");
+}
+function checkEntry(ans, ep) {
+  const raw = wNorm(ans).replace(/\bgen\.?\s*/g, "").replace(/[;/]/g, ",");
+  const genderIn = (raw.match(/\b(masc|masculine|m|fem|feminine|f|neut|neuter|n|c|common)\b\.?/g) || []).map(x => x[0] === "c" ? "c" : x[0]);
+  const pieces = raw.replace(/\b(masc|masculine|m|fem|feminine|f|neut|neuter|n|c|common)\b\.?/g, " ").split(/[,\s]+/).map(x => x.trim()).filter(x => x && x !== "sum");
+  const want = ep.rest.map(x => x.replace(/ sum$/, ""));
+  const res = want.map((w, i) => ({ want: ep.rest[i], ok: pieces.some(p => partOk(p, w, ep.first)) }));
+  if (ep.kind === "noun") res.push({ want: ep.gender + ".", ok: genderIn.includes(ep.gender) || (ep.gender === "c" && genderIn.some(g => "mf".includes(g))) });
+  return res;
+}
+const EN_STOP = new Set("the a an of to be in on at by for and or as is it his her their its one who which that with from into upon".split(" "));
+function meaningOk(ans, gloss) {
+  const g = wNorm(gloss), ws = wNorm(ans).split(/[^a-z]+/).filter(w => w.length >= 3 && !EN_STOP.has(w));
+  return ws.length > 0 && ws.some(w => g.includes(w.slice(0, Math.min(Math.max(4, w.length - 3), 6))));
+}
+function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
+  const [items] = useState(() => {
+    const r = rng(String(Date.now()));
+    return shuffle(words, r).map(w => {
+      const inf = classInfo(w[0], lex, V, own);
+      if (!inf) return null;
+      const ep = entryParts(inf.head, inf.pos || "");
+      const syn = ai && ep && r() < 0.25 ? (r() < 0.5 ? "synonym" : "antonym") : null;
+      return { key: w[0], inf, ep, prompt: ep ? ep.first : inf.head, syn };
+    }).filter(Boolean).slice(0, n);
+  });
+  const [i, setI] = useState(0);
+  const [form, setForm] = useState(""), [mean, setMean] = useState(""), [syn, setSyn] = useState("");
+  const [res, setRes] = useState(null);   // { parts, meaningAuto, synRes }
+  const [mOk, setMOk] = useState(null);
+  const [score, setScore] = useState({ got: 0, partly: 0, review: 0, missed: [] });
+  const formRef = useRef(null);
+  if (!items.length) return <p className="text-[15px] text-soft">No words to quiz yet.</p>;
+  if (i >= items.length) {
+    const tot = items.length;
+    return (
+      <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5" aria-label="Quiz result">
+        <h3 className="latin text-[1.2rem] font-bold text-ink">{score.got} of {tot} fully right{score.partly ? `, ${score.partly} partly` : ""}</h3>
+        {score.missed.length > 0 && (<>
+          <p className="text-[14px] text-soft">To go over:</p>
+          <ul className="flex flex-col gap-1 text-[15px]">{score.missed.map(it => <li key={it.key}><span lang="la" className="latin font-bold text-ink">{it.inf.head}</span> <span className="text-soft">· {shortGloss(it.inf.full)}</span></li>)}</ul>
+        </>)}
+        <div className="flex flex-wrap gap-2">
+          {score.missed.length > 0 && <Btn variant="primary" onClick={() => onDone(score.missed.map(x => x.key))}>Write these out again</Btn>}
+          <Btn onClick={() => onDone(null)}>Back to my list</Btn>
+        </div>
+      </section>
+    );
+  }
+  const it = items[i];
+  async function check() {
+    const parts = it.ep ? checkEntry(form, it.ep) : [];
+    const auto = meaningOk(mean, it.inf.full);
+    setMOk(auto ? true : null);
+    let synRes = null;
+    if (it.syn && syn.trim()) {
+      synRes = { status: "loading" };
+      setRes({ parts, auto, synRes });
+      try {
+        const sm = await getSample();
+        const raw = sm ? await sm.json(`Latin vocabulary quiz. Word: ${it.inf.head} ("${shortGloss(it.inf.full)}"). A seminary student was asked for a Latin ${it.syn} and wrote: "${syn.trim().slice(0, 60)}". Is it a fair ${it.syn} (classical or ecclesiastical Latin; close meaning is enough for a synonym)? Reply with only JSON: {"ok":true|false,"note":"max 15 words","ex":["two good ${it.syn}s"]}`, { modelTier: "quick" }) : null;
+        synRes = raw ? { status: "done", ok: !!raw.ok, note: String(raw.note || "").slice(0, 120), ex: Array.isArray(raw.ex) ? raw.ex.slice(0, 2).map(String) : [] } : { status: "none" };
+      } catch (e) { synRes = { status: "none" }; }
+    }
+    setRes({ parts, auto, synRes });
+  }
+  function next(meaningRight) {
+    const formsOk = res.parts.every(p => p.ok);
+    const m = meaningRight != null ? meaningRight : !!mOk;
+    const g = formsOk && m ? "got" : formsOk || m ? "partly" : "review";
+    onGrade(it.key, g);
+    setScore(s => ({ ...s, [g]: s[g] + 1, missed: g === "got" ? s.missed : [...s.missed, it] }));
+    setI(i + 1); setForm(""); setMean(""); setSyn(""); setRes(null); setMOk(null);
+    requestAnimationFrame(() => formRef.current && formRef.current.focus());
+  }
+  const what = !it.ep ? "" : it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "the genitive and gender" : "the other endings (or genitive)";
+  const inp = "w-full rounded-md border border-rule bg-paper px-3 py-2 text-[16px] text-ink";
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7" aria-label="Write-it-out question">
+      <div className="flex items-baseline justify-between text-[13px] text-soft">
+        <span className="smallcaps font-semibold text-rubric">Write out the dictionary entry</span>
+        <span className="num">{i + 1} of {items.length}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--rule)]" aria-hidden="true"><div className="h-full rounded-full bg-[var(--rubric)]" style={{ width: `${(i / items.length) * 100}%` }} /></div>
+      <p lang="la" className="latin text-[1.8rem] font-bold leading-tight text-ink">{it.prompt}{it.ep ? "," : ""}</p>
+      {it.ep && (
+        <label className="flex flex-col gap-1 text-[14px] text-ink">{what[0].toUpperCase() + what.slice(1)}
+          <input ref={formRef} lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={form} readOnly={!!res} onChange={e => setForm(e.target.value)}
+            placeholder={it.ep.kind === "verb" ? "-are, -avi, -atum" : it.ep.kind === "noun" ? "-ae, f." : "-a, -um"} className={`${inp} latin`} />
+        </label>
+      )}
+      <label className="flex flex-col gap-1 text-[14px] text-ink">Meaning
+        <input autoComplete="off" value={mean} readOnly={!!res} onChange={e => setMean(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res && !it.syn) check(); }} className={inp} />
+      </label>
+      {it.syn && (
+        <label className="flex flex-col gap-1 text-[14px] text-ink">A Latin {it.syn} (optional, checked by the AI)
+          <input lang="la" autoComplete="off" autoCapitalize="off" value={syn} readOnly={!!res} onChange={e => setSyn(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res) check(); }} className={`${inp} latin`} />
+        </label>
+      )}
+      {!res ? <div><Btn variant="primary" onClick={check} disabled={!mean.trim() && !form.trim()}>Check</Btn></div> : (
+        <div className="reveal flex flex-col gap-2 border-l-2 border-rubric pl-3">
+          <p lang="la" className="latin text-[1.15rem] font-bold text-ink">{it.inf.head}</p>
+          {res.parts.length > 0 && (
+            <p className="flex flex-wrap gap-1.5 text-[14px]">{res.parts.map((p, k) => <span key={k} className={`rounded px-1.5 py-0.5 ${p.ok ? "bg-oktint text-ok" : "bg-warntint text-warn"}`}>{p.ok ? "✓" : "✗"} {p.want}</span>)}</p>
+          )}
+          <p className="text-[15px] text-ink">{it.inf.full}</p>
+          {res.synRes && (res.synRes.status === "loading" ? <p className="text-[14px] text-soft">Checking your {it.syn}…</p>
+            : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : "text-warn"}`}>{res.synRes.ok ? "✓" : "✗"} {it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
+          {mOk ? (
+            <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-ok">Your meaning matches.</span><Btn variant="primary" onClick={() => next(true)}>Next →</Btn><button type="button" className="text-[13px] text-soft underline" onClick={() => next(false)}>Actually, I had the meaning wrong</button></div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-soft">Was your meaning right?</span><Btn variant="ok" onClick={() => next(true)}>Yes</Btn><Btn variant="warn" onClick={() => next(false)}>No</Btn></div>
+          )}
+        </div>
+      )}
+      <button type="button" className="self-start text-[13px] text-soft underline" onClick={() => setI(items.length)}>End the quiz</button>
+    </section>
   );
 }

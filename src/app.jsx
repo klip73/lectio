@@ -1404,6 +1404,7 @@ function MistakeSummary({ log }) {
 /*@include placement.jsx*/
 /*@include office.jsx*/
 /*@include library.jsx*/
+/*@include summareader.jsx*/
 
 /* ---------- Vocabulary trainer ---------- */
 function useLex(on) {
@@ -1483,7 +1484,7 @@ function Snippet({ text }) {
   return text.split(/\[\[|\]\]/).map((part, i) => i % 2 ? <mark key={i} className="rounded bg-rubrictint px-0.5 font-bold text-rubric">{part}</mark> : part);
 }
 
-function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeCommon }) {
+function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeCommon, aiOn }) {
   const { lex, err } = useLex(true);
   const V = lex ? vocabOf(lex) : null;
   const [vocab, setVocab] = useState(null);
@@ -1535,7 +1536,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
       {deck === "class" && learn > 0 && <button type="button" className="self-start text-[14px] text-rubric underline underline-offset-2" onClick={() => setLearn(0)}>‹ My class list (quizzes, word list)</button>}
     </div>
   );
-  if (deck === "class" && !learn) return <>{deckPicker}{lex ? <ClassVocab lex={lex} V={V} prog={prog} onGrade={onGrade} onLearn={() => setLearn(Date.now())} /> : <article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || "Loading the word list…"}</article>}</>;
+  if (deck === "class" && !learn) return <>{deckPicker}{lex ? <ClassVocab lex={lex} V={V} prog={prog} onGrade={onGrade} ai={aiOn} onLearn={() => setLearn(Date.now())} /> : <article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || "Loading the word list…"}</article>}</>;
   if (!lex || !cards) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || verr || "Loading the word list…"}</article></>;
 
   const vc = prog.vcards || {};
@@ -2660,7 +2661,7 @@ function App() {
       ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
       ) : mode === "vocab" ? (
-        <VocabMode prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
+        <VocabMode aiOn={tutorAvail === true} prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
           includeCommon={!!prefs.vocabAll} setIncludeCommon={v => setPrefs(p => ({ ...p, vocabAll: v }))} />
       ) : mode === "exam" ? (
         <>

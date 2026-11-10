@@ -19,3 +19,4 @@ Also run `node ../tools/forms/check.mjs ../data`: the form generator against eve
 - `run20.py`: AI marking with a Gemini key (Google mocked): setup, bad key, marking in Passages and exam sittings, Flash → Flash-Lite at the daily limit, Speak button, AI-marked placement.
 - `run21.py`: the calendar picker for Divinum Officium's other versions (needs a version packed in data/office/v/).
 - `run22.py`: My class list: NT chapters and Summa sed contra / respondeo, word list, quiz, flashcards.
+- `run23.py`: the Summa reader (II-II q.27 a.2: parts, English, word parsing, next article, add to class quiz).

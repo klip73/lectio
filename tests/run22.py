@@ -72,6 +72,24 @@ try:
             q.locator("button:has-text('Next'), button:has-text('See my score')").click()
         print("  quiz with own words ran:", pg.locator("[aria-label='Quiz result'] h3").inner_text())
         pg.click("button:has-text('Back to my list')")
+        # write-it-out quiz
+        pg.click("button:has-text('Write-it-out quiz')"); pg.wait_for_selector("[aria-label='Write-it-out question']", timeout=10000)
+        shown = []
+        for i in range(6):
+            q = pg.locator("[aria-label='Write-it-out question']")
+            if not q.count(): break
+            prompt = q.locator("p.latin").first.inner_text(); label = q.locator("label").first.inner_text().split("\n")[0]
+            inputs = q.locator("input")
+            if inputs.count() >= 2: inputs.nth(0).fill("-are, -avi, -atum")
+            inputs.nth(inputs.count() - 1 if inputs.count() < 3 else 1).fill("to love")
+            q.locator("button:has-text('Check')").click(); pg.wait_for_timeout(300)
+            marks = q.locator("p span.rounded").all_inner_texts()
+            shown.append((prompt, label, marks))
+            b2 = q.locator("button:has-text('Next'), button:has-text('No')").first; b2.click(); pg.wait_for_timeout(150)
+        for x in shown: print("  W", x)
+        pg.click("text=End the quiz") if pg.locator("text=End the quiz").count() else None
+        print("8 write quiz result:", pg.locator("[aria-label='Quiz result'] h3").inner_text())
+        pg.click("button:has-text('Back to my list')")
         pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
         print("6 after reload, deck kept:", pg.locator("[aria-label='My class sections'] li").all_inner_texts())
         b.close()

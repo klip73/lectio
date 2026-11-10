@@ -8,6 +8,21 @@ a list of possible ids (most likely first), or -1 when the parsed corpora don't 
 import sys, os, re, json, unicodedata, collections
 SRC, DATA = sys.argv[1], sys.argv[2]
 GEN = json.load(open(sys.argv[3])) if len(sys.argv) > 3 else {}   # forms made by the app's morphology generator
+EN_DIR = sys.argv[4] if len(sys.argv) > 4 else None                 # github.com/Jacob-Gray/summa.json, json/ (Dominican translation)
+EN_PART = {"1": "FP", "1-2": "FS", "2-2": "SS", "3": "TP"}
+def english(pid, qn):
+    """The Dominican English of one question, per article: title, objections, on the contrary, I answer that, replies."""
+    if not EN_DIR: return None
+    f = os.path.join(EN_DIR, EN_PART[pid], f"{EN_PART[pid]}-Question-{qn}.json")
+    if not os.path.exists(f): return None
+    d = json.load(open(f))
+    out = {}
+    clean = lambda xs: [re.sub(r"\s+", " ", x).strip() for x in xs if x and x.strip()]
+    for k, a in (d.get("article") or {}).items():
+        num = lambda dd: [clean(dd[i].get("text", [])) for i in sorted(dd, key=lambda z: int(z) if str(z).isdigit() else 99)] if isinstance(dd, dict) else []
+        out[str(k)] = {"t": " ".join(a.get("title") or []), "o": [" ".join(x) for x in num(a.get("objections") or {})],
+                       "c": clean(a.get("counter") or []), "b": clean(a.get("body") or []), "r": [" ".join(x) for x in num(a.get("replies") or {})]}
+    return {"t": d.get("title", ""), "a": out}
 OUT = os.path.join(DATA, "summa")
 PARTS = [("1", "Prima Pars"), ("1-2", "Prima Secundae"), ("2-2", "Secunda Secundae"), ("3", "Tertia Pars")]
 WORD = re.compile(r"[A-Za-z]+")
@@ -66,9 +81,14 @@ for (pid, pname), L in zip(PARTS, parts):
         if q is None: return
         arts = q["arts"]
         titles = art_titles(q["pro"], len(arts))
-        qs.append([q["n"], q_title(q["pro"]), titles])
+        en = english(pid, q["n"])
+        if en: titles = [t or (en["a"].get(str(i + 1)) or {}).get("t", "") for i, t in enumerate(titles)]
+        qs.append([q["n"], q_title(q["pro"]), titles] + ([en["t"], [(en["a"].get(str(i + 1)) or {}).get("t", "") for i in range(len(arts))]] if en else []))
         w = [[[entry(x) for x in WORD.findall(par)] for par in a] for a in arts]
-        chunks[(q["n"] - 1) // 20][str(q["n"])] = {"a": arts, "w": w}
+        rec = {"a": arts, "w": w}
+        en = english(pid, q["n"])
+        if en: rec["e"] = [en["a"].get(str(i + 1)) for i in range(len(arts))]; rec["et"] = en["t"]
+        chunks[(q["n"] - 1) // 20][str(q["n"])] = rec
     for l in L:
         m = re.match(r"Quaestio (\d+)$", l)
         if m: flush(); q = {"n": int(m.group(1)), "pro": "", "arts": []}; mode = "q"; continue

@@ -24,6 +24,7 @@ It ships three ways, all built from the same source:
       guide.jsx      Guide tab, and the progress file (save / load)
       placement.jsx  placement check: adaptive, objective questions that set the starting level in each part
       office.jsx     Liturgy: each day's Office (all eight hours) and Mass in Latin and English, with rubrics; calendar; prayers; the 1960 Code of Rubrics
+      summareader.jsx the whole Summa in the Library: Latin beside the Dominican English, tap for parsing, add to class quiz
       library.jsx    Library: classic Church texts in Latin, chapter by chapter, with word help and your place kept
       page.html      page template: fonts, colour tokens, small CSS
       tw.css         Tailwind setup
@@ -79,7 +80,8 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     python3 -I tools/office/build_prayers.py ../sources/do tools/office/perllib data
     git clone https://github.com/androur/Summa-Theologica-Latin ../sources/summa-latin
     node tools/summa/generated_forms.mjs data /tmp/genforms.json
-    python3 -I tools/summa/build_summa.py ../sources/summa-latin/SummaTheologica.txt data /tmp/genforms.json
+    git clone https://github.com/Jacob-Gray/summa.json ../sources/summa-english
+    python3 -I tools/summa/build_summa.py ../sources/summa-latin/SummaTheologica.txt data /tmp/genforms.json ../sources/summa-english/json
     git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
     python3 -I tools/library/build_library.py ../sources/tll data
 
