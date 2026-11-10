@@ -44,6 +44,7 @@ try:
         pg.click("button:has-text('Find my level')"); pg.wait_for_selector("[aria-label='Placement check'] button:has-text('Start'):not([disabled])", timeout=20000)
         pg.click("[aria-label='Placement check'] button:has-text('Start')")
         for i in range(15):
+            if pg.locator("[aria-label='Placement result']").count(): break   # shorter with AI marking on
             sec = pg.locator("[aria-label='Placement question']"); sec.locator("p[lang='la']").wait_for(timeout=20000)
             if sec.locator("#pl-tr").count():   # with AI marking on: translate, then it is marked
                 pg.fill("#pl-tr", "A translation of this sentence"); sec.locator("button:has-text('Mark it')").click()
@@ -51,7 +52,7 @@ try:
             for _ in range(2):
                 btn = sec.locator("button.rounded-md.border.text-left:not([disabled])").first
                 if btn.count(): btn.click(); pg.wait_for_timeout(50)
-            sec.locator("button:has-text('Next passage'), button:has-text('See my level')").click()
+            sec.locator("button:has-text('Next passage'), button:has-text('See my level')").click(); pg.wait_for_timeout(300)
         print("3 result:", pg.locator("[aria-label='Placement result']").inner_text().replace("\n", " | ")[:420])
         print("  stored:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-v2')")).get("ability"))
         pg.click("button:has-text('Start practising')"); pg.wait_for_selector("text=Tap any word", timeout=15000)

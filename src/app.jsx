@@ -1454,7 +1454,15 @@ function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
   // Part decks also skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
   if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => notBasic(lex.lemmas[li][0]) && !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex, aid]) => word(lex.lemmas[li][0], { ref, ex, aid })).filter(Boolean) : null;
   if (deck === "tap") return (prog.vtap || []).map(l => word(l)).filter(Boolean);
-  if (deck === "class") return (readClass().words || []).map(([l, n, ref, ex, aid]) => word(l, { ref, ex, aid })).filter(Boolean);
+  if (deck === "class") {
+    const cl = readClass();
+    return (cl.words || []).map(([l, n, ref, ex, aid]) => {
+      const inf = classInfo(l, lex, V, cl.own);
+      if (!inf) return null;
+      const base = V.byLemma[l] !== undefined ? word(l, { ref, ex, aid }) : null;
+      return base ? { ...base, back: inf.full || base.back } : { key: l, front: inf.head, sub: "Your list", back: inf.full, aid: -1 };
+    }).filter(Boolean);
+  }
   if (deck === "pp") return V.order.filter(notBasic).map(l => { const li = V.byLemma[l]; const [, gloss, pp] = lex.lemmas[li]; return pp && /^V/.test(V.posOf[li]) && pp.includes(",") ? { key: "pp:" + l, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }).filter(Boolean);
   if (deck === "mk") return (prog.mistakes || []).slice().reverse().filter(m => m.latin && m.fix)
     .map(m => ({ key: "mk:" + m.ref + ":" + m.latin, front: m.latin, sub: `${ISSUE_TYPES[m.type] || "Mistake"} · ${m.ref}`, back: m.fix, extra: m.concept ? CONCEPTS[m.concept] : "", mk: true }));
@@ -2628,10 +2636,15 @@ function App() {
         </nav>
         {group === "study" && (
           <nav className="flex flex-wrap items-center gap-1 self-start" aria-label="Practice mode">
-            {[["drill", "Verse drill"], ["read", `Passages${dueP ? ` · ${dueP} due` : ""}`], ["vocab", `Vocabulary${dueV ? ` · ${dueV} due` : ""}`], ["forms", "Forms"], ["exam", "Exam sitting"]].map(([m, l]) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); resetView(); }}
-                className={`rounded-md border px-3 py-1 text-[14px] ${mode === m ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
-            ))}
+            {[["drill", "Verse drill"], ["read", `Passages${dueP ? ` · ${dueP} due` : ""}`], ["class", "Class quiz"], ["vocab", `Vocabulary${dueV ? ` · ${dueV} due` : ""}`], ["forms", "Forms"], ["exam", "Exam sitting"]].map(([m0, l]) => {
+              /* "Class quiz" is the Vocabulary tab opened on My class list. */
+              const m = m0 === "class" ? "vocab" : m0;
+              const on = m0 === "class" ? mode === "vocab" && prefs.deck === "class" : m0 === "vocab" ? mode === "vocab" && prefs.deck !== "class" : mode === m;
+              return (
+              <button key={m0} type="button" aria-pressed={on} onClick={() => { if (m0 === "class") setPrefs(p => ({ ...p, deck: "class" })); else if (m0 === "vocab" && prefs.deck === "class") setPrefs(p => ({ ...p, deck: "all" })); setMode(m); resetView(); }}
+                className={`rounded-md border px-3 py-1 text-[14px] ${on ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
+              );
+            })}
           </nav>
         )}
       </div>

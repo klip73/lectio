@@ -44,17 +44,18 @@ async function classWords(sections, lex, basic) {
       const [li, pos] = lex.ana[rd.ids[0]];
       const [lemma, gloss] = lex.lemmas[li];
       if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase()))) return;
-      if (!found[lemma]) {
+      const lk = n1(lemma);
+      if (!found[lk]) {
         const a = Math.max(0, k - 7), z = Math.min(words.length, k + 8);
         /* Rebuild the snippet from the text so punctuation survives; mark the word itself. */
         let from = 0, to = text.length, at = 0, atEnd = 0;
         const re = new RegExp(WORD_RE.source, "g"); let m, i = 0;
         while ((m = re.exec(text))) { if (i === a) from = m.index; if (i === k) { at = m.index; atEnd = m.index + m[0].length; } if (i === z - 1) to = m.index + m[0].length; i++; }
         const ex = (a > 0 ? "… " : "") + text.slice(from, at) + "[[" + text.slice(at, atEnd) + "]]" + text.slice(atEnd, to) + (z < words.length ? " …" : "");
-        found[lemma] = [lemma, 0, ref, ex, rd.kind === "context" ? rd.ids[0] : -1];
-        order.push(lemma);
+        found[lk] = [lemma, 0, ref, ex, rd.kind === "context" ? rd.ids[0] : -1];
+        order.push(lk);
       }
-      found[lemma][1]++;
+      found[lk][1]++;
     });
   }
   for (const s of sections) {
@@ -84,13 +85,42 @@ async function classWords(sections, lex, basic) {
   const words = order.map(l => found[l]).sort((x, y) => y[1] - x[1]);
   return { words, total, unknown };
 }
+/* Words a student types or pastes (e.g. a textbook chapter's vocabulary): one per line, the Latin entry, then optionally
+   " - ", ":", "=" or a tab and the meaning to learn. Matched to the dictionary where possible; the student's meaning wins. */
+const normLemmaCache = new WeakMap();
+function lemmaIndex(lex) {
+  if (normLemmaCache.has(lex)) return normLemmaCache.get(lex);
+  const m = {};
+  lex.lemmas.forEach(([l, g]) => { const k = n1(l).replace(/[^a-z]/g, ""); if (g && !(k in m)) m[k] = l; });
+  normLemmaCache.set(lex, m);
+  return m;
+}
+function parseOwn(text, lex) {
+  const idx = lemmaIndex(lex);
+  return text.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
+    const m = line.match(/^(.*?)(?:\s+[-–—=]\s+|\s*[:=\t]\s*)(.+)$/);
+    const head = (m ? m[1] : line).replace(/^\d+[.)]\s*/, "").trim();
+    const gloss = m ? m[2].trim() : "";
+    const first = (head.match(/[A-Za-zÀ-ÿ]+/) || [""])[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const lemma = idx[n1(first).replace(/[^a-z]/g, "")] || null;
+    return head ? { head, gloss, lemma } : null;
+  }).filter(Boolean);
+}
+const ownKey = o => o.lemma || "own:" + o.head.toLowerCase();
+/* A word's display entry in My class list: the student's own meaning when given, else the dictionary's. */
+function classInfo(l, lex, V, own) {
+  const o = (own || []).find(x => ownKey(x) === l);
+  const li = V.byLemma[o && o.lemma ? o.lemma : l];
+  if (li === undefined) return o ? { lemma: l, head: o.head, gloss: o.gloss, full: o.gloss, pos: "" } : null;
+  return { lemma: l, head: (o && !o.gloss && o.head) || lex.lemmas[li][2] || l, gloss: o && o.gloss ? o.gloss : shortGloss(lex.lemmas[li][1]), full: o && o.gloss ? o.gloss : lex.lemmas[li][1], pos: V.posOf[li] };
+}
 const shortGloss = g => (g || "").split(/[;(]/)[0].replace(/\s+/g, " ").trim().slice(0, 60);
 
 /* Quiz: multiple choice both ways; every answer also grades the word's flashcard. */
-function makeClassQuiz(words, lex, V, n, seed) {
+function makeClassQuiz(words, lex, V, n, seed, own) {
   const r = rng(seed);
   const pool = shuffle(words, r).slice(0, n);
-  const info = l => { const li = V.byLemma[l]; return li === undefined ? null : { lemma: l, head: lex.lemmas[li][2] || l, gloss: shortGloss(lex.lemmas[li][1]), pos: V.posOf[li] }; };
+  const info = l => classInfo(l, lex, V, own);
   const all = words.map(w => info(w[0])).filter(x => x && x.gloss);
   const extra = lex.freq.slice(100, 3000).map(([li]) => info(lex.lemmas[li][0])).filter(x => x && x.gloss);
   return pool.map((w, i) => {
@@ -100,14 +130,15 @@ function makeClassQuiz(words, lex, V, n, seed) {
     const same = x => x.lemma !== me.lemma && x.gloss !== me.gloss && (x.pos || "")[0] === (me.pos || "")[0];
     const cands = shuffle(all.filter(same), r).concat(shuffle(extra.filter(same), r), shuffle(all.filter(x => x.lemma !== me.lemma && x.gloss !== me.gloss), r));
     const opts = [me];
-    for (const c of cands) { if (opts.length >= 4) break; if (!opts.some(o => (toEn ? o.gloss : o.lemma) === (toEn ? c.gloss : c.lemma))) opts.push(c); }
+    for (const c of cands) { if (opts.length >= 4) break; if (!opts.some(o => (toEn ? o.gloss : o.lemma) === (toEn ? c.gloss : c.lemma) || o.gloss === c.gloss)) opts.push(c); }
     if (opts.length < 4) return null;
-    return { lemma: me.lemma, toEn, prompt: toEn ? me.head : me.gloss, ans: toEn ? me.gloss : me.lemma, opts: shuffle(opts, r).map(o => (toEn ? o.gloss : o.lemma)), ex: w[3], ref: w[2], full: lex.lemmas[V.byLemma[me.lemma]][1], head: me.head, key: i };
+    const la = x => (x.lemma.startsWith("own:") ? x.head : x.lemma);
+    return { lemma: me.lemma, toEn, prompt: toEn ? me.head : me.gloss, ans: toEn ? me.gloss : la(me), opts: shuffle(opts, r).map(o => (toEn ? o.gloss : la(o))), ex: w[3], ref: w[2], full: me.full, head: me.head, key: i };
   }).filter(Boolean);
 }
 
-function ClassQuiz({ words, lex, V, n, onGrade, onDone }) {
-  const [qs] = useState(() => makeClassQuiz(words, lex, V, n, String(Date.now())));
+function ClassQuiz({ words, lex, V, n, onGrade, onDone, own }) {
+  const [qs] = useState(() => makeClassQuiz(words, lex, V, n, String(Date.now()), own));
   const [i, setI] = useState(0);
   const [pick, setPick] = useState(null);
   const [wrong, setWrong] = useState([]);
@@ -190,8 +221,21 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
     setBusy(true);
     try {
       const { words, total, unknown } = await classWords(next.sections, lex, next.basic);
-      setCls({ ...next, words }); setStats({ total, unknown });
+      /* the student's own words come first (their teacher's list), then the sections' words */
+      const ownW = (next.own || []).map(o => [ownKey(o), 1, "Your list", "", -1]);
+      const same = (a, b) => a === b || n1(a) === n1(b);
+      const merged = [...ownW, ...words.filter(w => !ownW.some(o => same(o[0], w[0])))];
+      ownW.forEach(o => { const w = words.find(x => same(x[0], o[0])); if (w) { o[1] = w[1] + 1; o[2] = w[2]; o[3] = w[3]; o[4] = w[4]; } });
+      setCls({ ...next, words: merged }); setStats({ total, unknown });
     } finally { setBusy(false); }
+  }
+  const [ownText, setOwnText] = useState("");
+  function addOwn() {
+    const list = parseOwn(ownText, lex);
+    const prev = cls.own || [];
+    const keys = new Set(prev.map(ownKey));
+    rebuild({ ...cls, own: [...prev, ...list.filter(o => !keys.has(ownKey(o)))] });
+    setOwnText("");
   }
   function add() {
     const s = t === "nt" ? { t, b, c1: Math.min(c1, c2), c2: Math.max(c1, c2) } : { t: "sm", p: sp, q: sq, a: art, parts: parts.length ? parts : ST_PARTS.map(p => p[0]) };
@@ -203,7 +247,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
   const sel = "rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink";
   if (quiz) {
     const pool = quiz.only ? words.filter(w => quiz.only.includes(w[0])) : words;
-    return <ClassQuiz key={quiz.k} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade}
+    return <ClassQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade}
       onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now() } : null)} />;
   }
   return (
@@ -223,9 +267,16 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
         )}
         <div className="flex flex-col gap-2 border-t border-rule pt-3">
           <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-0.5 text-[14px]" role="group" aria-label="Text">
-            {[["nt", "New Testament"], ["st", "Summa"]].map(([k, l]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => setT(k)} className={`rounded px-2.5 py-1 ${t === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
+            {[["nt", "New Testament"], ["st", "Summa"], ["own", "My own words"]].map(([k, l]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => setT(k)} className={`rounded px-2.5 py-1 ${t === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
           </div>
-          {t === "nt" ? (
+          {t === "own" ? (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="cv-own" className="text-[14px] text-ink">Type or paste a word list, one word per line, with its meaning after a dash or colon if you want to learn your book’s wording:</label>
+              <textarea id="cv-own" rows={6} value={ownText} onChange={e => setOwnText(e.target.value)} placeholder={"gratia, gratiae, f. – grace, favor\ncaritas, caritatis, f. – charity, love\nbenevolentia – goodwill"}
+                className="w-full rounded-md border border-rule bg-paper px-3 py-2 text-[15px] leading-relaxed text-ink" style={{ fontFamily: "var(--font-latin)" }} />
+              <p className="text-[12px] text-soft">For your own textbook’s chapter vocabulary (Wheelock, Scanlon, Lingua Latina…). Words the app knows also get an example and their flashcard history; the meaning you give is the one you’re quizzed on.</p>
+            </div>
+          ) : t === "nt" ? (
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="cv-book" className="sr-only">Book</label>
               <select id="cv-book" value={b} onChange={e => { setB(e.target.value); setC1(1); setC2(1); }} className={sel}>{ntBooks.map(x => <option key={x[0]} value={x[0]}>{x[1]}</option>)}</select>
@@ -264,7 +315,10 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Btn variant="primary" onClick={add} disabled={busy}>{busy ? "Reading the text…" : "Add this section"}</Btn>
+            {t === "own"
+              ? <Btn variant="primary" onClick={addOwn} disabled={busy || !ownText.trim()}>{busy ? "Adding…" : "Add these words"}</Btn>
+              : <Btn variant="primary" onClick={add} disabled={busy}>{busy ? "Reading the text…" : "Add this section"}</Btn>}
+            {(cls.own || []).length > 0 && <Btn onClick={() => rebuild({ ...cls, own: [] })}>Clear my own words ({cls.own.length})</Btn>}
             {cls.sections.length > 0 && <Btn onClick={() => rebuild({ ...cls, sections: [] })}>Clear for a new week</Btn>}
           </div>
           <label className="flex items-center gap-2 text-[13px] text-soft">
@@ -294,7 +348,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn }) {
                 <thead className="text-soft"><tr className="border-b border-rule"><th className="py-1 pr-2 font-medium">Word</th><th className="py-1 pr-2 font-medium">Meaning</th><th className="num py-1 font-medium">×</th></tr></thead>
                 <tbody>
                   {words.map(w => {
-                    const li = V.byLemma[w[0]], [, gloss, head] = li !== undefined ? lex.lemmas[li] : [w[0], "", ""];
+                    const inf = classInfo(w[0], lex, V, cls.own) || { head: w[0], gloss: "" }, gloss = inf.full, head = inf.head;
                     const k = vc[w[0]];
                     return (
                       <tr key={w[0]} className="border-b border-rule align-top">
