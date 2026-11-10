@@ -1,6 +1,6 @@
 // Build the published page: precompile the app (JSX -> plain JS) and Tailwind CSS, then inline both.
 // Usage: node tools/build_page.mjs [out.html]
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -65,7 +65,15 @@ if (offline) {
   // The single offline file must stay under 16 MB, so it carries Matins and the Mass (not the other hours, "d-" files).
   if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f) && f !== "versions.json")) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
   const libDir = path.join(root, "data", "library");
-  if (!app) for (const f of readdirSync(libDir).filter(f => f.endsWith(".json")).sort()) pack["library/" + f] = gzipSync(readFileSync(path.join(libDir, f)), { level: 9 }).toString("base64");
+  if (!app) {
+    // The offline copy is near its 16 MB limit: only the works marked offline, their index, and their smaller word index.
+    const libIdx = JSON.parse(readFileSync(path.join(libDir, "index.json"), "utf8"));
+    const keep = libIdx.works.filter(w => w.offline);
+    const z = b => gzipSync(b, { level: 9 }).toString("base64");
+    pack["library/index.json"] = z(Buffer.from(JSON.stringify({ ...libIdx, works: keep })));
+    pack["library/forms.json"] = z(readFileSync(path.join(libDir, existsSync(path.join(libDir, "forms0.json")) ? "forms0.json" : "forms.json")));
+    for (const w of keep) pack[`library/${w.id}.json`] = z(readFileSync(path.join(libDir, w.id + ".json")));
+  }
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const reactTags = /<script src="https:\/\/cdnjs[^"]*react\.production\.min\.js"><\/script>\s*<script src="https:\/\/cdnjs[^"]*react-dom\.production\.min\.js"><\/script>/;
   if (!reactTags.test(page)) throw new Error("React script tags not found");

@@ -7,7 +7,7 @@ try:
     with sync_playwright() as p:
         b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 900})
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
-        pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
+        pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text)); pg.on("response", lambda r: r.status == 404 and errs.append("404 " + r.url))
         pg.goto("http://127.0.0.1:8782/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
         pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         print("1 sections:", pg.locator("nav[aria-label='Section'] button").all_inner_texts(), "| study row:", pg.locator("nav[aria-label='Practice mode'] button").all_inner_texts())

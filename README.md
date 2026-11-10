@@ -46,7 +46,7 @@ It ships three ways, all built from the same source:
       office/build_prayers.py  the prayers before and after Mass and the Breviary's appendix (Litanies, Commendation of a soul…) into data/prayers.json
       summa/generated_forms.mjs every form morph.js makes for every dictionary word (fallback lemmas for the Summa)
       summa/build_summa.py     the whole Summa in Latin (all four parts) for My class list, each word linked to its parsings
-      library/build_library.py the Latin library (Imitation of Christ, Rule of St Benedict, Confessions, Leo, Ambrose, Anselm, Bonaventure, Creeds) into data/library/
+      library/build_library.py the Latin library into data/library/: spiritual classics, St Thomas's shorter works, Fathers (City of God, De Trinitate, Augustine's sermons, Jerome, Tertullian…), Bede and other medieval works, hymns (Prudentius, Sedulius, Fortunatus), the Vulgate Old Testament
       office/perllib/          a three-function stand-in for Perl's CGI module, so the Divinum Officium programs run from the command line
     tests/                     headless-browser tests (see tests/README.md)
 
@@ -83,7 +83,7 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     git clone https://github.com/Jacob-Gray/summa.json ../sources/summa-english
     python3 -I tools/summa/build_summa.py ../sources/summa-latin/SummaTheologica.txt data /tmp/genforms.json ../sources/summa-english/json
     git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
-    python3 -I tools/library/build_library.py ../sources/tll data
+    python3 -I tools/library/build_library.py ../sources/tll data /tmp/genforms.json   # 76 works on shelves; the offline copy keeps the first eight
 
 The current build covers 1 November 2026 to 31 December 2036. Before then, rebuild with a later end date: ten years take about half an hour.
 

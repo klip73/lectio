@@ -1,7 +1,7 @@
 /* Keeps Lectio Vulgata working with no signal. A new version replaces the old one the next time the app is opened online. */
-const VERSION = "lectio-1835b12605fd";
+const VERSION = "lectio-14c4d2ee24ec";
 const FONTS = "lectio-fonts";
-const OFFICE = "lectio-office-c9a4c8a253";
+const OFFICE = "lectio-office-3c4f7f02de";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => {
   // cache: "reload" skips the browser's HTTP cache, so an update never re-saves the previous version.
