@@ -81,7 +81,7 @@ ${verses.map(v => `${promptTag(v)} ${v[2]}`).join("\n")}
 STUDENT:
 ${user.slice(0, 4000)}
 
-List real mistakes only: wrong tense/mood/voice/person/number/case/agreement/meaning/sense, Latin left out, meaning added. Judge by the Latin; any accurate English is fine. Ignore spelling, punctuation, thou/you, word order.
+List real mistakes only: wrong tense/mood/voice/person/number/case/agreement/meaning/sense, Latin left out, meaning added. Judge by the Latin; any accurate English is fine. Ignore spelling, punctuation, word order, thou/you, archaic or modern English (saith/says, hath/has, unto/to), and any accurate synonym or paraphrase: these are never mistakes.
 Reply with only JSON, at most 5 issues, most important first, [] if accurate:
 {"v":"got|partly|review","s":"summary, max 15 words","ok":"one thing done well, max 12 words, or empty","i":[{"sev":"error|minor","t":"${Object.keys(ISSUE_TYPES).join("|")}","la":"exact Latin word(s)","vs":"verse or section tag as shown","you":"exact words copied from student, or empty if left out","fix":"correct English for that part","why":"max 20 words, name the grammar","c":"${Object.keys(CONCEPTS).join("|")}|null"}]}
 v: got = no errors (minor allowed), partly = sense right with errors, review = sense wrong or much missing. minor = acceptable but less precise.`;
@@ -263,7 +263,7 @@ function feedbackScores(fb) {
 }
 
 /* Recurring mistakes, from the log kept in progress. */
-function MistakeSummary({ log }) {
+function MistakeSummary({ log, onRemove }) {
   if (!log || !log.length) return null;
   const counts = {};
   log.forEach(m => { const k = m.concept ? "c:" + m.concept : "t:" + m.type; counts[k] = (counts[k] || 0) + 1; });
@@ -281,9 +281,10 @@ function MistakeSummary({ log }) {
       </div>
       <ul className="flex flex-col gap-1.5">
         {recent.map((m, i) => (
-          <li key={i} className="text-[14px] leading-snug">
+          <li key={i} className="flex flex-wrap items-baseline gap-x-2 text-[14px] leading-snug">
             <span className="text-soft">{m.ref}:</span> <span lang="la" className="latin font-bold text-ink">{m.latin}</span>
             {m.fix && <span className="text-ink"> → “{m.fix}”</span>}
+            {onRemove && <button type="button" className="text-[12px] text-soft underline" onClick={() => onRemove(m)} title="The AI was wrong: remove this from your mistakes">✕ not a mistake</button>}
           </li>
         ))}
       </ul>

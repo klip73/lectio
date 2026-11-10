@@ -43,7 +43,7 @@ try:
         print("  next:", pg.locator("article h2").inner_text())
         pg.locator("article .lw").nth(3).click(); pg.wait_for_timeout(1500)
         print("  word:", pg.locator(".fixed").inner_text()[:80].replace("\n", " | "), "| deck:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-v2')") or "{}").get("vtap", [])[:4])
-        pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000); pg.wait_for_timeout(1500)
         print("  after reload, still reading:", pg.locator("article h2").inner_text() if pg.locator("article h2").count() else "(not on library)")
         pg.click("button:has-text('‹ Library')") if pg.locator("button:has-text('‹ Library')").count() else None
         pg.click("button:has-text('Confessiones')"); pg.wait_for_selector("#lib-ch", timeout=15000)

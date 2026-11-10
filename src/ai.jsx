@@ -281,8 +281,9 @@ function AiSetup({ onDone }) {
   async function test() {
     setState({ s: "busy", msg: "" });
     try {
-      const r = await aiSample().json('Reply with only this JSON, filling in the parsing: {"word":"amavit","parse":"..."}');
-      setState({ s: "ok", msg: `Working: ${readAi().lastBy || ""} ${readAi().lastModel || ""} answered “${String((r && r.parse) || JSON.stringify(r)).slice(0, 80)}”.` });
+      const r = await aiSample().json('Parse the Latin word amavit. Reply with only JSON: {"parse":"tense, mood, voice, person and number, and its dictionary verb"}');
+      const ans = r && typeof r.parse === "string" ? `amavit = ${r.parse}` : JSON.stringify(r);
+      setState({ s: "ok", msg: `Working: ${readAi().lastBy || ""} (${readAi().lastModel || ""}) answered “${ans.slice(0, 90)}”.` });
     } catch (e) {
       setState({ s: "err", msg: `Not working: ${tutorErrorText(e && e.code, e && e.msg)}${e && e.code ? ` [${e.code}]` : ""}` });
     }
@@ -295,7 +296,7 @@ function AiSetup({ onDone }) {
       <p className="text-[14px] leading-snug text-ink">
         {onClaude
           ? "On this page Claude marks your translations. To get the same marking in the phone app, add a free Gemini key there."
-          : "Have your translations marked by AI, mistake by mistake, for free. You need your own free key from Google (about a minute, no card)."}
+          : "Have your translations marked by AI, mistake by mistake, for free. You need your own free key from Google (Gemini) or Groq, or both (about a minute each, no card)."}
       </p>
       {(a.key || a.groq) && (
         <div className="flex flex-col gap-1.5">

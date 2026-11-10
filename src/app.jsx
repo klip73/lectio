@@ -1525,6 +1525,7 @@ function App() {
   function startPlacement(parts) { setPlaceParts(parts); setMode("place"); resetView(); setPrefs(p => ({ ...p, welcomed: true })); showPractice(); }
   function finishPlacement(res, go) {
     if (res) {
+      setPrefs(p => ({ ...p, ledger: true }));   // show the new readiness
       placeRes.current = res;
       const cur = progRef.current, ab = { ...(cur.ability || {}) };
       Object.entries(res).forEach(([p, r]) => {
@@ -1667,22 +1668,37 @@ function App() {
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-rule pb-3">
         <div>
           <h1 className="latin text-[1.35rem] font-bold tracking-tight text-ink">Lectio Vulgata</h1>
-          <p className="text-[14px] text-soft">Latin exam practice for all five parts, adapting to what you know.</p>
+          <p className="text-[14px] text-soft">Latin for the exam, the Office and a lifetime of reading.</p>
         </div>
-        <div className="num flex flex-wrap items-center gap-2 text-[14px] text-soft" aria-live="polite">
+        {tally.length > 0 && <div className="num flex flex-wrap items-center gap-2 text-[14px] text-soft" aria-live="polite">
           <span className="smallcaps">This session</span>
           <span className="rounded bg-oktint px-2 py-0.5 text-ok">{cnt("got")} got it</span>
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
-        </div>
+        </div>}
       </header>
 
+      {/* Sections, pinned to the top while scrolling */}
+      <nav className="sticky top-0 z-10 -my-3 grid grid-cols-4 gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
+        {[["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
+          <button key={g} type="button" aria-pressed={group === g} className={`${tabCls(group === g)} text-center`}
+            onClick={() => { setMode(g === "study" ? (STUDY_MODES.includes(lastStudy) ? lastStudy : "read") : g === "liturgy" ? "office" : g); resetView(); window.scrollTo({ top: 0 }); }}>{l}</button>
+        ))}
+      </nav>
+
+      {group === "study" && <>
       {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
-      {/* Progress ledger */}
+      {/* Progress ledger: folded to one line until opened (remembered) */}
       <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Your progress">
+        <button type="button" onClick={() => setPrefs(p => ({ ...p, ledger: !p.ledger }))} aria-expanded={!!prefs.ledger || showStats}
+          className={`flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left ${prefs.ledger || showStats ? "mb-3" : ""}`}>
+          <span className="smallcaps text-[14px] font-semibold text-rubric">Progress &amp; readiness</span>
+          <span className="num text-[13px] text-soft">{wordsKnown} words · {passagesDone} passages{examLeft ? ` · ${examLeft}` : ""} <span className="text-rubric">{prefs.ledger || showStats ? "▴" : "▾"}</span></span>
+        </button>
+        {(prefs.ledger || showStats) && <>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat value={`${mastered}/${VERSES.length}`} label="drill verses mastered" />
           <Stat value={passagesDone} label="passages translated" />
@@ -1690,8 +1706,9 @@ function App() {
           <Stat value={dueDrill + dueP + dueV} label="due for review" />
         </div>
         <Readiness prog={prog} ai={tutorAvail === true} onPick={pid => { switchPart(pid, true); showPractice(); }} onPlace={startPlacement} />
+        </>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[14px] text-soft">{pace || "Set your exam date (in Skill map & backup) to see your countdown."} {focusText}</p>
+          {(prefs.ledger || showStats) && <p className="text-[14px] text-soft">{pace || "Set your exam date (in Skill map & backup) to see your countdown."} {focusText}</p>}
           <button type="button" onClick={() => setShowStats(s => !s)} aria-expanded={showStats}
             className="text-[14px] font-medium text-rubric underline decoration-rubrictint underline-offset-2 hover:decoration-rubric">
             {showStats ? "Hide skill map & backup" : "Skill map & backup"}
@@ -1713,7 +1730,7 @@ function App() {
                     onDrill={t => { const d = drill === t ? null : t; setDrill(d); setMode("drill"); if (d) goTo(pickNext(prog, verse.id, focus, d)); }} />)}
               </div>
             </div>
-            <div ref={aiRef} className="scroll-mt-4 border-t border-rule pt-4">
+            <div ref={aiRef} className="scroll-mt-16 border-t border-rule pt-4">
               <span className="smallcaps mb-2 block text-[14px] font-semibold text-rubric">AI marking</span>
               <AiSetup />
             </div>
@@ -1730,7 +1747,7 @@ function App() {
               </div>
             )}
             {(prog.mistakes || []).length > 0 && (
-              <div className="border-t border-rule pt-4"><MistakeSummary log={prog.mistakes} /></div>
+              <div className="border-t border-rule pt-4"><MistakeSummary log={prog.mistakes} onRemove={m => { const cur = progRef.current; const next = { ...cur, mistakes: (cur.mistakes || []).filter(x => x !== m && !(x.at === m.at && x.latin === m.latin && x.ref === m.ref)), updated: Date.now() }; setProg(next); persist(next); }} /></div>
             )}
             <div className="border-t border-rule pt-4"><ReportsPanel /></div>
             <div className="border-t border-rule pt-4">
@@ -1741,16 +1758,10 @@ function App() {
           </div>
         )}
       </section>
+      </>}
 
-      {/* Mode switch */}
-      {/* Navigation: four groups; Study has its own row of practice modes. */}
-      <div ref={practiceRef} className="flex scroll-mt-4 flex-col gap-2">
-        <nav className="grid grid-cols-4 gap-1 rounded-lg border border-rule bg-paper p-1" aria-label="Section">
-          {[["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
-            <button key={g} type="button" aria-pressed={group === g} className={`${tabCls(group === g)} text-center`}
-              onClick={() => { setMode(g === "study" ? (STUDY_MODES.includes(lastStudy) ? lastStudy : "read") : g === "liturgy" ? "office" : g); resetView(); }}>{l}</button>
-          ))}
-        </nav>
+      {/* Study has its own row of practice modes */}
+      <div ref={practiceRef} className="flex scroll-mt-16 flex-col gap-2">
         {group === "study" && (
           <nav className="flex flex-wrap items-center gap-1 self-start" aria-label="Practice mode">
             {[["drill", "Verse drill"], ["read", `Passages${dueP ? ` · ${dueP} due` : ""}`], ["class", "Class quiz"], ["vocab", `Vocabulary${dueV ? ` · ${dueV} due` : ""}`], ["forms", "Forms"], ["exam", "Exam sitting"]].map(([m0, l]) => {
@@ -2047,13 +2058,16 @@ function App() {
             setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;
           }} />
         </div>
-        <span>
+        <details>
+          <summary className="cursor-pointer">Sources and credits</summary>
+          <p className="mt-1 leading-snug">
           Bible: Clementine Vulgate and Douay-Rheims (Challoner), via the bible_databases project.
-          Summa: Latin from The Latin Library (via CLTK); English Dominican Fathers translation (Project Gutenberg).
+          Summa (exam passages): Latin from The Latin Library (via CLTK), English Dominican Fathers translation (Project Gutenberg); complete Summa: Corpus Thomisticum Latin (github.com/androur/Summa-Theologica-Latin) and the Dominican translation (github.com/Jacob-Gray/summa.json). Library: The Latin Library.
           Breviary hymns and Matins lessons: Divinum Officium project (MIT licence).
           Word parsing: PROIEL, Index Thomisticus, LLCT, UDante and Perseus treebanks (CC BY-NC-SA / BY-SA). Meanings: William Whitaker’s Words.
           Automatic parsings can be wrong; check them against the grammar you know.
-        </span>
+          </p>
+        </details>
       </footer>
     </div>
     </AidsContext.Provider>

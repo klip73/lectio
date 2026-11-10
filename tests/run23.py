@@ -24,7 +24,7 @@ try:
         print("3 next:", pg.locator("article header p").first.inner_text())
         pg.click("button:has-text('Add to my class quiz')"); pg.wait_for_selector("text=Added:", timeout=20000)
         print("4", pg.locator("text=Added:").inner_text())
-        pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000); pg.wait_for_timeout(1500)
+        pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000); pg.wait_for_timeout(1500); pg.wait_for_timeout(1500)
         print("5 after reload:", pg.locator("article header p").first.inner_text() if pg.locator("article header p").count() else "(not open)")
         pg.uncheck("text=English") if False else None
         b.close()

@@ -85,7 +85,7 @@ function SummaReader({ onTap, onTable, onBack }) {
   };
   return (
     <div className="flex flex-col gap-3">
-      <div ref={topRef} className="scroll-mt-4 flex flex-wrap items-center gap-2">
+      <div ref={topRef} className="scroll-mt-16 flex flex-wrap items-center gap-2">
         <button type="button" className="text-[14px] text-rubric underline underline-offset-2" onClick={onBack}>‹ Library</button>
         <span lang="la" className="latin text-[15px] font-bold text-ink">Summa Theologiae</span>
         <span className="text-[13px] text-soft">St Thomas Aquinas</span>

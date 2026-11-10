@@ -15,7 +15,7 @@ function officeGet(name) {
 }
 let versionsPromise = null;
 function loadVersions() {
-  if (!versionsPromise) versionsPromise = getJSON(`data/office/versions.json?v=${OFFICE_VER}`).then(v => (Array.isArray(v) ? v : [])).catch(() => []);
+  if (!versionsPromise) versionsPromise = OFFLINE && !APP ? Promise.resolve([]) : getJSON(`data/office/versions.json?v=${OFFICE_VER}`).then(v => (Array.isArray(v) ? v : [])).catch(() => []);
   return versionsPromise;
 }
 const OFFICE_GROUPS = [["roman", "Roman"], ["monastic", "Monastic"], ["cist", "Cistercian"], ["op", "Dominican"]];
@@ -89,7 +89,7 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
     ? <p key={k} className="smallcaps mt-1 text-[15px] font-semibold text-rubric">{l.h}</p>
     : <p key={k} className={latin ? "latin text-[1.08rem] leading-[1.75] text-ink" : "text-[15px] leading-snug text-soft"}><OfficeText line={l.t} latin={latin} onWord={onWord} sel={sel} /></p>);
   return (
-    <section id={"office-" + i} className="scroll-mt-4 rounded-lg border border-rule bg-leaf px-4 py-3 sm:px-5">
+    <section id={"office-" + i} className="scroll-mt-16 rounded-lg border border-rule bg-leaf px-4 py-3 sm:px-5">
       <div className={both ? "grid gap-x-6 gap-y-2 sm:grid-cols-2" : ""}>
         <div lang="la" className="lt">{block(la, true)}</div>
         {both && <div lang="en" className="border-t border-rule pt-2 sm:border-0 sm:pt-0">{block(eng, false)}</div>}
