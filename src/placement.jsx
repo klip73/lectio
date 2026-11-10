@@ -5,6 +5,8 @@
    picks the next passage near the current estimate, so a few minutes place a student fairly well. */
 const PL_GRID = Array.from({ length: 33 }, (_, i) => -0.3 + i * 0.05);
 const PL_PASSAGES = { one: 5, all: 3 };
+const plMinutes = (n, ai) => Math.max(3, Math.round(n * (ai ? 1.5 : 0.7)));
+const plTotal = (nParts, ai) => nParts * ((nParts > 1 ? PL_PASSAGES.all : PL_PASSAGES.one) - (ai ? 1 : 0));
 function plPrior() { const p = PL_GRID.map(t => Math.exp(-((t - 0.55) ** 2) / (2 * 0.35 ** 2))); const s = p.reduce((a, b) => a + b, 0); return p.map(x => x / s); }
 /* ok: true / false, or a partial score between 0 and 1 (AI-marked translations). */
 function plUpdate(post, d, ok, guess) {
@@ -83,7 +85,8 @@ async function plItem(part, target, used, lex, ai) {
 }
 
 function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel, ai }) {
-  const perPart = parts.length > 1 ? PL_PASSAGES.all : PL_PASSAGES.one;
+  /* Translating takes longer than choosing: with AI marking, one passage fewer per part keeps the check short. */
+  const perPart = (parts.length > 1 ? PL_PASSAGES.all : PL_PASSAGES.one) - (ai ? 1 : 0);
   const total = perPart * parts.length;
   const [stage, setStage] = useState("intro"); // intro | run | done
   const [lex, setLex] = useState(null);
@@ -155,7 +158,7 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel, ai }) {
       <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7" aria-label="Placement check">
         <h2 className="latin text-[1.15rem] font-bold text-ink">Placement check{parts.length === 1 ? `: ${names[0]}` : ""}</h2>
         <p className="text-[15px] leading-snug text-ink">
-          {total} short passages{parts.length > 1 ? `, ${perPart} from each of the five exam parts` : ""}, about {Math.max(3, Math.round(total * (ai ? 1.5 : 0.7)))} minutes.
+          {total} short passages{parts.length > 1 ? `, ${perPart} from each of the five exam parts` : ""}, about {plMinutes(total, ai)} minutes.
           {ai ? "For each, read the Latin, translate it (typed or spoken; the AI marks it), then answer an examiner’s question on its grammar." : "For each, read the Latin and answer two questions: what it means, and an examiner’s question on its grammar."} The passages get harder or easier as you go, to find your level.
         </p>
         <p className="text-[14px] text-soft">No dictionary: answer as you would in the exam. You’ll see the right answer after each one. Afterwards, passages{parts.length > 1 ? " in every part" : ""} start at your level instead of a guess.</p>

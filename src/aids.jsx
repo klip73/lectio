@@ -109,13 +109,45 @@ function verbDistractors(c, r) {
   const [pe, nu, te, mo, vo] = c.m;
   const pn = pe + nu, out = new Set();
   const add = (t, m, p) => { if (T_L[t] && M_L[m] && PNL[p] && !(m === "s" && !SUBJ_TENSES.includes(t)) && !(m === "m")) out.add(verbLabel(t, m, vo, p, c.lemma)); };
-  // same tense and mood, another person or number (the commonest slip)
-  shuffle(Object.keys(PNL).filter(x => x !== pn), r).slice(0, 2).forEach(p => add(te, mo, p));
+  // Person and number are read straight off the ending, so they make no test: change tense, mood and voice instead.
   // a neighbouring tense, same person
   ({ p: ["f", "i"], i: ["l", "p"], f: ["p", "t"], r: ["l", "t"], l: ["r", "i"], t: ["r", "f"] }[te] || []).forEach(t => add(t, mo, pn));
-  // indicative and subjunctive swapped
+  // indicative and subjunctive swapped; active and passive swapped (not for deponents)
   add(te, mo === "s" ? "i" : "s", pn);
+  if (!/or$/.test(c.lemma)) { const vo2 = vo === "p" ? "a" : "p"; if (T_L[te] && M_L[mo]) out.add(verbLabel(te, mo, vo2, pn, c.lemma)); }
+  ({ p: "r", i: "l", r: "p", l: "i", f: "t", t: "f" }[te] || "").split("").forEach(t => add(t, mo === "s" ? "i" : "s", pn));
   return shuffle([...out], r);
+}
+/* Traps an examiner would set: other forms of the same word spelled the same (venit: present or perfect? dominis: dative or
+   ablative?), then forms a letter or two away (dicit / dicet / dicat). Returns [{key, label, same}] from the generated tables. */
+function editDist(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const trapCache = new Map();
+function formTraps(c, ansKey, labelOf) {
+  if (typeof MORPH === "undefined") return [];
+  const ck = c.lemma + "|" + c.w + "|" + ansKey;
+  if (trapCache.has(ck)) return trapCache.get(ck);
+  let t = null;
+  try { t = MORPH.entryFor(c.lemma, c.pp, c.w); } catch (e) {}
+  const W = MORPH.norm(c.w), out = [], seen = new Set();
+  if (t) {
+    const cells = MORPH.cells(t).map(([k, forms]) => {
+      const fs = (forms || []).map(f => MORPH.norm(f).split(" ")[0]).filter(Boolean);
+      return { k, d: fs.length ? Math.min(...fs.map(f => (f === W ? 0 : editDist(f, W)))) : 9 };
+    }).filter(x => x.k !== ansKey && x.d <= 2).sort((a, b) => a.d - b.d);
+    cells.forEach(x => {
+      const label = labelOf(x.k);
+      if (!label || seen.has(label)) return;
+      seen.add(label); out.push({ key: x.k, label, same: x.d === 0 });
+    });
+  }
+  trapCache.set(ck, out);
+  return out;
 }
 function makeQuestions(lex, verses, seed, max = 3) {
   if (!lex) return [];
@@ -142,7 +174,20 @@ function makeQuestions(lex, verses, seed, max = 3) {
     });
   });
   const EASY = new Set(["sum", "possum"]);
-  const pool = cands.filter(c => !EASY.has(c.lemma));
+  const V = vocabOf(lex);
+  const rankOf = l => (V.freq[l] ? V.freq[l].rank : 9999);
+  const vKey = m => m[2] + m[3] + m[4] + m[0] + m[1];
+  const vLab = (lemma, vo0) => k => (/^[pifrlt][is][ap][123][sp]$/.test(k) && T_L[k[0]] && M_L[k[1]] && PNL[k.slice(3)] && k[2] === vo0 ? verbLabel(k[0], k[1], k[2], k.slice(3), lemma) : null);
+  const cLab = k => (/^[ngdabv][sp]$/.test(k) ? `${C_L[k[0]]} ${N_L[k[1]]}` : /^[mfn][ngdabv][sp]$/.test(k) ? `${C_L[k[1]]} ${N_L[k[2]]}` : null);
+  /* A word is worth asking about if it is not one of the commonest, or if its spelling is shared by another form (decide from context). */
+  const pool = cands.filter(c => !EASY.has(c.lemma)).map(c => {
+    const traps = c.kind === "verb" ? formTraps(c, vKey(c.m), vLab(c.lemma, c.m[4])) : c.kind === "case" ? formTraps(c, (c.pos === "A-" ? c.m[5] : "") + c.m[6] + c.m[1], cLab) : [];
+    const same = traps.filter(x => x.same && x.label !== (c.kind === "case" ? `${C_L[c.m[6]]} ${N_L[c.m[1]]}` : null));
+    const rk = rankOf(c.lemma);
+    return { ...c, traps, same: same.length, wt: c.wt + (same.length ? 4 : 0) - (rk <= 150 ? 3 : rk <= 400 ? 1.5 : 0) };
+  }).filter(c => c.same || rankOf(c.lemma) > 150 || c.kind === "nonfinite" ||
+    /* a common verb is still worth a question in a harder form: subjunctive, passive, or a tense other than present / perfect */
+    c.kind === "verb" && (c.m[3] === "s" || c.m[4] === "p" || "iflt".includes(c.m[2])));
   const seen = new Set(), kinds = {}, qs = [];
   const sig = c => c.kind === "verb" ? "v" + c.m[3] : c.kind;   // e.g. "vs" = a subjunctive
   shuffle(pool, r).sort((a, b) => b.wt - a.wt + (r() - 0.5) * 1.5).forEach(c => {
@@ -151,9 +196,14 @@ function makeQuestions(lex, verses, seed, max = 3) {
     const full = (c.pp ? c.pp + ": " : "") + parseLabel(c.pos, c.m, c.lemma);
     if (c.kind === "verb") {
       const ans = verbLabel(c.m[2], c.m[3], c.m[4], c.m[0] + c.m[1], c.lemma);
-      const opts = [ans, ...verbDistractors(c, r).filter(o => o !== ans)].slice(0, 4);
+      /* near forms that only change person or number are no trap; identical spellings always are */
+      const pnOf = l => l.split(", ")[1];
+      const traps = c.traps.filter(x => x.same || pnOf(x.label) === pnOf(ans)).map(x => x.label).filter(o => o !== ans);
+      const opts = [...new Set([ans, ...traps, ...verbDistractors(c, r).filter(o => o !== ans)])].slice(0, 4);
       const concept = c.m[3] === "s" ? "subj" : c.m[4] === "p" ? (/or$/.test(c.lemma) ? "dep" : "pass") : c.m[2] === "f" ? "fut" : "rlt".includes(c.m[2]) ? "perf" : null;
-      if (opts.length >= 3) qs.push({ q: `Parse “${c.w}”.`, ans, opts: shuffle(opts, r), why: full, c, concept });
+      const twin = c.traps.filter(x => x.same).map(x => x.label);
+      if (opts.length >= 3) qs.push({ q: twin.length ? `Parse “${c.w}” as it stands here (the same spelling is also another form).` : `Parse “${c.w}”.`, ans, opts: shuffle(opts, r),
+        why: full + (twin.length ? `. The same spelling could also be: ${twin.join("; ")}. The sentence decides.` : ""), c, concept });
     } else if (c.kind === "nonfinite") {
       const g = { m: "masculine", f: "feminine", n: "neuter" }[c.m[5]] || "";
       const kind = { p: { p: "present participle", r: "perfect participle", f: "future participle" }[c.m[2]] || "participle", d: "gerund", g: "gerundive" }[c.m[3]];
@@ -167,19 +217,27 @@ function makeQuestions(lex, verses, seed, max = 3) {
     } else {
       const ans = `${C_L[c.m[6]]} ${N_L[c.m[1]] || ""}`.trim();
       const opts = new Set([ans]);
+      c.traps.forEach(x => { if (opts.size < 4) opts.add(x.label); });
       const other = { s: "plural", p: "singular" }[c.m[1]];
-      if (other) opts.add(`${C_L[c.m[6]]} ${other}`);
+      if (other && opts.size < 4) opts.add(`${C_L[c.m[6]]} ${other}`);
       shuffle(["genitive", "dative", "ablative", "accusative"].filter(x => x !== C_L[c.m[6]]).flatMap(cs => ["singular", "plural"].map(nn => `${cs} ${nn}`)), r).forEach(o => { if (opts.size < 4) opts.add(o); });
-      qs.push({ q: `Case and number of “${c.w}”?`, ans, opts: shuffle([...opts], r), why: full, c, concept: { ablative: "abl", genitive: "gen", dative: "dat" }[C_L[c.m[6]]] || null });
+      const twin = c.traps.filter(x => x.same && x.label !== ans).map(x => x.label);
+      qs.push({ q: twin.length ? `Case and number of “${c.w}” here? (Its spelling fits more than one.)` : `Case and number of “${c.w}”?`, ans, opts: shuffle([...opts], r),
+        why: full + (twin.length ? `. Out of context it could also be ${twin.join(" or ")}.` : ""), c, concept: { ablative: "abl", genitive: "gen", dative: "dat" }[C_L[c.m[6]]] || null });
     }
   });
   // An irregular perfect: what an examiner asks once the translation is done.
   // Only real verbs with an irregular perfect; spell the verb as its dictionary entry does (video, not uideo).
-  const pv = pool.find(c => c.pos === "V-" && c.pp && /^\w+o, \w+(are|ere|ire), \w+i\b/.test(c.pp) && !/(avi|ivi|ii)$/.test(c.pp.split(", ")[2]) && !EASY.has(c.lemma));
+  const pv = pool.find(c => c.pos === "V-" && c.pp && /^\w+o, \w+(are|ere|ire), \w+i\b/.test(c.pp) && !/(avi|ivi|ii)$/.test(c.pp.split(", ")[2]) && !EASY.has(c.lemma) && rankOf(c.lemma) > 250);
   if (pv && qs.length <= max) {
     const parts = pv.pp.split(", "), perf = parts[2].replace(/ \(.*\)$/, ""), head = parts[0];
     const stem = parts[1].replace(/(are|ere|ire)$/, "");
-    const decoys = shuffle([stem + "avi", stem + "ivi", stem + "ui", stem + "i"].filter(x => x !== perf), r).slice(0, 3);
+    /* Decoys from the real patterns of the third conjugation: -si / -xi, reduplication, lengthened stem, -ui, -ivi. */
+    const st = stem.replace(/i$/, "");
+    const base = st.replace(/(c|g|qu|h)$/, "");
+    const cands2 = [/[dtrmnpbl]$/.test(st) && st + "si", /(c|g|h|qu)$/.test(st) && base + "xi", /^[bcdfgmnpst][aeiou]/.test(st) && st.slice(0, 2) + st + "i",
+      st + "ui", st + "ivi", st + "i", /(c|g|h|d|t)$/.test(st) && base + "si", st + "avi", st.replace(/([aeiou])([^aeiou]*)$/, (m0, v, cc) => ({ a: "e", e: "i", i: "e", o: "u", u: "o" }[v] + cc)) + "i"].filter(Boolean);
+    const decoys = shuffle([...new Set(cands2)].filter(x => x !== perf && x.length > 3), r).sort((a, b) => editDist(a, perf) - editDist(b, perf)).slice(0, 3);
     qs.push({ q: `Give the perfect of “${head}”.`, ans: perf, opts: shuffle([perf, ...decoys], r), why: pv.pp + (pv.gloss ? ` (${pv.gloss})` : ""), c: { ...pv, w: head }, concept: "perf" });
   }
   return qs;

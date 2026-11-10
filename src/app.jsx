@@ -2019,7 +2019,7 @@ function ShareLink({ hash }) {
 }
 
 /* ---------- Exam readiness, per part ---------- */
-function Readiness({ prog, onPick, onPlace }) {
+function Readiness({ prog, onPick, onPlace, ai }) {
   return (
     <div className="mt-4 border-t border-rule pt-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
@@ -2048,7 +2048,7 @@ function Readiness({ prog, onPick, onPlace }) {
       </div>
       {onPlace && (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-          <button type="button" className="font-medium text-rubric underline underline-offset-2" onClick={() => onPlace(PARTS.map(p => p.id))}>Placement check, all five parts (about 10 minutes)</button>
+          <button type="button" className="font-medium text-rubric underline underline-offset-2" onClick={() => onPlace(PARTS.map(p => p.id))}>Placement check, all five parts (about {plMinutes(plTotal(5, ai), ai)} minutes)</button>
           <span className="text-soft">or tap a part, then “Check my level”.</span>
         </div>
       )}
@@ -2564,7 +2564,7 @@ function App() {
           <Stat value={wordsKnown} label="words known" />
           <Stat value={dueDrill + dueP + dueV} label="due for review" />
         </div>
-        <Readiness prog={prog} onPick={pid => { switchPart(pid, true); showPractice(); }} onPlace={startPlacement} />
+        <Readiness prog={prog} ai={tutorAvail === true} onPick={pid => { switchPart(pid, true); showPractice(); }} onPlace={startPlacement} />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[14px] text-soft">{pace || "Set your exam date (in Skill map & backup) to see your countdown."} {focusText}</p>
           <button type="button" onClick={() => setShowStats(s => !s)} aria-expanded={showStats}
