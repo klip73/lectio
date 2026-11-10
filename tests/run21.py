@@ -8,6 +8,7 @@ VID = sys.argv[1] if len(sys.argv) > 1 else "da1954"
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 900})
+        pg.add_init_script("window.__LV_APP_SITE = ''")
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8784/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
@@ -29,7 +30,7 @@ try:
         pg.click("[aria-label='Liturgy section'] button:has-text('Calendar')"); pg.wait_for_selector("[aria-label='Days of the month']", timeout=15000); pg.wait_for_timeout(800)
         rows = pg.locator("[aria-label='Days of the month'] li")
         print("4 calendar:", [rows.nth(i).inner_text().replace("\n", " ") for i in (0, 1, 8)], "| bold:", pg.locator("[aria-label='Days of the month'] span.font-bold.text-ink").count())
-        pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000); pg.wait_for_timeout(1500)
         pg.click("nav[aria-label='Section'] button:has-text('Liturgy')") if pg.locator("#office-ver").count() == 0 else None
         pg.wait_for_selector("#office-ver", timeout=15000)
         print("5 after reload, still:", pg.input_value("#office-ver"))

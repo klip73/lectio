@@ -65,7 +65,7 @@ try:
         ap.click("nav button:has-text('Liturgy')"); ap.wait_for_selector("[aria-label='The day'] h2", timeout=30000)
         ap.locator("[aria-label='Liturgy section'] button:has-text('Office')").click()
         ap.click("button:has-text('Keep this year offline')"); ap.wait_for_selector("text=Saved: the Office", timeout=180000)
-        ctx.set_offline(True); ap.reload(); ap.wait_for_selector("text=Today’s session", timeout=30000)
+        ctx.set_offline(True); ap.reload(); ap.wait_for_selector("nav[aria-label='Section']", timeout=30000); ap.wait_for_timeout(1500)
         ap.click("nav button:has-text('Liturgy')"); ap.wait_for_selector("[aria-label='The day'] h2", timeout=30000)
         ap.fill("#office-date", "2027-06-29"); ap.wait_for_timeout(2500)
         ap.locator("[aria-label='Liturgy section'] button:has-text('Mass')").click(); ap.wait_for_timeout(2500)

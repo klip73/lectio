@@ -36,7 +36,7 @@ try:
         pg.get_by_role("button", name="Skill map & backup").click()
         with pg.expect_download() as dl: pg.click("button:has-text('Save progress file')")
         path = dl.value.path(); data = json.load(open(path)); print("7 saved file:", dl.value.suggested_filename, list(data.keys()), data["code"][:12])
-        pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000); pg.wait_for_timeout(1500)
         pg.get_by_role("button", name="Skill map & backup").click()
         before = pg.locator("text=words known").locator("..").inner_text()
         pg.set_input_files("input[type=file]", path); pg.wait_for_timeout(500)

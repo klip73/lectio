@@ -90,7 +90,7 @@ try:
         pg.click("text=End the quiz") if pg.locator("text=End the quiz").count() else None
         print("8 write quiz result:", pg.locator("[aria-label='Quiz result'] h3").inner_text())
         pg.click("button:has-text('Back to my list')")
-        pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000); pg.wait_for_timeout(1500)
         print("6 after reload, deck kept:", pg.locator("[aria-label='My class sections'] li").all_inner_texts())
         b.close()
 finally:

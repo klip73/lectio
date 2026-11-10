@@ -5,17 +5,24 @@ const OFFICE_KEY = "lectio-vulgata-office";
 const officeCache = {};
 /* Which calendar: "" is 1960 (data/office/), anything else one of Divinum Officium's other versions (data/office/v/<id>/). */
 let OFFICE_V = (() => { const v = (readLocal(OFFICE_KEY) || {}).ver; return typeof v === "string" && /^[a-z0-9]*$/.test(v) ? v : ""; })();
-const officePath = name => `data/office/${OFFICE_V ? "v/" + OFFICE_V + "/" : ""}${name}.json?v=${OFFICE_VER}`;
+/* The other calendars live only with the phone app (GitHub Pages); the online page reads them from there. */
+const APP_SITE = typeof window !== "undefined" && typeof window.__LV_APP_SITE === "string" ? window.__LV_APP_SITE : "https://klip73.github.io/lectio/";   // tests set it to ""
+const REMOTE_V = !APP && !OFFLINE;
+const officePath = name => OFFICE_V
+  ? `${REMOTE_V ? APP_SITE : ""}data/office/v/${OFFICE_V}/${name}.json?v=${OFFICE_VER}`
+  : `data/office/${name}.json?v=${OFFICE_VER}`;
 /* In the phone app, fetching a file through the network lets the service worker keep it for offline use. */
 function officeFetch(name) { return fetch(officePath(name)).then(r => { if (!r.ok) throw new Error(String(r.status)); }); }
 function officeGet(name) {
   const k = OFFICE_V + "/" + name;
-  if (!officeCache[k]) officeCache[k] = getJSON(officePath(name)).catch(e => { delete officeCache[k]; throw e; });
+  if (!officeCache[k]) officeCache[k] = (OFFICE_V && REMOTE_V ? fetch(officePath(name)).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }) : getJSON(officePath(name))).catch(e => { delete officeCache[k]; throw e; });
   return officeCache[k];
 }
 let versionsPromise = null;
 function loadVersions() {
-  if (!versionsPromise) versionsPromise = OFFLINE && !APP ? Promise.resolve([]) : getJSON(`data/office/versions.json?v=${OFFICE_VER}`).then(v => (Array.isArray(v) ? v : [])).catch(() => []);
+  if (!versionsPromise) versionsPromise = OFFLINE && !APP ? Promise.resolve([])
+    : (REMOTE_V ? fetch(`${APP_SITE}data/office/versions.json?x=${Date.now()}`).then(r => r.json()) : getJSON(`data/office/versions.json?v=${OFFICE_VER}`))
+      .then(v => (Array.isArray(v) ? v : [])).catch(() => []);
   return versionsPromise;
 }
 const OFFICE_GROUPS = [["roman", "Roman"], ["monastic", "Monastic"], ["cist", "Cistercian"], ["op", "Dominican"]];
@@ -158,7 +165,7 @@ function DayText({ date, hour, onTap, onTable, view }) {
   const [err, setErr] = useState("");
   useEffect(() => {
     let alive = true; setDay(null); setErr("");
-    officeDay(date, hour).then(d => alive && setDay(d)).catch(() => alive && setErr("This didn’t load. Check your connection and try again."));
+    officeDay(date, hour).then(d => alive && setDay(d)).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "This didn’t load. Check your connection and try again."));
     return () => { alive = false; };
   }, [date, hour]);
   if (err) return <p className="text-[14px] text-warn">{err}</p>;
@@ -212,7 +219,7 @@ function CalendarView({ date, onPick }) {
       const yr = +month.slice(0, 4);
       if (!idx.years.includes(yr)) return alive && setDays({});
       return officeGet("days-" + yr).then(d => alive && setDays(d));
-    }).catch(() => alive && setErr("The calendar didn’t load. Check your connection and try again."));
+    }).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "The calendar didn’t load. Check your connection and try again."));
     return () => { alive = false; };
   }, [month]);
   const [y, m] = month.split("-").map(Number);
@@ -382,7 +389,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
   useEffect(() => { save({ mview, xview }); }, [mview, xview]);
   useEffect(() => {
     let alive = true; setDay(null); setErr("");
-    officeDay(date).then(d => alive && setDay(d)).catch(() => alive && setErr("The calendar didn’t load. Check your connection and try again."));
+    officeDay(date).then(d => alive && setDay(d)).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "The calendar didn’t load. Check your connection and try again."));
     return () => { alive = false; };
   }, [date]);
   // The app quietly keeps today's texts and the weeks ahead, so it opens with no signal.
@@ -410,12 +417,12 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
       setSaving("Saved: the Office and Mass for this year and next work with no signal.");
     } catch (e) { setSaving("Saving stopped: check your connection and try again."); }
   }
-  const tabCls = on => `rounded-md px-3 py-1.5 text-[15px] font-medium ${on ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`;
+  const tabCls = on => `flex-none rounded-md px-2.5 py-1.5 text-[15px] font-medium ${on ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`;
   const yrs = day && day.missing ? day.years : null;
   const title = day && !day.missing ? (part === "mass" && day.ht && day.ht.x ? day.ht.x.split(" ~ ")[0] : part === "office" && day.ht && day.ht[hour] ? day.ht[hour].split(" ~ ")[0] : day.t) : "";
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-1 self-start rounded-lg border border-rule bg-paper p-1" role="group" aria-label="Liturgy section">
+      <div className="flex gap-0.5 self-start overflow-x-auto rounded-lg border border-rule bg-paper p-1 [scrollbar-width:none] max-w-full" role="group" aria-label="Liturgy section">
         <button type="button" className={tabCls(part === "office")} aria-pressed={part === "office"} onClick={() => setPart("office")}>Office</button>
         <button type="button" className={tabCls(part === "mass")} aria-pressed={part === "mass"} onClick={() => setPart("mass")}>Mass</button>
         <button type="button" className={tabCls(part === "calendar")} aria-pressed={part === "calendar"} onClick={() => setPart("calendar")}>Calendar</button>
