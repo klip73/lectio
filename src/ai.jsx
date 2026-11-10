@@ -87,20 +87,21 @@ function aiSample() {
   };
 }
 /* Gemini first (if there's a key), then Groq if Gemini can't answer right now. */
+/* Speed first: Groq (answers in a second or two) when there's a Groq key, unless the student chose Gemini first;
+   whichever is first, the other is the backup. */
 async function aiCall(prompt, opts = {}) {
   const g = hasGeminiKey(), q = hasGroqKey();
   if (!g && !q) throw { code: "no_key" };
-  let first = null;
-  if (g) {
-    try { const r = await geminiCall(prompt, { ...opts, backup: q }); writeAi({ ...readAi(), lastBy: "Gemini" }); return r; }
-    catch (e) { if (!q || (e && e.code === "cancelled")) throw e; first = e; }
+  const groqFirst = q && (!g || readAi().first !== "gemini");
+  const tries = groqFirst ? [["Groq", o => groqCall(prompt, o)], ...(g ? [["Gemini", o => geminiCall(prompt, { ...o, backup: false })]] : [])]
+    : [["Gemini", o => geminiCall(prompt, { ...o, backup: q })], ...(q ? [["Groq", o => groqCall(prompt, o)]] : [])];
+  const errs = [];
+  for (const [who, run] of tries) {
+    try { const r = await run(opts); writeAi({ ...readAi(), lastBy: who }); return r; }
+    catch (e) { if (e && e.code === "cancelled") throw e; errs.push([who, e]); }
   }
-  try { const r = await groqCall(prompt, opts); writeAi({ ...readAi(), lastBy: "Groq" }); return r; }
-  catch (e) {
-    if (e && e.code === "cancelled") throw e;
-    if (first) throw { ...e, msg: `Gemini: ${first.msg || first.code}. Groq: ${e.msg || e.code}` };
-    throw e;
-  }
+  const [, last] = errs[errs.length - 1];
+  throw errs.length > 1 ? { ...last, msg: errs.map(([w, e]) => `${w}: ${e.msg || e.code}`).join(". ") } : last;
 }
 async function groqErr(r) {
   let body = {};
@@ -178,7 +179,9 @@ async function geminiCall(prompt, opts = {}) {
       r = await fetch(`${GEM_API}/models/${m}:generateContent${viaQuery ? `?key=${encodeURIComponent(key)}` : ""}`, {
         method: "POST", signal: opts.signal,
         headers: viaQuery ? { "content-type": "application/json" } : { "content-type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } })
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2,
+          /* Marking needs no long reasoning; "thinking" is what makes Flash slow. Older models ignore a budget of 0; if a model rejects it, it's dropped. */
+          ...(readAi().think === false ? {} : { thinkingConfig: /gemini-(2\.|1\.)/.test(m) ? { thinkingBudget: 0 } : { thinkingLevel: "low" } }) } })
       });
     } catch (e) {
       if (e && e.name === "AbortError") throw { code: "cancelled" };
@@ -186,6 +189,12 @@ async function geminiCall(prompt, opts = {}) {
     }
     if (!r.ok) {
       last = await geminiErr(r);
+      /* A model that doesn't take the thinking setting: send without it from now on, and try again. */
+      if (r.status === 400 && /thinking/i.test(last.msg || "") && readAi().think !== false) {
+        writeAi({ ...readAi(), think: false });
+        order.splice(oi + 1, 0, m);
+        continue;
+      }
       /* A per-minute limit: wait once (up to 40 s) and try the same model again. */
       if (last.code === "rate_limited" && !last.daily && last.wait <= 40 && !tried[m] && !opts.backup) {
         tried[m] = true;
@@ -198,12 +207,12 @@ async function geminiCall(prompt, opts = {}) {
         if (opts.backup) { if (m !== models.lite) continue; throw last; }   // a backup is set up: don't wait, hand over
         if (!tried["busy:" + m]) {
           tried["busy:" + m] = true;
-          await sleep(4000, opts.signal);
+          await sleep(2000, opts.signal);
           order.splice(oi + 1, 0, m);
           continue;
         }
         if (m !== models.lite) continue;
-        if (!tried["busyAgain"]) { tried["busyAgain"] = true; await sleep(8000, opts.signal); order.splice(oi + 1, 0, models.best); continue; }
+        if (!tried["busyAgain"]) { tried["busyAgain"] = true; await sleep(3000, opts.signal); order.splice(oi + 1, 0, models.best); continue; }
         throw last;
       }
       /* Refused: try sending the key the other way once, then the other model. */
@@ -262,7 +271,7 @@ function AiSetup({ onDone }) {
         writeAi({ ...readAi(), key, models, full: null });
       }
       setA(readAi()); setDraft(""); aiChanged();
-      setState({ s: "ok", msg: `${groq ? "Groq" : "Gemini"} key saved. ${hasGeminiKey() && hasGroqKey() ? "Gemini marks first; Groq takes over whenever Google is busy." : "Your translations will now be marked."}` });
+      setState({ s: "ok", msg: `${groq ? "Groq" : "Gemini"} key saved. ${hasGeminiKey() && hasGroqKey() ? "Groq marks first (fastest); Gemini takes over if Groq can’t." : "Your translations will now be marked."}` });
       if (onDone) onDone();
     } catch (e) {
       const who = groq ? "Groq" : "Google";
@@ -290,8 +299,18 @@ function AiSetup({ onDone }) {
       </p>
       {(a.key || a.groq) && (
         <div className="flex flex-col gap-1.5">
-          {a.key && <span className="flex flex-wrap items-center gap-3 text-[14px] text-ok">✓ Gemini key (…{a.key.slice(-4)}){a.groq ? " · marks first" : ""} <button type="button" onClick={() => remove("gemini")} className="text-[13px] text-soft underline">Remove</button></span>}
-          {a.groq && <span className="flex flex-wrap items-center gap-3 text-[14px] text-ok">✓ Groq key (…{a.groq.slice(-4)}){a.key ? " · backup" : ""} <button type="button" onClick={() => remove("groq")} className="text-[13px] text-soft underline">Remove</button></span>}
+          {a.key && <span className="flex flex-wrap items-center gap-3 text-[14px] text-ok">✓ Gemini key (…{a.key.slice(-4)}) <button type="button" onClick={() => remove("gemini")} className="text-[13px] text-soft underline">Remove</button></span>}
+          {a.groq && <span className="flex flex-wrap items-center gap-3 text-[14px] text-ok">✓ Groq key (…{a.groq.slice(-4)}) <button type="button" onClick={() => remove("groq")} className="text-[13px] text-soft underline">Remove</button></span>}
+          {a.key && a.groq && (
+            <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink" role="group" aria-label="Which AI marks first">
+              <span className="text-soft">Marks first:</span>
+              {[["groq", "Groq (fastest)"], ["gemini", "Gemini"]].map(([k, l]) => {
+                const on = (a.first === "gemini" ? "gemini" : "groq") === k;
+                return <button key={k} type="button" aria-pressed={on} onClick={() => { writeAi({ ...readAi(), first: k }); setA(readAi()); }}
+                  className={`rounded-md border px-2.5 py-1 ${on ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-paper"}`}>{l}</button>;
+              })}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Btn onClick={test} disabled={state.s === "busy"}>{state.s === "busy" ? "Testing…" : "Test AI"}</Btn>
             {use && <span className="num text-[13px] text-soft">{use.n} Gemini marking{use.n === 1 ? "" : "s"} today</span>}
@@ -302,7 +321,7 @@ function AiSetup({ onDone }) {
         <>
           <ol className="ml-5 list-decimal text-[14px] leading-relaxed text-ink">
             {!a.key && <li><b>Gemini (Google):</b> open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">aistudio.google.com/apikey</a>, sign in with a Google account, tap <b>Create API key</b>, copy it. The key must show “Free tier” there.</li>}
-            {!a.groq && <li><b>{a.key ? "Backup, recommended: " : "Or "}Groq:</b> open <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">console.groq.com/keys</a>, sign in (Google, GitHub or email), tap <b>Create API Key</b>, copy it. Free, no card; Groq takes over whenever Google is busy.</li>}
+            {!a.groq && <li><b>{a.key ? "Faster, recommended: " : "Or "}Groq:</b> open <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">console.groq.com/keys</a>, sign in (Google, GitHub or email), tap <b>Create API Key</b>, copy it. Free, no card; Groq marks in a second or two, and the two back each other up.</li>}
             <li>Paste the key here and tap <b>Save key</b>. {!a.key && !a.groq ? "Adding both is best." : ""}</li>
           </ol>
           <div className="flex flex-wrap items-center gap-2">
