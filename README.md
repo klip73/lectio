@@ -14,7 +14,7 @@ It ships three ways, all built from the same source:
 
     src/
       app.jsx        the app (React): modes, adaptive scheduling, grading, tutor, exam sittings
-      ai.jsx         free AI marking with each person's own Gemini key (phone app, offline copy); speech-to-text input
+      ai.jsx         free AI marking with each person's own Gemini and/or Groq key (phone app, offline copy); speech-to-text input
       aids.jsx       reading aids (accents, structure colours, listening), examiner questions, Today card
       extras.jsx     recording, find-the-skeleton, blind reading, parse reports, offline download
       morph.js       Latin morphology: every form of a verb / noun / adjective / pronoun from its dictionary entry
@@ -90,7 +90,7 @@ Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' pr
 
 ## AI marking
 
-On the claude.ai page, Claude marks translations (the `sample` capability). Everywhere else, each person can paste a free Google Gemini API key (Skill map & backup → AI marking; aistudio.google.com/apikey). The key stays in that browser (`lectio-vulgata-ai` in localStorage) and calls `generativelanguage.googleapis.com` directly; there is no server and no shared key. `ai.jsx` picks the newest Flash and Flash-Lite models the key can use, sends one request at a time, waits out a per-minute limit once, and switches to Flash-Lite for the rest of the day when Flash's daily free allowance runs out.
+On the claude.ai page, Claude marks translations (the `sample` capability). Everywhere else, each person can paste a free Google Gemini API key and/or a free Groq key (console.groq.com/keys; `gsk_…`), which takes over whenever Gemini is busy, out of allowance or refused. Gemini: (Skill map & backup → AI marking; aistudio.google.com/apikey). The key stays in that browser (`lectio-vulgata-ai` in localStorage) and calls `generativelanguage.googleapis.com` directly; there is no server and no shared key. `ai.jsx` picks the newest Flash and Flash-Lite models the key can use, sends one request at a time, waits out a per-minute limit once, and switches to Flash-Lite for the rest of the day when Flash's daily free allowance runs out.
 
 When marking is on: passages are marked as soon as you check them, exam sittings are marked when you finish, the placement check has you translate a sentence instead of choosing one, and the AI's verdict counts for three quarters of each grade that feeds exam readiness. The Speak button uses the browser's speech recognition to type what you say; nothing is recorded.
 

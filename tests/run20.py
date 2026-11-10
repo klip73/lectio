@@ -36,10 +36,23 @@ def gemini(route):
         return route.fulfill(status=429, headers=h, body=json.dumps({"error": {"code": 429, "message": "Quota exceeded", "status": "RESOURCE_EXHAUSTED",
             "details": [{"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}))
     return route.fulfill(status=200, headers=h, body=json.dumps({"candidates": [{"content": {"parts": [{"text": "```json\n" + json.dumps(FB) + "\n```"}]}}]}))
+def groq(route):
+    req = route.request; url = req.url
+    h = {"access-control-allow-origin": "*", "content-type": "application/json"}
+    if req.method == "OPTIONS":
+        return route.fulfill(status=204, headers={"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST"})
+    if req.headers.get("authorization", "") != "Bearer gsk_GOODGOODGOODGOODGOODGOODGOODGOOD12":
+        return route.fulfill(status=401, headers=h, body=json.dumps({"error": {"message": "Invalid API Key"}}))
+    if url.endswith("/models"):
+        return route.fulfill(status=200, headers=h, body=json.dumps({"data": [{"id": "llama-3.3-70b-versatile"}, {"id": "openai/gpt-oss-120b"}, {"id": "whisper-large-v3"}]}))
+    body = json.loads(req.post_data or "{}")
+    calls.append(("groq:" + body["model"], body["messages"][0]["content"][:60]))
+    return route.fulfill(status=200, headers=h, body=json.dumps({"choices": [{"message": {"content": json.dumps(FB)}}]}))
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(); ctx = b.new_context(viewport={"width": 400, "height": 900}); pg = ctx.new_page()
         ctx.route("https://generativelanguage.googleapis.com/**", gemini)
+        ctx.route("https://api.groq.com/**", groq)
         ctx.add_init_script("Object.defineProperty(window, 'claude', { value: undefined, writable: false, configurable: false })")  # as in the phone app: no Claude
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and "status of 4" not in m.text and "status of 5" not in m.text and errs.append("CONSOLE " + m.text))
@@ -53,8 +66,8 @@ try:
         pg.click("button:has-text('Turn on AI marking')"); pg.wait_for_selector("#ai-key", timeout=5000)
         pg.fill("#ai-key", "AIzaBADBADBADBADBADBADBADBADBADBAD12345"); pg.click("button:has-text('Save key')"); pg.wait_for_timeout(800)
         print("  bad key:", pg.locator("text=isn’t valid").count() > 0)
-        pg.fill("#ai-key", "AQ.GOODGOODGOODGOOD-GOODGOODGOODGOOD_123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=Gemini key added", timeout=5000)
-        print("  saved:", pg.locator("text=Gemini key added").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["models"])
+        pg.fill("#ai-key", "AQ.GOODGOODGOODGOOD-GOODGOODGOODGOOD_123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=✓ Gemini key (", timeout=5000)
+        print("  saved:", pg.locator("text=✓ Gemini key (").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["models"])
         state["busy"] = 2; n0 = len(calls)
         pg.click("button:has-text('Test AI')"); pg.wait_for_selector("text=Working:", timeout=30000)
         print("  busy twice, then answered; tries:", [c[0] for c in calls[n0:]])
@@ -100,9 +113,23 @@ try:
         pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=15000)
         print("7 query-only key: marked; auth now:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')")).get("auth"))
         state["queryOnly"] = False
-        if pg.locator("button:has-text('Remove key')").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        if pg.locator("text=✓ Gemini key (").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        # Groq as backup: Gemini busy → Groq marks at once
+        pg.fill("#ai-key", "gsk_GOODGOODGOODGOODGOODGOODGOODGOOD12"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=✓ Groq key (", timeout=5000)
+        print("8 groq saved:", pg.locator("text=✓ Groq key (").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["groqModels"]["list"])
+        state["busy"] = 99; t0 = time.time(); n0 = len(calls)
+        pg.click("button:has-text('Test AI')"); pg.wait_for_selector("text=Working:", timeout=20000)
+        print("  gemini busy → ", pg.locator("text=Working:").inner_text()[:70], "| secs:", round(time.time() - t0, 1), "| calls:", [c[0] for c in calls[n0:]])
+        state["busy"] = 0
+        pg.click("nav[aria-label='Practice mode'] button:has-text('Passages')"); pg.wait_for_selector("#translation", timeout=15000)
+        state["busy"] = 99
+        pg.fill("#translation", "Yet another rendering of this passage into English words"); pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Groq", timeout=20000)
+        print("  passage marked by Groq:", True)
+        state["busy"] = 0
+        if pg.locator("text=✓ Gemini key (").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        pg.locator("text=✓ Groq key (").locator("button:has-text('Remove')").click(); pg.wait_for_timeout(200)
         # Remove key → setup offered again
-        pg.click("button:has-text('Remove key')"); pg.wait_for_timeout(300)
+        pg.locator("text=✓ Gemini key (").locator("button:has-text('Remove')").click(); pg.wait_for_timeout(300)
         print("5 removed:", pg.locator("#ai-key").count() == 1)
         b.close()
 finally:
