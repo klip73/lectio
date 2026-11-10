@@ -13,7 +13,7 @@ def gemini(route):
         return route.fulfill(status=204, headers={"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,POST"})
     h = {"access-control-allow-origin": "*", "content-type": "application/json"}
     key = req.headers.get("x-goog-api-key", "")
-    if not key.startswith("AIzaGOOD"):
+    if not key.startswith("AQ.GOOD"):
         return route.fulfill(status=400, headers=h, body=json.dumps({"error": {"code": 400, "message": "API key not valid. Please pass a valid API key.", "status": "INVALID_ARGUMENT"}}))
     if "/models?" in url:
         return route.fulfill(status=200, headers=h, body=json.dumps({"models": [
@@ -46,7 +46,7 @@ try:
         pg.click("button:has-text('Turn on AI marking')"); pg.wait_for_selector("#ai-key", timeout=5000)
         pg.fill("#ai-key", "AIzaBADBADBADBADBADBADBADBADBADBAD12345"); pg.click("button:has-text('Save key')"); pg.wait_for_timeout(800)
         print("  bad key:", pg.locator("text=isn’t valid").count() > 0)
-        pg.fill("#ai-key", "AIzaGOODGOODGOODGOODGOODGOODGOODGOOD123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=Gemini key added", timeout=5000)
+        pg.fill("#ai-key", "AQ.GOODGOODGOODGOOD-GOODGOODGOODGOOD_123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=Gemini key added", timeout=5000)
         print("  saved:", pg.locator("text=Gemini key added").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["models"])
         # Read: Check Translation marks automatically
         pg.click("button:has-text('Hide Translation')"); pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=10000)

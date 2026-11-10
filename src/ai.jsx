@@ -44,7 +44,7 @@ async function geminiErr(r) {
     const m = det.match(/"retryDelay":"(\d+(?:\.\d+)?)s"/);
     return { code: "rate_limited", msg, daily, wait: m ? +m[1] : daily ? 0 : 15 };
   }
-  if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg };
+  if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg: msg + (/ACCESS_TOKEN_TYPE_UNSUPPORTED/.test(JSON.stringify(body)) ? " (token type unsupported)" : "") };
   if (r.status === 404) return { code: "no_model", msg };
   if (r.status === 400 && /location|region|country/i.test(msg)) return { code: "region", msg };
   return { code: "failed", msg };
@@ -135,7 +135,7 @@ function AiSetup({ onDone }) {
   const onClaude = !!(window.claude && window.claude.use);
   async function save() {
     const key = draft.trim();
-    if (!/^[\w-]{30,}$/.test(key)) { setState({ s: "err", msg: "That doesn’t look like a Gemini key. It starts with “AIza” and is about 39 characters." }); return; }
+    if (!/^[\w.-]{30,}$/.test(key)) { setState({ s: "err", msg: "That doesn’t look like a Gemini key. Keys start with “AQ.” (or, older ones, “AIza”). Copy the whole key with no spaces." }); return; }
     setState({ s: "busy", msg: "" });
     try {
       const models = await geminiModels(key, true);
@@ -171,7 +171,7 @@ function AiSetup({ onDone }) {
           </ol>
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="ai-key" className="sr-only">Gemini API key</label>
-            <input id="ai-key" type="password" autoComplete="off" spellCheck={false} value={draft} onChange={e => setDraft(e.target.value)} placeholder="AIza…"
+            <input id="ai-key" type="password" autoComplete="off" spellCheck={false} value={draft} onChange={e => setDraft(e.target.value)} placeholder="AQ.…"
               className="min-w-0 flex-1 basis-56 rounded-md border border-rule bg-paper px-3 py-1.5 text-[15px] text-ink" />
             <Btn variant="primary" onClick={save} disabled={!draft.trim() || state.s === "busy"}>{state.s === "busy" ? "Checking…" : "Save key"}</Btn>
           </div>
