@@ -1394,6 +1394,7 @@ function MistakeSummary({ log }) {
 }
 
 /*@include ai.jsx*/
+/*@include classvocab.jsx*/
 /*@include aids.jsx*/
 /*@include extras.jsx*/
 /*@include morph.js*/
@@ -1431,7 +1432,7 @@ function vocabOf(lex) {
 }
 let vocabPromise = null;
 function loadVocab() { if (!vocabPromise) vocabPromise = getJSON("data/vocab.json").catch(e => { vocabPromise = null; throw e; }); return vocabPromise; }
-const DECKS = [["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
+const DECKS = [["class", "My class list"], ["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
   ["pp", "Principal parts"], ["tap", "Words I looked up"], ["mk", "My mistakes"]];
 /* Words any student sitting the exam already knows; they are left out of the decks. */
 const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sine sub super inter post ante apud propter ego tu nos vos is hic ille ipse iste idem " +
@@ -1453,6 +1454,7 @@ function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
   // Part decks also skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
   if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => notBasic(lex.lemmas[li][0]) && !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex, aid]) => word(lex.lemmas[li][0], { ref, ex, aid })).filter(Boolean) : null;
   if (deck === "tap") return (prog.vtap || []).map(l => word(l)).filter(Boolean);
+  if (deck === "class") return (readClass().words || []).map(([l, n, ref, ex, aid]) => word(l, { ref, ex, aid })).filter(Boolean);
   if (deck === "pp") return V.order.filter(notBasic).map(l => { const li = V.byLemma[l]; const [, gloss, pp] = lex.lemmas[li]; return pp && /^V/.test(V.posOf[li]) && pp.includes(",") ? { key: "pp:" + l, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }).filter(Boolean);
   if (deck === "mk") return (prog.mistakes || []).slice().reverse().filter(m => m.latin && m.fix)
     .map(m => ({ key: "mk:" + m.ref + ":" + m.latin, front: m.latin, sub: `${ISSUE_TYPES[m.type] || "Mistake"} · ${m.ref}`, back: m.fix, extra: m.concept ? CONCEPTS[m.concept] : "", mk: true }));
@@ -1480,6 +1482,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
   const [verr, setVerr] = useState("");
   const [pick, setPick] = useState(null);
   const [shown, setShown] = useState(false);
+  const [learn, setLearn] = useState(0);   // My class list: 0 = the list and quizzes, otherwise flashcards (the number rebuilds the deck)
   const keyRef = useRef(null);
   useEffect(() => {
     if (!PART_IDS.includes(deck) || vocab) return;
@@ -1487,7 +1490,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
     loadVocab().then(v => { if (alive) setVocab(v); }).catch(() => { if (alive) setVerr("This deck didn’t load. Check your connection, then try again."); });
     return () => { alive = false; };
   }, [deck, vocab]);
-  const cards = useMemo(() => (V ? buildDeck(deck, lex, V, vocab, prog, includeCommon) : null), [deck, V, vocab, includeCommon, deck === "tap" ? prog.vtap : null, deck === "mk" ? prog.mistakes : null]);
+  const cards = useMemo(() => (V ? buildDeck(deck, lex, V, vocab, prog, includeCommon) : null), [deck, V, vocab, includeCommon, deck === "tap" ? prog.vtap : null, deck === "mk" ? prog.mistakes : null, learn]);
   useEffect(() => { setPick(cards ? pickCard(prog, cards, null) : null); setShown(false); }, [cards]);
 
   function grade(k) {
@@ -1513,16 +1516,18 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Deck">
         {DECKS.map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setDeck(k)} aria-pressed={deck === k}
+          <button key={k} type="button" onClick={() => { setDeck(k); setLearn(0); }} aria-pressed={deck === k}
             className={`rounded-md border px-2.5 py-1 text-[13px] ${deck === k ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
         ))}
       </div>
-      <label htmlFor="vocab-common" className="flex items-center gap-2 text-[13px] text-soft">
+      {deck !== "class" && <label htmlFor="vocab-common" className="flex items-center gap-2 text-[13px] text-soft">
         <input id="vocab-common" type="checkbox" checked={!!includeCommon} onChange={e => setIncludeCommon(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />
         Include the 400 commonest words (left out by default, since Latin 1–3 covered them)
-      </label>
+      </label>}
+      {deck === "class" && learn > 0 && <button type="button" className="self-start text-[14px] text-rubric underline underline-offset-2" onClick={() => setLearn(0)}>‹ My class list (quizzes, word list)</button>}
     </div>
   );
+  if (deck === "class" && !learn) return <>{deckPicker}{lex ? <ClassVocab lex={lex} V={V} prog={prog} onGrade={onGrade} onLearn={() => setLearn(Date.now())} /> : <article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || "Loading the word list…"}</article>}</>;
   if (!lex || !cards) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || verr || "Loading the word list…"}</article></>;
 
   const vc = prog.vcards || {};
@@ -1532,7 +1537,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
   const keys = new Set(cards.map(c => c.key));
   const due = Object.entries(vc).filter(([k, c]) => keys.has(k) && c.due <= Date.now()).length;
   const inDeck = cards.filter(c => vc[c.key] && vc[c.key].box >= 2).length;
-  const empty = { tap: "Words you tap in passages and drills will collect here.", mk: "Mistakes Claude marks in your checked translations will collect here, so you can re-test them." }[deck];
+  const empty = { class: "Add your class’s sections first (‹ My class list).", tap: "Words you tap in passages and drills will collect here.", mk: "Mistakes Claude marks in your checked translations will collect here, so you can re-test them." }[deck];
 
   if (!pick || !pick.card) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{cards.length ? "You’ve been through this whole deck." : empty || "This deck is empty."}</article></>;
   const c = pick.card;

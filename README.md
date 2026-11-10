@@ -15,6 +15,7 @@ It ships three ways, all built from the same source:
     src/
       app.jsx        the app (React): modes, adaptive scheduling, grading, tutor, exam sittings
       ai.jsx         free AI marking with each person's own Gemini and/or Groq key (phone app, offline copy); speech-to-text input
+      classvocab.jsx My class list: vocabulary of chosen sections (NT chapters; Summa articles by part), with quizzes
       aids.jsx       reading aids (accents, structure colours, listening), examiner questions, Today card
       extras.jsx     recording, find-the-skeleton, blind reading, parse reports, offline download
       morph.js       Latin morphology: every form of a verb / noun / adjective / pronoun from its dictionary entry
