@@ -38,7 +38,7 @@ try:
         print("4 quiz questions:", q.count(), "|", [q.nth(i).locator("p").first.inner_text() for i in range(q.count())])
         q.nth(0).locator("button").first.click(); pg.wait_for_timeout(200)
         print("  after answer:", pg.locator("[aria-label=\"Examiner's questions\"] span.num").first.inner_text(), "| explanation:", q.nth(0).locator("p").nth(1).inner_text()[:90])
-        pg.click("text=Mark my mistakes"); pg.wait_for_selector("text=Mostly right", timeout=10000)
+        pg.wait_for_selector("text=Mostly right", timeout=10000)  # marked automatically on Check Translation
         pg.click("button:has-text('Got It')"); pg.wait_for_timeout(200)
         print("  day:", day(pg))
         print("  share link button:", pg.locator("text=Copy link to this passage").count())

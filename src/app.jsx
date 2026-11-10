@@ -1059,6 +1059,7 @@ function TranslateBox({ id, draft, setDraft, showDR, setShowDR, showNotes, setSh
         placeholder="Type your English rendering here…"
         className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-[#a59c90]"
         style={{ fontFamily: "var(--font-latin)" }} />
+      <Dictate value={draft} onChange={setDraft} label="Speak instead of typing" />
       <div className="flex flex-wrap gap-2">
         <Btn variant="primary" onClick={() => (showDR ? setShowDR(false) : check())} aria-expanded={showDR}>
           {showDR ? "Hide Translation" : "Check Translation"}
@@ -1111,14 +1112,19 @@ const normText = t => (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
 let samplePromise = null;
 function getSample() {
   if (!samplePromise) {
-    samplePromise = (window.claude && window.claude.use ? window.claude.use("sample") : Promise.resolve(null)).catch(() => null);
+    samplePromise = (window.claude && window.claude.use ? window.claude.use("sample") : Promise.resolve(null)).catch(() => null)
+      .then(sm => sm || (hasGeminiKey() ? geminiSample() : null));
   }
   return samplePromise;
 }
 const TUTOR_OFF = ["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"];
 function tutorErrorText(code) {
   if (TUTOR_OFF.includes(code)) return "Mistake marking is turned off for this page, so only the key-word check is shown.";
-  if (code === "rate_limited") return "You’ve reached your Claude usage limit for now. Try again later.";
+  if (code === "rate_limited") return window.claude && window.claude.use ? "You’ve reached your Claude usage limit for now. Try again later." : "Today’s free AI allowance on your key is used up. It resets overnight.";
+  if (code === "bad_key") return "Google didn’t accept your Gemini key. Check it in Skill map & backup → AI marking.";
+  if (code === "no_key") return "Add a free Gemini key to have this marked.";
+  if (code === "offline") return "You’re offline. AI marking needs a connection.";
+  if (code === "region") return "Google’s free AI isn’t offered in your region.";
   if (code === "session_expired") return "Sign in to Claude again, then try again.";
   if (code === "refused") return "Claude couldn’t check this translation. Try rewording it.";
   if (code === "prompt_too_large") return "This translation is too long to check in one go.";
@@ -1267,13 +1273,18 @@ function MarkedText({ text, fb, active, setActive }) {
 
 function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
   if (avail === false) {
-    return <p className="text-[13px] text-soft">Mistake marking by Claude isn’t available in this view, so only the key-word check is shown.</p>;
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Btn onClick={openAiSetup}>Turn on AI marking</Btn>
+        <span className="text-[13px] text-soft">Free with your own Gemini key, about a minute to set up. Until then only the key-word check is shown.</span>
+      </div>
+    );
   }
   if (!state || state.status === "idle" || stale) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Btn variant="primary" onClick={onRun} disabled={avail !== true}>{stale ? "Check again" : "Mark my mistakes"}</Btn>
-        <span className="text-[13px] text-soft">{stale ? "You’ve changed your translation since the last check." : "Claude marks each mistake against the Latin. Each check uses a little of your Claude usage, so check once you’re happy with your draft."}</span>
+        <span className="text-[13px] text-soft">{stale ? "You’ve changed your translation since the last check." : `${aiName() === "Claude" ? "Claude" : "The AI"} marks each mistake against the Latin. Each check uses a little of your ${aiName() === "Claude" ? "Claude usage" : "free daily allowance"}, so check once you’re happy with your draft.`}</span>
       </div>
     );
   }
@@ -1281,7 +1292,7 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
     return (
       <div className="flex flex-wrap items-center gap-3" aria-live="polite">
         <span className="tutor-dot" aria-hidden="true" />
-        <span className="text-[14px] text-ink">Claude is reading your translation against the Latin…</span>
+        <span className="text-[14px] text-ink">{aiName() === "Claude" ? "Claude is" : "The AI is"} reading your translation against the Latin…</span>
         <button type="button" onClick={onStop} className="text-[13px] text-soft underline">Stop</button>
       </div>
     );
@@ -1331,7 +1342,7 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
         </ol>
       )}
       {fb.praise && <p className="text-[14px] leading-snug text-ok">✓ {fb.praise}</p>}
-      <p className="text-[12px] text-soft">Marked by Claude. Tap a mistake to see it highlighted in the Latin and in your English. If a correction looks wrong, trust the grammar you know.</p>
+      <p className="text-[12px] text-soft">Marked by {aiName() === "Claude" ? "Claude" : "Gemini"}. Tap a mistake to see it highlighted in the Latin and in your English. If a correction looks wrong, trust the grammar you know.</p>
     </div>
   );
 }
@@ -1377,6 +1388,7 @@ function MistakeSummary({ log }) {
   );
 }
 
+/*@include ai.jsx*/
 /*@include aids.jsx*/
 /*@include extras.jsx*/
 /*@include morph.js*/
@@ -1723,6 +1735,18 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
   }
 
   const history = (prog.sittings || []).slice().reverse().slice(0, 8);
+  /* When the sitting ends, mark every part straight away if AI marking is on. */
+  const autoRef = useRef(null);
+  useEffect(() => {
+    if (!run || !run.end || !data || !lex || tutor.avail !== true || autoRef.current === run.start) return;
+    autoRef.current = run.start;
+    data.forEach((d, i) => {
+      const s = run.sections[i], tkey = `exam:${run.start}:${i}`;
+      if (!s || !s.text.trim() || tutor.fbs[tkey]) return;
+      const label = passageLabel(s.b, s.c, d.rows, d.book) + (isExcerpt(d.rows) ? " (opening)" : "");
+      tutor.run(tkey, d.rows, label + (isExcerpt(d.rows) ? ". The student translated only the Latin shown; the reference covers more, so ignore its extra text" : "") + (run.oral ? ". This was an oral sight translation, spoken and transcribed by speech recognition; ignore transcription slips and be lenient on wording" : ""), s.text, lex, s.part);
+    });
+  }, [run && run.end, data, lex, tutor.avail]);
 
   if (!run) {
     return (
@@ -1890,7 +1914,6 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
               {(run.help || run.end) && <p className="mt-3 text-[12px] text-soft">{run.end ? "Tap any word to check its parsing." : `Word lookups are on and counted: ${run.lookups || 0} so far.`}</p>}
             </article>
 
-            {run.oral && <RecordAloud id={tkey} hint="Record your reading and construe, then play it back when you reveal the answer." />}
             {run.partner && running && (
               <details className="rounded-lg border border-rule bg-paper px-4 py-3">
                 <summary className="cursor-pointer text-[14px] font-medium text-rubric">Examiner’s key (for your partner)</summary>
@@ -1898,20 +1921,20 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
                 <div className="mt-3"><ExaminerQuiz lex={lex} verses={d.rows} seed={tkey} showKey /></div>
               </details>
             )}
-            {run.oral && running ? (
-              <p className="text-[14px] text-soft">Read the Latin aloud, then translate it aloud.{run.mock && i < results.length - 1 ? " Then go on to the next part." : ""}</p>
-            ) : (
+            {run.oral && running && (
+              <p className="text-[14px] text-soft">Read the Latin aloud, then tap Speak and translate it aloud. Your words appear below as text{tutor.avail ? " and are marked when you finish" : ""}; nothing is recorded.{run.mock && i < results.length - 1 ? " Then go on to the next part." : ""}</p>
+            )}
             <div className="flex flex-col gap-2">
               <label htmlFor={`exam-translation-${i}`} className="smallcaps text-[15px] text-soft">
-                {run.oral ? "Optional: type what you said, for Claude to mark" : `Your translation${run.mock ? ` · part ${PART_IDS.indexOf(s.part) + 1}` : ""}`}
+                {run.oral ? "What you said" : `Your translation${run.mock ? ` · part ${PART_IDS.indexOf(s.part) + 1}` : ""}`}
               </label>
+              {running && <Dictate value={s.text} onChange={t => setText(i, t)} label={run.oral ? "Speak your translation" : "Speak"} />}
               <textarea id={`exam-translation-${i}`} rows={run.oral ? 3 : s.part === "nt" || s.part === "st" ? 8 : 6} value={s.text} readOnly={!running && !run.oral}
                 onChange={e => setText(i, e.target.value)}
-                placeholder="Translate the whole passage here…"
+                placeholder={run.oral ? "Tap Speak, or type what you said…" : "Translate the whole passage here…"}
                 className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-[#a59c90] read-only:bg-paper"
                 style={{ fontFamily: "var(--font-latin)" }} />
             </div>
-            )}
 
             {!running && (
               <>
@@ -1933,7 +1956,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
                   <Coverage cov={cov} />
                   {s.text.trim() && (
                     <TutorPanel state={tstate} avail={tutor.avail} stale={!!(tstate && tstate.status !== "loading" && normText(tstate.text) !== normText(s.text))}
-                      onRun={() => tutor.run(tkey, d.rows, label + (isExcerpt(d.rows) ? ". The student translated only the Latin shown; the reference covers more, so ignore its extra text" : "") + (run.oral ? ". This was an oral sight translation, typed afterwards; be lenient on wording" : ""), s.text, lex, s.part)} onStop={() => tutor.stop(tkey)}
+                      onRun={() => tutor.run(tkey, d.rows, label + (isExcerpt(d.rows) ? ". The student translated only the Latin shown; the reference covers more, so ignore its extra text" : "") + (run.oral ? ". This was an oral sight translation, spoken and transcribed by speech recognition; ignore transcription slips and be lenient on wording" : ""), s.text, lex, s.part)} onStop={() => tutor.stop(tkey)}
                       active={active} setActive={setActive} />
                   )}
                 </section>
@@ -2091,7 +2114,15 @@ function App() {
     return () => { alive = false; };
   }, [mode, pidx]);
   useEffect(() => { writeLocal(DRAFT_KEY, drafts); }, [drafts]);
-  useEffect(() => { let alive = true; getSample().then(sm => { if (alive) setTutorAvail(!!sm); }); return () => { alive = false; }; }, []);
+  const [aiTick, setAiTick] = useState(0);
+  useEffect(() => { let alive = true; getSample().then(sm => { if (alive) setTutorAvail(!!sm); }); return () => { alive = false; }; }, [aiTick]);
+  const aiRef = useRef(null);
+  useEffect(() => {
+    const ch = () => setAiTick(t => t + 1);
+    const setup = () => { setShowStats(true); requestAnimationFrame(() => requestAnimationFrame(() => aiRef.current && aiRef.current.scrollIntoView({ block: "center" }))); };
+    window.addEventListener("lv-ai-changed", ch); window.addEventListener("lv-ai-setup", setup);
+    return () => { window.removeEventListener("lv-ai-changed", ch); window.removeEventListener("lv-ai-setup", setup); };
+  }, []);
   useEffect(() => {
     const keep = Object.entries(fbs).filter(([, v]) => v.status === "done").sort((a, b) => b[1].at - a[1].at).slice(0, 150);
     writeLocal(FB_KEY, Object.fromEntries(keep));
@@ -2259,7 +2290,7 @@ function App() {
       undoRef.current = { coll, id, card: (prog[coll] || {})[id], skill: prog.skill, ability: prog.ability };
     }
     let nextProg = applyGrade(base, coll, id, tags, score, over);
-    if (abil) nextProg = applyAbility(nextProg, abil.part, abil.d, abil.ai != null ? (score + abil.ai) / 2 : score, abil.k);
+    if (abil) nextProg = applyAbility(nextProg, abil.part, abil.d, abil.ai != null ? score * 0.25 + abil.ai * 0.75 : score, abil.k);
     setProg(nextProg); persist(nextProg);
     setSession(s => ({ ...s, [coll + ":" + id]: key }));
     if (!(u && u.coll === coll && u.id === id)) {
@@ -2296,7 +2327,7 @@ function App() {
     const parts = rec.parts.map((q, j) => ({ ...q, g: j === i ? key : (old && old.parts && old.parts[j] ? old.parts[j].g : null) }));
     const sittings = [...(base.sittings || []).filter(x => x.at !== rec.at), { ...rec, parts }].slice(-30);
     let nextProg = applySkill(base, tags, SCORE[key], over);
-    nextProg = applyAbility(nextProg, sec.part, sec.d != null ? sec.d : 0.55, ai != null ? (SCORE[key] + ai) / 2 : SCORE[key], 0.2);
+    nextProg = applyAbility(nextProg, sec.part, sec.d != null ? sec.d : 0.55, ai != null ? SCORE[key] * 0.25 + ai * 0.75 : SCORE[key], 0.2);
     nextProg = { ...nextProg, sittings, updated: Date.now() };
     if (!old || !(old.parts || []).some(q => q.g)) { if (/\(oral\)$/.test(rec.ref)) bump("oral"); }
     setProg(nextProg); persist(nextProg);
@@ -2428,7 +2459,8 @@ function App() {
   const runHere = () => mode === "drill"
     ? runTutor(verse.id, drillVerses, verse.ref, draft, drillNT.lex)
     : (block && runTutor(pkey, block, passageLabel(pos.b, pos.c, block, readNT.book), draft, readNT.lex, curPart));
-  const autoCheck = null; // checks run only when asked, to save Claude usage
+  /* Passages are marked as soon as you check them, when AI marking is on; single drill verses only when asked. */
+  const autoCheck = mode === "read" && tutorAvail === true && (draft.match(/[a-z]+/gi) || []).length >= 5 ? runHere : null;
   const dMarks = mode === "drill" && showDR && tRes ? latinMarks(drillVerses, tRes, false, activeIssue) : null;
   const pMarks = mode === "read" && showDR && tRes && block ? latinMarks(block, tRes, true, activeIssue) : null;
   const tutorBox = draft.trim() ? (
@@ -2546,7 +2578,11 @@ function App() {
                     onDrill={t => { const d = drill === t ? null : t; setDrill(d); setMode("drill"); if (d) goTo(pickNext(prog, verse.id, focus, d)); }} />)}
               </div>
             </div>
-            {tutorAvail !== false && (
+            <div ref={aiRef} className="scroll-mt-4 border-t border-rule pt-4">
+              <span className="smallcaps mb-2 block text-[14px] font-semibold text-rubric">AI marking</span>
+              <AiSetup />
+            </div>
+            {tutorAvail !== false && window.claude && window.claude.use && (
               <div className="border-t border-rule pt-4">
                 <p className="mb-2 text-[14px] text-soft">Mistake checks by Claude use your own Claude usage. Quick uses the least; Thorough is more careful with hard grammar but uses more.</p>
                 <div className="flex flex-wrap items-center gap-3">
@@ -2595,7 +2631,7 @@ function App() {
       ) : mode === "office" ? (
         <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} />
       ) : mode === "place" && placeParts ? (
-        <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
+        <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} ai={tutorAvail === true} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
       ) : mode === "guide" ? (
         <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />
       ) : mode === "forms" ? (

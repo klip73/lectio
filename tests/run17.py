@@ -45,6 +45,9 @@ try:
         pg.click("[aria-label='Placement check'] button:has-text('Start')")
         for i in range(15):
             sec = pg.locator("[aria-label='Placement question']"); sec.locator("p[lang='la']").wait_for(timeout=20000)
+            if sec.locator("#pl-tr").count():   # with AI marking on: translate, then it is marked
+                pg.fill("#pl-tr", "A translation of this sentence"); sec.locator("button:has-text('Mark it')").click()
+                sec.locator("text=Reference:").wait_for(timeout=10000)
             for _ in range(2):
                 btn = sec.locator("button.rounded-md.border.text-left:not([disabled])").first
                 if btn.count(): btn.click(); pg.wait_for_timeout(50)

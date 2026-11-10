@@ -1,12 +1,15 @@
-/* ---------- Placement check: a few objective questions per exam part, chosen adaptively ----------
-   Each passage gives two answers: comprehension (pick the translation, or a word's meaning in context) and an examiner's
-   parsing question. A Bayesian estimate over the same difficulty scale the passages use (0 = easiest, 1 = hardest)
+/* ---------- Placement check: a few questions per exam part, chosen adaptively ----------
+   Each passage gives two answers: comprehension and an examiner's parsing question. With AI marking on, comprehension
+   means translating the sentence yourself, marked by the AI (got it 1, partly 0.5, needs work 0); without it, picking
+   the translation (or a word's meaning in context) from four. A Bayesian estimate over the same difficulty scale the passages use (0 = easiest, 1 = hardest)
    picks the next passage near the current estimate, so a few minutes place a student fairly well. */
 const PL_GRID = Array.from({ length: 33 }, (_, i) => -0.3 + i * 0.05);
 const PL_PASSAGES = { one: 5, all: 3 };
 function plPrior() { const p = PL_GRID.map(t => Math.exp(-((t - 0.55) ** 2) / (2 * 0.35 ** 2))); const s = p.reduce((a, b) => a + b, 0); return p.map(x => x / s); }
+/* ok: true / false, or a partial score between 0 and 1 (AI-marked translations). */
 function plUpdate(post, d, ok, guess) {
-  const p = post.map((w, i) => { const pc = guess + (1 - guess) * pSuccess(PL_GRID[i], d); return w * (ok ? pc : 1 - pc); });
+  const sc = typeof ok === "number" ? ok : ok ? 1 : 0;
+  const p = post.map((w, i) => { const pc = guess + (1 - guess) * pSuccess(PL_GRID[i], d); return w * Math.pow(pc, sc) * Math.pow(1 - pc, 1 - sc); });
   const s = p.reduce((a, b) => a + b, 0) || 1;
   return p.map(x => x / s);
 }
@@ -40,7 +43,7 @@ function plVocab(lex, la, ids, seed) {
   if (opts.size < 4) return null;
   return { kind: "vocab", q: `In this passage, what does “${c.w}” mean?`, ans: c.gloss, opts: shuffle([...opts], r), why: `${c.lemma}: ${c.gloss}` };
 }
-async function plItem(part, target, used, lex) {
+async function plItem(part, target, used, lex, ai) {
   const { idx } = await loadPassages();
   const rows = (idx[part] || []).filter(r => !used.has(`${r[0]}.${r[1]}.${r[2]}`))
     .sort((a, b) => Math.abs(a[3] / 100 - target) - Math.abs(b[3] / 100 - target)).slice(0, 30);
@@ -60,7 +63,11 @@ async function plItem(part, target, used, lex) {
     if (wc < 5 || wc > (part === "hy" ? 60 : 42)) continue;
     const ids = (v[3] || []).slice(0, wc);
     let q1 = null;
-    if (part !== "hy") {
+    if (ai && WC(la) <= 32) {
+      const en = verseLevel ? v[2] : firstSent(v[2]);
+      if (en) q1 = { kind: "translate", q: "Translate it.", en, row: [v[0], la, en, ids] };
+    }
+    if (!q1 && part !== "hy") {
       const en = verseLevel ? v[2] : firstSent(v[2]);
       const near = (rows => rows.map((x, j) => ({ x, j })).filter(o => o.j !== vi && o.x[2] && o.x[2].trim()).sort((a, b) => Math.abs(a.j - vi) - Math.abs(b.j - vi)).map(o => (verseLevel ? o.x[2] : firstSent(o.x[2]))))(ch);
       const others = verseLevel || near.length >= 3 ? near : [...near, ...book.ch.filter((c, j) => j !== r[1] - 1).map(c => firstSent(c[0][2]))];
@@ -75,7 +82,7 @@ async function plItem(part, target, used, lex) {
   return null;
 }
 
-function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
+function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel, ai }) {
   const perPart = parts.length > 1 ? PL_PASSAGES.all : PL_PASSAGES.one;
   const total = perPart * parts.length;
   const [stage, setStage] = useState("intro"); // intro | run | done
@@ -85,16 +92,17 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
   const [picked, setPicked] = useState({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [tr, setTr] = useState({ text: "", status: "idle" });   // the translate question: idle | loading | done | error
   const st = useRef(null);
   if (!st.current) st.current = { post: Object.fromEntries(parts.map(p => [p, plPrior()])), used: new Set(), right: Object.fromEntries(parts.map(p => [p, [0, 0]])) };
   useEffect(() => { loadLex().then(setLex).catch(() => setErr("The dictionary didn’t load. Check your connection and try again.")); }, []);
   const partOf_n = i => parts[Math.floor(i / perPart)];
   async function load(i) {
-    setBusy(true); setPicked({});
+    setBusy(true); setPicked({}); setTr({ text: "", status: "idle" });
     try {
       const part = partOf_n(i);
       const target = Math.max(0.05, Math.min(0.95, plMean(st.current.post[part])));
-      const it = await plItem(part, target, st.current.used, lex);
+      const it = await plItem(part, target, st.current.used, lex, ai);
       if (!it) throw new Error("no item");
       setItem(it);
     } catch (e) { setErr("A passage didn’t load. Check your connection and try again."); }
@@ -110,6 +118,30 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
     s.right[item.part][0] += ok ? 1 : 0; s.right[item.part][1] += 1;
     if (onAnswer && q.concept !== undefined) onAnswer(q.concept, ok);
   }
+  /* A translation: marked by the AI, or graded by the student if the AI can't be reached. */
+  function scoreTranslation(qi, verdict) {
+    if (picked[qi] != null || !item) return;
+    const sc = SCORE[verdict];
+    setPicked(p => ({ ...p, [qi]: verdict }));
+    const s = st.current;
+    s.post[item.part] = plUpdate(s.post[item.part], item.d, sc, 0);
+    s.right[item.part][0] += sc; s.right[item.part][1] += 1;
+  }
+  async function markTranslation(qi) {
+    const q = item.qs[qi], text = tr.text.trim(), it = item;
+    if (!text) return;
+    setTr(t => ({ ...t, status: "loading" }));
+    try {
+      const sm = await getSample();
+      if (!sm) throw { code: "no_key" };
+      const raw = await sm.json(tutorPrompt(lex, [q.row], refText(it.at) + ". A single sentence, for a placement check", text, it.part), { modelTier: "default" });
+      const result = cleanFeedback(raw);
+      if (!result) throw { code: "invalid_json" };
+      if (st.current && it === item) { setTr(t => ({ ...t, status: "done", result })); scoreTranslation(qi, result.verdict); }
+    } catch (e) {
+      setTr(t => ({ ...t, status: "error", msg: tutorErrorText(e && e.code) }));
+    }
+  }
   function next() {
     if (n + 1 >= total) {
       const res = Object.fromEntries(parts.map(p => [p, { t: +plMean(st.current.post[p]).toFixed(3), sd: plSD(st.current.post[p]), right: st.current.right[p] }]));
@@ -123,8 +155,8 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
       <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7" aria-label="Placement check">
         <h2 className="latin text-[1.15rem] font-bold text-ink">Placement check{parts.length === 1 ? `: ${names[0]}` : ""}</h2>
         <p className="text-[15px] leading-snug text-ink">
-          {total} short passages{parts.length > 1 ? `, ${perPart} from each of the five exam parts` : ""}, about {Math.max(3, Math.round(total * 0.7))} minutes.
-          For each, read the Latin and answer two questions: what it means, and an examiner’s question on its grammar. The passages get harder or easier as you go, to find your level.
+          {total} short passages{parts.length > 1 ? `, ${perPart} from each of the five exam parts` : ""}, about {Math.max(3, Math.round(total * (ai ? 1.5 : 0.7)))} minutes.
+          {ai ? "For each, read the Latin, translate it (typed or spoken; the AI marks it), then answer an examiner’s question on its grammar." : "For each, read the Latin and answer two questions: what it means, and an examiner’s question on its grammar."} The passages get harder or easier as you go, to find your level.
         </p>
         <p className="text-[14px] text-soft">No dictionary: answer as you would in the exam. You’ll see the right answer after each one. Afterwards, passages{parts.length > 1 ? " in every part" : ""} start at your level instead of a guess.</p>
         {err && <p className="text-[14px] text-warn">{err}</p>}
@@ -159,6 +191,7 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
   }
   const part = partOf_n(n);
   const doneAll = item && item.qs.every((q, i) => picked[i] != null);
+  const VT = { got: ["Accurate", "text-ok"], partly: ["Mostly right", "text-mid"], review: ["Needs work", "text-warn"] };
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7" aria-label="Placement question">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-[13px] text-soft">
@@ -172,6 +205,40 @@ function PlacementCheck({ parts, prog, onFinish, onAnswer, onCancel }) {
           {item.qs.map((q, qi) => {
             const p = picked[qi];
             if (qi > 0 && picked[qi - 1] == null) return null;
+            if (q.kind === "translate") {
+              const fb = tr.result;
+              return (
+                <div key={qi} className="flex flex-col gap-2">
+                  <label htmlFor="pl-tr" className="text-[15px] font-medium text-ink">{q.q}</label>
+                  <textarea id="pl-tr" rows={3} value={tr.text} readOnly={p != null || tr.status === "loading"} onChange={e => setTr(t => ({ ...t, text: e.target.value }))}
+                    placeholder="Your English…" className="w-full resize-y rounded-md border border-rule bg-paper px-3 py-2 text-[16px] leading-relaxed text-ink read-only:text-soft" style={{ fontFamily: "var(--font-latin)" }} />
+                  {p == null && tr.status !== "loading" && tr.status !== "error" && <Dictate value={tr.text} onChange={t => setTr(x => ({ ...x, text: t }))} />}
+                  {p == null && tr.status === "idle" && <div><Btn variant="primary" onClick={() => markTranslation(qi)} disabled={!tr.text.trim()}>Mark it</Btn></div>}
+                  {tr.status === "loading" && <p className="flex items-center gap-2 text-[14px] text-ink" aria-live="polite"><span className="tutor-dot" aria-hidden="true" />Marking…</p>}
+                  {tr.status === "error" && p == null && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-[14px] text-warn">{tr.msg}</p>
+                      <p className="text-[14px] text-ink"><span className="smallcaps text-[13px] text-soft">Reference: </span>{q.en}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Btn onClick={() => setTr(t => ({ ...t, status: "idle" }))}>Try again</Btn>
+                        <span className="text-[13px] text-soft">or grade it yourself:</span>
+                        {["review", "partly", "got"].map(k => <Btn key={k} variant={k === "review" ? "warn" : k === "partly" ? "mid" : "ok"} onClick={() => scoreTranslation(qi, k)}>{GRADE_L[k]}</Btn>)}
+                      </div>
+                    </div>
+                  )}
+                  {p != null && (
+                    <div className="reveal flex flex-col gap-1.5 rounded-md border border-rule bg-paper px-3 py-2.5" aria-live="polite">
+                      <span className={`smallcaps text-[14px] font-semibold ${VT[p][1]}`}>{VT[p][0]}</span>
+                      {fb && fb.summary && <p className="text-[14px] leading-snug text-ink">{fb.summary}</p>}
+                      {fb && fb.issues.filter(x => x.severity === "error").slice(0, 3).map((x, j) => (
+                        <p key={j} className="text-[14px] leading-snug text-ink"><span lang="la" className="latin font-bold">{x.latin}</span>{x.fix ? <> → “{x.fix}”</> : null}{x.why ? <span className="text-soft"> · {x.why}</span> : null}</p>
+                      ))}
+                      <p className="text-[14px] text-ink"><span className="smallcaps text-[13px] text-soft">Reference: </span><i>{q.en}</i></p>
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
               <div key={qi} className="flex flex-col gap-1.5">
                 <p className="text-[15px] font-medium text-ink">{q.q}</p>

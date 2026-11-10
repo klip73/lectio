@@ -6,14 +6,15 @@ It ships three ways, all built from the same source:
 
 | Version | File | Where it lives | Notes |
 |---|---|---|---|
-| Online | `dist/lectio-vulgata.html` + `data/` | claude.ai artifact (owner's account) | Progress syncs to the Claude account; Claude's mistake marking |
+| Online | `dist/lectio-vulgata.html` + `data/` | claude.ai artifact (owner's account) | Progress syncs to the Claude account; Claude marks translations |
 | Offline copy | `dist/lectio-offline.html` | downloaded from the online page | One 6 MB file, all data packed inside; desktop browsers |
-| Phone app | `docs/` | GitHub Pages: https://klip73.github.io/lectio/ (served from `docs/` on `main`) | Installable, works offline once opened, can record audio |
+| Phone app | `docs/` | GitHub Pages: https://klip73.github.io/lectio/ (served from `docs/` on `main`) | Installable, works offline once opened; AI marking with a free Gemini key |
 
 ## Layout
 
     src/
       app.jsx        the app (React): modes, adaptive scheduling, grading, tutor, exam sittings
+      ai.jsx         free AI marking with each person's own Gemini key (phone app, offline copy); speech-to-text input
       aids.jsx       reading aids (accents, structure colours, listening), examiner questions, Today card
       extras.jsx     recording, find-the-skeleton, blind reading, parse reports, offline download
       morph.js       Latin morphology: every form of a verb / noun / adjective / pronoun from its dictionary entry
@@ -86,6 +87,12 @@ Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' pr
 2. `cd tests && python3 mkpage.py && python3 run4.py && python3 run8.py && python3 run12.py`: each ends `ERRORS: []`.
 3. Build all three versions.
 4. Publish: the online page from `dist/lectio-vulgata.html`, with `data/*.json` and `dist/lectio-offline.html` (published as `lectio-offline.html`) as its files. Commit and push `docs/`: GitHub Pages updates the phone app within a minute or two.
+
+## AI marking
+
+On the claude.ai page, Claude marks translations (the `sample` capability). Everywhere else, each person can paste a free Google Gemini API key (Skill map & backup → AI marking; aistudio.google.com/apikey). The key stays in that browser (`lectio-vulgata-ai` in localStorage) and calls `generativelanguage.googleapis.com` directly; there is no server and no shared key. `ai.jsx` picks the newest Flash and Flash-Lite models the key can use, sends one request at a time, waits out a per-minute limit once, and switches to Flash-Lite for the rest of the day when Flash's daily free allowance runs out.
+
+When marking is on: passages are marked as soon as you check them, exam sittings are marked when you finish, the placement check has you translate a sentence instead of choosing one, and the AI's verdict counts for three quarters of each grade that feeds exam readiness. The Speak button uses the browser's speech recognition to type what you say; nothing is recorded.
 
 ## Fixing a wrong parsing
 
