@@ -328,18 +328,24 @@ function WelcomeCard({ onClose, onPlace }) {
   return (
     <section className="reveal rounded-lg border border-rubric bg-rubrictint px-5 py-4" aria-label="Welcome">
       <h2 className="latin text-[1.1rem] font-bold text-ink">Welcome to Lectio Vulgata</h2>
-      <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5 text-[15px] leading-snug text-ink">
-        <li>Built for students who have finished Latin 1–3: the focus is sight translation of the five exam texts, at exam difficulty. Common vocabulary and beginner verses are left out.</li>
-        <li>Start with <strong>Find my level</strong>: a short placement check in each of the five parts, so everything starts at your level.</li>
-        <li>Each day, press <strong>Start today’s session</strong>. It mixes reviews, vocabulary, passages from your weakest exam part, and a short oral mock.</li>
-        <li>Translate, then <strong>Check Translation</strong> and grade yourself honestly. The page adapts to those grades.</li>
-        <li>Tap any Latin word for its parsing. Turn on <strong>Accents</strong> to read aloud with the Breviary’s stress marks, or <strong>Structure</strong> to see the verbs and clauses.</li>
-        <li>Before translating, try <strong>Find the skeleton</strong> (verbs, clause openers, subjects, checked for you), and <strong>Record yourself</strong> construing aloud.</li>
-        <li><strong>Guide</strong> has the grammar examiners ask about, what to expect in each of the five texts, and Church pronunciation. <strong>Forms</strong> has full tables for any word and a conjugation and declension trainer.</li>
-        <li>Your progress is saved automatically. Use <strong>Skill map &amp; backup</strong> to move it to another device.</li>
+      <p className="mt-1 text-[14px] text-soft">For the FSSP Latin exam (after Latin 1–3), and for reading the Office for life. Four things to know:</p>
+      <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-snug text-ink">
+        <li><strong>Find my level</strong> first: a short check in each of the five exam parts, so everything starts at your level.</li>
+        <li>Each day, <strong>Start today’s session</strong>: it mixes reviews, vocabulary, your weakest exam part and a short oral mock.</li>
+        <li>For your weekly vocab quiz, <strong>Class quiz</strong>: add the chapters or Summa articles you’re reading (or paste your book’s list), then write out the dictionary entries.</li>
+        <li>For marking of your translations, add a free AI key in <strong>Skill map &amp; backup → AI marking</strong> (a minute; no card).</li>
       </ol>
+      <details className="mt-2 text-[14px] text-ink">
+        <summary className="cursor-pointer text-rubric">More: tapping words, Liturgy, Library, Guide, backups</summary>
+        <ul className="mt-1 flex list-disc flex-col gap-1 pl-5 leading-snug">
+          <li>Tap any Latin word for its parsing. <strong>Accents</strong> shows the Breviary’s stress marks; <strong>Structure</strong> shows verbs and clauses; <strong>Find the skeleton</strong> before translating.</li>
+          <li><strong>Liturgy</strong> has each day’s Office and Mass in Latin and English; <strong>Library</strong> the complete Summa and the classics of the Church, with word help.</li>
+          <li><strong>Guide</strong> has the grammar examiners ask about and Church pronunciation; <strong>Forms</strong> has full tables for any word.</li>
+          <li>Progress is saved on this device: save a progress file now and then (the app reminds you).</li>
+        </ul>
+      </details>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {onPlace && <Btn variant="primary" onClick={onPlace}>Find my level (about 10 minutes)</Btn>}
+        {onPlace && <Btn variant="primary" onClick={onPlace}>Find my level</Btn>}
         <Btn variant={onPlace ? "plain" : "primary"} onClick={onClose}>{onPlace ? "Skip for now" : "Got it"}</Btn>
       </div>
     </section>
