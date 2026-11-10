@@ -13,7 +13,10 @@ It ships three ways, all built from the same source:
 ## Layout
 
     src/
-      app.jsx        the app (React): modes, adaptive scheduling, grading, tutor, exam sittings
+      app.jsx        the app (React): data, scheduling, grading, the App shell and navigation
+      tutor.jsx      AI marking of translations: prompt, feedback, marked text, mistake log
+      vocab.jsx      Vocabulary tab: decks, flashcards
+      exam.jsx       Exam sittings: one part or a full mock, timed, oral or written
       ai.jsx         free AI marking with each person's own Gemini and/or Groq key (phone app, offline copy); speech-to-text input
       classvocab.jsx My class list: vocabulary of chosen sections (NT chapters; Summa articles by part), with quizzes
       aids.jsx       reading aids (accents, structure colours, listening), examiner questions, Today card
@@ -68,6 +71,7 @@ Data (only when the texts, parsings or dictionary change):
     python3 -I tools/data/corpora.py ../sources ../sources/pg17611.txt tools/data/cache/corpora.json   # optional: cache is included
     python3 -I tools/data/build.py ../sources data tools/data/cache/corpora.json
     python3 -I tools/data/apply_fixes.py data tools/data/fixes.json
+    python3 -I tools/data/church_glosses.py data tools/data/church_glosses.json   # church senses first (Whitaker's Words is classical)
     python3 -I tools/data/validate.py data            # must say 0 errors
     node tools/forms/check.mjs data                   # forms agreement, about 99%
 
@@ -94,7 +98,7 @@ Passage keys (`book.chapter.verse`) stay stable across rebuilds, so students' pr
 1. `python3 -I tools/data/validate.py data`: 0 errors; `node tools/guide/check.mjs data`: 0 not found.
 2. `cd tests && python3 mkpage.py && python3 run4.py && python3 run8.py && python3 run12.py`: each ends `ERRORS: []`.
 3. Build all three versions.
-4. Publish: the online page from `dist/lectio-vulgata.html`, with `data/*.json` and `dist/lectio-offline.html` (published as `lectio-offline.html`) as its files. Commit and push `docs/`: GitHub Pages updates the phone app within a minute or two.
+4. Publish: the online page from `dist/lectio-vulgata.html`, with `data/*.json` and `dist/lectio-offline.html` (published as `lectio-offline.html`) as its files. Then `sh tools/app/publish_pages.sh`: it replaces the gh-pages branch with the freshly built `docs/` (one commit, no history), and GitHub Pages updates the phone app within a minute or two. `docs/` and the other calendars' data are not kept on main.
 
 ## AI marking
 

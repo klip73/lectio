@@ -20,3 +20,4 @@ Also run `node ../tools/forms/check.mjs ../data`: the form generator against eve
 - `run21.py`: the calendar picker for Divinum Officium's other versions (needs a version packed in data/office/v/).
 - `run22.py`: My class list: NT chapters and Summa sed contra / respondeo, word list, quiz, flashcards.
 - `run23.py`: the Summa reader (II-II q.27 a.2: parts, English, word parsing, next article, add to class quiz).
+- `run24.py`: the backup reminder (shown with progress and no recent backup; save and snooze hide it).

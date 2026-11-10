@@ -6,3 +6,9 @@ tests/data
 !docs/*.png
 !tools/app/*.png
 __pycache__/
+
+# The phone app is built into docs/ and published to the gh-pages branch (tools/app/publish_pages.sh), not kept here.
+docs/
+# Other Divinum Officium calendars: rebuilt by tools/office/build_office.py + pack_office.py, published with the app only.
+data/office/v/
+data/office/versions.json

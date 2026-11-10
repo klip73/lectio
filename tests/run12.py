@@ -20,7 +20,7 @@ try:
         pg.locator("[role='listbox'] li").first.click(); pg.wait_for_timeout(300)
         print("  loquor:", pg.locator("section[aria-label^='Forms of'] p").first.inner_text())
         for w in ["res", "omnis", "qui", "possum"]:
-            pg.locator(f"button:has-text('{w}')").first.click(); pg.wait_for_timeout(200)
+            pg.locator(f"button:has-text('{w}'):not(:has-text('quiz'))").first.click(); pg.wait_for_timeout(200)
             print("  ", w, "→", pg.locator("section[aria-label^='Forms of'] p").first.inner_text()[:70], "| cells:", pg.locator("section[aria-label^='Forms of'] td span.latin").count())
         # from a passage word
         pg.click("nav button:has-text('Passages')"); pg.wait_for_selector("text=Tap any word", timeout=15000)

@@ -148,12 +148,48 @@ async function saveTextFile(filename, text, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   return "saved";
 }
+/* When progress was last saved off this device (progress file, copied code); the reminder uses it. */
+const BACKUP_KEY = "lectio-vulgata-backup";
+function markBackedUp() { writeLocal(BACKUP_KEY, { ...(readLocal(BACKUP_KEY) || {}), at: Date.now() }); }
+async function saveProgressFile(prog) {
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const r = await saveTextFile(`lectio-progress-${stamp}.json`, JSON.stringify({ app: "lectio-vulgata", saved: d.toISOString(), code: encodeBackup(prog) }, null, 1));
+  if (r !== "declined") markBackedUp();
+  return r;
+}
+/* Progress lives in this browser: clearing it, or a new phone, loses everything not saved. Remind every two weeks once there is something to lose. */
+function BackupReminder({ prog, cloud }) {
+  const [st, setSt] = useState(() => readLocal(BACKUP_KEY) || {});
+  const [msg, setMsg] = useState("");
+  const amount = Object.keys(prog.cards || {}).length + Object.keys(prog.pcards || {}).length + Object.keys(prog.vcards || {}).length + (prog.sittings || []).length;
+  const now = Date.now();
+  if (cloud || amount < 15 || (st.at && now - st.at < 14 * DAY) || (st.snooze && st.snooze > now)) return msg ? <p className="text-[13px] text-ok" aria-live="polite">{msg}</p> : null;
+  async function save() { const r = await saveProgressFile(prog); if (r !== "declined") { setSt(readLocal(BACKUP_KEY) || {}); setMsg("Saved. Keep the file somewhere safe (Files, Drive, email to yourself)."); } }
+  async function share() {
+    const code = encodeBackup(prog);
+    try {
+      if (navigator.share) { await navigator.share({ title: "Lectio Vulgata backup", text: code }); }
+      else { await navigator.clipboard.writeText(code); }
+      markBackedUp(); setSt(readLocal(BACKUP_KEY) || {}); setMsg(navigator.share ? "Shared. Keep it somewhere safe." : "Backup code copied: paste it into a note or email to yourself.");
+    } catch (e) {}
+  }
+  function later() { const n = { ...st, snooze: now + 7 * DAY }; writeLocal(BACKUP_KEY, n); setSt(n); }
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border border-mid bg-midtint px-4 py-3" aria-label="Back up your progress">
+      <p className="text-[14px] leading-snug text-ink"><strong>Back up your progress.</strong> It’s kept only in this browser{st.at ? `; your last backup was ${Math.round((now - st.at) / DAY)} days ago` : ", and you haven’t saved a copy yet"}. A new phone or clearing the browser would lose it.</p>
+      <div className="flex flex-wrap gap-2">
+        <Btn variant="primary" onClick={save}>Save progress file</Btn>
+        <Btn onClick={share}>{navigator.share ? "Share backup code" : "Copy backup code"}</Btn>
+        <button type="button" className="text-[13px] text-soft underline" onClick={later}>Remind me next week</button>
+      </div>
+    </section>
+  );
+}
 function ProgressFile({ prog, onRestore }) {
   const [msg, setMsg] = useState("");
   const fileRef = useRef(null);
   async function save() {
-    const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const r = await saveTextFile(`lectio-progress-${stamp}.json`, JSON.stringify({ app: "lectio-vulgata", saved: d.toISOString(), code: encodeBackup(prog) }, null, 1));
+    const r = await saveProgressFile(prog);
     setMsg(r === "declined" ? "Download cancelled." : "Saved. Keep the file with your other papers; load it on any device or browser.");
   }
   function load(file) {
