@@ -41,6 +41,12 @@ async function officeDay(iso, hour) {
   if (!d) return { missing: true, years: idx.years };
   if (!hour) return d;
   const [common, month] = await Promise.all([officeGet("common"), officeGet(groupOf(hour) + "-" + iso.slice(5, 7))]);
+  if (idx.fmt === 2) {
+    /* the other calendars: sections are line ids; texts in the file's own L, or the shared lines.json */
+    const shared = await officeGet("lines");
+    const text = id => month.L[id] != null ? month.L[id] : common.L[id] != null ? common.L[id] : shared[id] != null ? shared[id] : "";
+    return { ...d, hour, sections: (d.h[hour] || []).map(k => { const sc = common.s[k] || month.s[k]; return sc ? [sc[0].map(text), sc[1].map(text)] : [[], []]; }) };
+  }
   return { ...d, hour, sections: (d.h[hour] || []).map(k => common[k] || month[k] || [[], []]) };
 }
 const normForm = w => w.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/æ/g, "ae").replace(/œ/g, "oe").replace(/j/g, "i").replace(/v/g, "u");
@@ -384,7 +390,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
     if (!APP) return;
     const t = new Date(), m1 = String(t.getMonth() + 1).padStart(2, "0"), m2 = String(((t.getMonth() + 1) % 12) + 1).padStart(2, "0");
     const t2 = new Date(t.getFullYear(), t.getMonth() + 1, 1);
-    const names = ["index", "common", "forms", "days-" + t.getFullYear(), "days-" + t2.getFullYear(), ...["m", "d", "x"].flatMap(g => [g + "-" + m1, g + "-" + m2])];
+    const names = ["index", "common", "forms", ...(OFFICE_V ? ["lines"] : []), "days-" + t.getFullYear(), "days-" + t2.getFullYear(), ...["m", "d", "x"].flatMap(g => [g + "-" + m1, g + "-" + m2])];
     [...new Set(names)].reduce((p, n) => p.then(() => officeFetch(n).catch(() => {})), Promise.resolve());
     loadRubrics().catch(() => {}); loadPrayers().catch(() => {});
   }, []);
@@ -398,7 +404,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
     try {
       const idx = await officeGet("index");
       const yr = +today.slice(0, 4);
-      const names = ["index", "common", "forms", ...idx.years.filter(y => y === yr || y === yr + 1).map(y => "days-" + y),
+      const names = ["index", "common", "forms", ...(idx.fmt === 2 ? ["lines"] : []), ...idx.years.filter(y => y === yr || y === yr + 1).map(y => "days-" + y),
         ...["m", "d", "x"].flatMap(g => Array.from({ length: 12 }, (_, i) => g + "-" + String(i + 1).padStart(2, "0")))];
       for (let i = 0; i < names.length; i++) { setSaving(`Saving ${i + 1} of ${names.length}…`); await officeFetch(names[i]); }
       setSaving("Saved: the Office and Mass for this year and next work with no signal.");

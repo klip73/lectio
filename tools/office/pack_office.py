@@ -37,12 +37,31 @@ for yr, days in alldays.items():
     for d in days.values(): d["h"] = {h: [short[k] for k in ids] for h, ids in d["h"].items()}
     json.dump(days, open(os.path.join(OUT, f"days-{yr}.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 common = {k: P[k] for k in P if use[k] >= 30}
-json.dump(common, open(os.path.join(OUT, "common.json"), "w"), ensure_ascii=False, separators=(",", ":"))
-for g in "mdx":
-    for m in [f"{i:02d}" for i in range(1, 13)]:
-        name = f"{g}-{m}"
-        part = {k: P[k] for k in P if use[k] < 30 and name in where[k]}
+groups = {f"{g}-{m:02d}": {k: P[k] for k in P if use[k] < 30 and f"{g}-{m:02d}" in where[k]} for g in "mdx" for m in range(1, 13)}
+if not VID:
+    json.dump(common, open(os.path.join(OUT, "common.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+    for name, part in groups.items():
         json.dump(part, open(os.path.join(OUT, name + ".json"), "w"), ensure_ascii=False, separators=(",", ":"))
+else:
+    # Format 2 (the other calendars): their sections repeat whole psalms and prayers with small differences from day to day,
+    # so each line is stored once: a section is [[Latin line ids], [English line ids]]; texts are in "L" of the same file,
+    # or in lines.json (lines used in four or more of the month files, loaded once).
+    files = {"common": common, **groups}
+    seen = collections.Counter()
+    for f in files.values():
+        ls = set(l for la, en in f.values() for l in la + en)
+        seen.update(ls)
+    shared = {l for l, n in seen.items() if n >= 4}
+    lid = {l: b36(i) for i, l in enumerate(sorted(seen, key=lambda l: (-seen[l], l)))}
+    json.dump({lid[l]: l for l in shared}, open(os.path.join(OUT, "lines.json"), "w"), ensure_ascii=False, separators=(",", ":"))
+    for name, f in files.items():
+        L = {}
+        sec = {}
+        for k, (la, en) in f.items():
+            sec[k] = [[lid[l] for l in la], [lid[l] for l in en]]
+            for l in la + en:
+                if l not in shared: L[lid[l]] = l
+        json.dump({"s": sec, "L": L}, open(os.path.join(OUT, name + ".json"), "w"), ensure_ascii=False, separators=(",", ":"))
 # Word index: every form in the Office text that the parsed corpora know.
 def norm(w):
     w = unicodedata.normalize("NFD", w.lower()).replace("æ", "ae").replace("œ", "oe")
@@ -64,7 +83,7 @@ for la, en in P.values():  # (P is keyed by short id now)
         words.update(norm(w) for w in re.findall(r"[^\W\d_]+", re.sub(r"\^[^^]*\^|\*[^*]*\*", " ", line)))
 forms = {w: [i for i, _ in known[w].most_common(4)] for w in sorted(words) if w in known}
 json.dump(forms, open(os.path.join(OUT, "forms.json"), "w"), separators=(",", ":"))
-json.dump({"years": years, "rubrics": VNAME, "source": "Divinum Officium"}, open(os.path.join(OUT, "index.json"), "w"))
+json.dump({"years": years, "rubrics": VNAME, "source": "Divinum Officium", **({"fmt": 2} if VID else {})}, open(os.path.join(OUT, "index.json"), "w"))
 if VID:
     # The list of other calendars the Liturgy section offers.
     INFO = {
