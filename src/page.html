@@ -2,6 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Source+Sans+3:wght@400;500;600&display=swap">
+<script>try { var th = JSON.parse(localStorage.getItem("lectio-vulgata-theme") || "null"); if (th === "dark" || th === "light") document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
 <style>
   /* Layout: one quiet reading column, like a single page of a breviary; a progress ledger above, the verse in the middle, grading below. */
   /* Single deliberate paper theme (user asked for a #f8f6f0 stone background). */
@@ -22,6 +23,21 @@
     --warn-tint: #f6ecd6;
     --font-latin: "Merriweather", Georgia, "Times New Roman", serif;
     --font-ui: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  }
+  /* Dark: for reading the Office at night. Follows the device unless chosen in the header (data-theme). */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #1b1916; --leaf: #23201c; --ink: #ebe4d6; --ink-soft: #a99f91; --rule: #3a342c;
+      --rubric: #e2806f; --rubric-tint: #3b2420; --ok: #93c48a; --ok-tint: #22301f;
+      --mid: #a9addb; --mid-tint: #282b3f; --warn: #dcb565; --warn-tint: #352b16;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #1b1916; --leaf: #23201c; --ink: #ebe4d6; --ink-soft: #a99f91; --rule: #3a342c;
+    --rubric: #e2806f; --rubric-tint: #3b2420; --ok: #93c48a; --ok-tint: #22301f;
+    --mid: #a9addb; --mid-tint: #282b3f; --warn: #dcb565; --warn-tint: #352b16;
   }
   html, body { background: var(--paper); color: var(--ink); }
   body { font-family: var(--font-ui); font-size: 16px; }

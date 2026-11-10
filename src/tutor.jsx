@@ -229,7 +229,7 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
               <button type="button" onClick={() => setActive(active === i + 1 ? null : i + 1)} aria-pressed={active === i + 1}
                 className={`w-full rounded-md border px-3 py-2.5 text-left transition-colors ${active === i + 1 ? "border-rubric bg-rubrictint" : "border-rule bg-leaf hover:border-soft"}`}>
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <span className={`num inline-flex h-5 w-5 items-center justify-center rounded-full text-[12px] font-bold text-white ${iss.severity === "error" ? "bg-rubric" : "bg-mid"}`}>{i + 1}</span>
+                  <span className={`num inline-flex h-5 w-5 items-center justify-center rounded-full text-[12px] font-bold text-paper ${iss.severity === "error" ? "bg-rubric" : "bg-mid"}`}>{i + 1}</span>
                   <span className="smallcaps text-[13px] text-soft">{ISSUE_TYPES[iss.type]}{iss.severity === "minor" ? " · small point" : ""}</span>
                   {iss.latin && <span lang="la" className="latin text-[15px] font-bold text-ink">{iss.latin}</span>}
                 </div>

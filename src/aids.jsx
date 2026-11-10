@@ -303,7 +303,7 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst, off
           <li key={s.id}>
             <button type="button" onClick={() => onStep(s.id)}
               className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-[14px] ${s.done ? "border-oktint bg-oktint text-ok" : "border-rule bg-paper text-ink hover:border-soft"}`}>
-              <span className={`num inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[12px] font-bold ${s.done ? "bg-ok text-white" : "bg-rule text-ink"}`}>{s.done ? "✓" : i + 1}</span>
+              <span className={`num inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[12px] font-bold ${s.done ? "bg-ok text-paper" : "bg-rule text-ink"}`}>{s.done ? "✓" : i + 1}</span>
               <span className="min-w-0 flex-1">{s.label}</span>
               {s.n !== "" && !s.done && <span className="num text-[12px] text-soft">{s.n}</span>}
             </button>

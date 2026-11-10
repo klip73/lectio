@@ -175,20 +175,20 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
               </select>
             </label>
             <label htmlFor="exam-oral" className="flex items-center gap-2 self-end pb-1.5 text-[14px] text-ink">
-              <input id="exam-oral" type="checkbox" checked={!!cfg.oral} onChange={e => setCfg({ ...cfg, oral: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />
+              <input id="exam-oral" type="checkbox" checked={!!cfg.oral} onChange={e => setCfg({ ...cfg, oral: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />
               Oral: translate aloud, no typing
             </label>
             <label htmlFor="exam-partner" className="flex items-center gap-2 text-[14px] text-ink sm:col-span-2">
-              <input id="exam-partner" type="checkbox" checked={!!cfg.partner} onChange={e => setCfg({ ...cfg, partner: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />
+              <input id="exam-partner" type="checkbox" checked={!!cfg.partner} onChange={e => setCfg({ ...cfg, partner: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />
               Practising with a partner: show the examiner’s key (reference translation and questions) for them during the sitting
             </label>
             <label htmlFor="exam-help" className="flex items-center gap-2 self-end pb-1.5 text-[14px] text-ink">
-              <input id="exam-help" type="checkbox" checked={cfg.help} onChange={e => setCfg({ ...cfg, help: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />
+              <input id="exam-help" type="checkbox" checked={cfg.help} onChange={e => setCfg({ ...cfg, help: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />
               Allow word lookups (counted)
             </label>
             {setBlind && (
               <label htmlFor="exam-blind" className="flex items-center gap-2 text-[14px] text-ink sm:col-span-2">
-                <input id="exam-blind" type="checkbox" checked={!!blind} onChange={e => setBlind(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />
+                <input id="exam-blind" type="checkbox" checked={!!blind} onChange={e => setBlind(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />
                 Blind: hide New Testament and Psalm references until the end, and avoid the Gospels and best-known psalms
               </label>
             )}
@@ -321,7 +321,7 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
               <textarea id={`exam-translation-${i}`} rows={run.oral ? 3 : s.part === "nt" || s.part === "st" ? 8 : 6} value={s.text} readOnly={!running && !run.oral}
                 onChange={e => setText(i, e.target.value)}
                 placeholder={run.oral ? "Tap Speak, or type what you said…" : "Translate the whole passage here…"}
-                className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-[#a59c90] read-only:bg-paper"
+                className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-soft read-only:bg-paper"
                 style={{ fontFamily: "var(--font-latin)" }} />
             </div>
 

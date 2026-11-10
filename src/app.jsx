@@ -889,11 +889,11 @@ function decodeBackup(code) {
 function Btn({ children, onClick, variant = "plain", pressed, hint, className = "", ...rest }) {
   const base = "inline-flex items-center justify-center gap-1.5 rounded-md px-3.5 py-2 text-[15px] font-medium transition-colors border select-none disabled:opacity-50";
   const styles = {
-    primary: "bg-ink text-paper border-ink hover:bg-[#433c35]",
+    primary: "bg-ink text-paper border-ink hover:opacity-90",
     plain: "bg-leaf text-ink border-rule hover:border-soft",
-    ok: pressed ? "bg-ok text-white border-ok" : "bg-leaf text-ok border-rule hover:bg-oktint",
-    mid: pressed ? "bg-mid text-white border-mid" : "bg-leaf text-mid border-rule hover:bg-midtint",
-    warn: pressed ? "bg-warn text-white border-warn" : "bg-leaf text-warn border-rule hover:bg-warntint"
+    ok: pressed ? "bg-ok text-paper border-ok" : "bg-leaf text-ok border-rule hover:bg-oktint",
+    mid: pressed ? "bg-mid text-paper border-mid" : "bg-leaf text-mid border-rule hover:bg-midtint",
+    warn: pressed ? "bg-warn text-paper border-warn" : "bg-leaf text-warn border-rule hover:bg-warntint"
   };
   const ring = hint && !pressed ? " ring-2 ring-offset-1 ring-[var(--ink-soft)]" : "";
   return <button type="button" onClick={onClick} aria-pressed={pressed} className={`${base} ${styles[variant]}${ring} ${className}`} {...rest}>{children}</button>;
@@ -1063,7 +1063,7 @@ function TranslateBox({ id, draft, setDraft, showDR, setShowDR, showNotes, setSh
         onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); check(); } }}
         onChange={e => setDraft(e.target.value)}
         placeholder="Type your English rendering here…"
-        className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-[#a59c90]"
+        className="w-full resize-y rounded-md border border-rule bg-leaf px-4 py-3 text-[16px] leading-relaxed text-ink placeholder:text-soft"
         style={{ fontFamily: "var(--font-latin)" }} />
       <Dictate value={draft} onChange={setDraft} label="Speak instead of typing" />
       <div className="flex flex-wrap gap-2">
@@ -1181,6 +1181,29 @@ function Readiness({ prog, onPick, onPlace, ai }) {
 }
 
 const STUDY_MODES = ["drill", "read", "vocab", "forms", "exam"];
+/* Before translating: find the skeleton, record yourself. Folded away until wanted; the choice is remembered. */
+function DrillTools({ open, setOpen, children }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="self-start text-[14px] text-rubric underline underline-offset-2">
+        {open ? "Hide the tools" : "Tools before translating: find the skeleton · record yourself"}
+      </button>
+      {open && children}
+    </div>
+  );
+}
+/* Light / dark / follow the device; the choice is applied before the page draws (page.html). */
+const THEME_KEY = "lectio-vulgata-theme";
+function ThemeSwitch() {
+  const [t, setT] = useState(() => { const v = readLocal(THEME_KEY); return v === "dark" || v === "light" ? v : "auto"; });
+  function next() {
+    const n = t === "auto" ? "dark" : t === "dark" ? "light" : "auto";
+    setT(n); writeLocal(THEME_KEY, n === "auto" ? null : n);
+    if (n === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", n);
+  }
+  const label = { auto: "Theme: as device", dark: "Theme: dark", light: "Theme: light" }[t];
+  return <button type="button" onClick={next} title={label} aria-label={label} className="rounded-md border border-rule bg-leaf px-2.5 py-1 text-[13px] text-soft hover:text-ink">{t === "dark" ? "Dark" : t === "light" ? "Light" : "Auto"}</button>;
+}
 function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
@@ -1665,8 +1688,8 @@ function App() {
     <AidsContext.Provider value={aidsValue}>
     <div className="flex flex-col gap-6" style={{ "--lz": lz }}>
       {/* Header */}
-      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-rule pb-3">
-        <div>
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule pb-3">
+        <div className="min-w-0 flex-1">
           <h1 className="latin text-[1.35rem] font-bold tracking-tight text-ink">Lectio Vulgata</h1>
           <p className="text-[14px] text-soft">Latin for the exam, the Office and a lifetime of reading.</p>
         </div>
@@ -1676,6 +1699,7 @@ function App() {
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
+        <ThemeSwitch />
       </header>
 
       {/* Sections, pinned to the top while scrolling */}
@@ -1763,14 +1787,14 @@ function App() {
       {/* Study has its own row of practice modes */}
       <div ref={practiceRef} className="flex scroll-mt-16 flex-col gap-2">
         {group === "study" && (
-          <nav className="flex flex-wrap items-center gap-1 self-start" aria-label="Practice mode">
-            {[["drill", "Verse drill"], ["read", `Passages${dueP ? ` · ${dueP} due` : ""}`], ["class", "Class quiz"], ["vocab", `Vocabulary${dueV ? ` · ${dueV} due` : ""}`], ["forms", "Forms"], ["exam", "Exam sitting"]].map(([m0, l]) => {
+          <nav className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" aria-label="Practice mode">
+            {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>]].map(([m0, l]) => {
               /* "Class quiz" is the Vocabulary tab opened on My class list. */
               const m = m0 === "class" ? "vocab" : m0;
               const on = m0 === "class" ? mode === "vocab" && prefs.deck === "class" : m0 === "vocab" ? mode === "vocab" && prefs.deck !== "class" : mode === m;
               return (
               <button key={m0} type="button" aria-pressed={on} onClick={() => { if (m0 === "class") setPrefs(p => ({ ...p, deck: "class" })); else if (m0 === "vocab" && prefs.deck === "class") setPrefs(p => ({ ...p, deck: "all" })); setMode(m); resetView(); }}
-                className={`rounded-md border px-3 py-1 text-[14px] ${on ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
+                className={`flex-none whitespace-nowrap rounded-md border px-3 py-1 text-[14px] ${on ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-leaf text-ink hover:border-soft"}`}>{l}</button>
               );
             })}
           </nav>
@@ -1862,8 +1886,10 @@ function App() {
             <p className="mt-3 text-[12px] text-soft">{drillIds ? "Tap any word for its dictionary form, meaning and parsing." : drillNT.err || "Loading word parsings…"}</p>
           </article>
 
-          {drillIds && <SkeletonCheck lex={drillNT.lex} verses={drillVerses} seed={verse.id} onAnswer={answerQuiz} />}
-          <RecordAloud id={"d:" + verse.id} />
+          <DrillTools open={!!prefs.tools} setOpen={v => setPrefs(p => ({ ...p, tools: v }))}>
+            {drillIds && <SkeletonCheck lex={drillNT.lex} verses={drillVerses} seed={verse.id} onAnswer={answerQuiz} />}
+            <RecordAloud id={"d:" + verse.id} />
+          </DrillTools>
           <TranslateBox draft={draft} setDraft={setDraft} showDR={showDR} setShowDR={setShowDR} showNotes={showNotes} setShowNotes={setShowNotes} onCheck={autoCheck} />
 
           {showDR && (
@@ -1961,7 +1987,7 @@ function App() {
             </div>
             {BLIND_PARTS.has(curPart) && (
               <label htmlFor="blind" className="ml-1 flex items-center gap-1.5" title="So you read the Latin instead of recalling the English">
-                <input id="blind" type="checkbox" checked={!!prefs.blind} onChange={e => setPrefs(p => ({ ...p, blind: e.target.checked }))} className="h-4 w-4 accent-[#9a2b22]" />
+                <input id="blind" type="checkbox" checked={!!prefs.blind} onChange={e => setPrefs(p => ({ ...p, blind: e.target.checked }))} className="h-4 w-4 accent-[var(--rubric)]" />
                 Blind: hide references, skip the best-known passages
               </label>
             )}
@@ -2027,8 +2053,10 @@ function App() {
 
           {block && (
             <>
-              <SkeletonCheck lex={readNT.lex} verses={block} seed={pkey} hymn={curPart === "hy"} onAnswer={answerQuiz} />
-              <RecordAloud id={"p:" + pkey} />
+              <DrillTools open={!!prefs.tools} setOpen={v => setPrefs(p => ({ ...p, tools: v }))}>
+                <SkeletonCheck lex={readNT.lex} verses={block} seed={pkey} hymn={curPart === "hy"} onAnswer={answerQuiz} />
+                <RecordAloud id={"p:" + pkey} />
+              </DrillTools>
               <TranslateBox draft={draft} setDraft={setDraft} showDR={showDR} setShowDR={setShowDR} onCheck={autoCheck} />
               {showDR && (
                 <section className="reveal flex flex-col gap-3 border-l-2 border-rubric pl-4" aria-label="Reference translation">

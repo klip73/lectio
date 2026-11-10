@@ -122,7 +122,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
         ))}
       </div>
       {deck !== "class" && <label htmlFor="vocab-common" className="flex items-center gap-2 text-[13px] text-soft">
-        <input id="vocab-common" type="checkbox" checked={!!includeCommon} onChange={e => setIncludeCommon(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />
+        <input id="vocab-common" type="checkbox" checked={!!includeCommon} onChange={e => setIncludeCommon(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />
         Include the 400 commonest words (left out by default, since Latin 1–3 covered them)
       </label>}
       {deck === "class" && learn > 0 && <button type="button" className="self-start text-[14px] text-rubric underline underline-offset-2" onClick={() => setLearn(0)}>‹ My class list (quizzes, word list)</button>}

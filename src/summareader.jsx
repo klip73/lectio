@@ -107,7 +107,7 @@ function SummaReader({ onTap, onTable, onBack }) {
       <div className="flex flex-wrap items-center gap-3">
         <Btn onClick={() => step(-1)} aria-label="Previous article">‹</Btn>
         <Btn onClick={() => step(1)} aria-label="Next article">›</Btn>
-        <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={en} onChange={ev => setEn(ev.target.checked)} className="h-4 w-4 accent-[#9a2b22]" />English</label>
+        <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={en} onChange={ev => setEn(ev.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />English</label>
         <Btn onClick={addToClass}>Add to my class quiz</Btn>
         {added && <span className="text-[13px] text-ok" aria-live="polite">{added}</span>}
       </div>

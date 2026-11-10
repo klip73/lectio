@@ -83,7 +83,7 @@ function LibraryMode({ onTap, onTable }) {
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
         <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
         {ch.en && (
-          <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={pos._en !== false} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />English (Douay-Rheims)</label>
+          <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={pos._en !== false} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />English (Douay-Rheims)</label>
         )}
         <div className="flex flex-col gap-3">
           {ch.paras.map((p, i) => {

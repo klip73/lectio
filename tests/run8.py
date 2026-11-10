@@ -14,6 +14,7 @@ try:
         pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         pg.click("nav button:has-text('Passages')"); pg.wait_for_selector("text=Tap any word", timeout=15000)
         # skeleton
+        pg.click("text=Tools before translating") if pg.locator("text=Tools before translating").count() else None
         pg.click("text=Find the skeleton first"); pg.wait_for_selector("[aria-label='Find the skeleton']")
         sk = pg.locator("[aria-label='Find the skeleton']")
         print("1 skeleton step:", sk.locator("h3").inner_text(), "| words:", sk.locator(".sk").count())

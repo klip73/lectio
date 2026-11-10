@@ -318,7 +318,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
               <div className="flex flex-wrap gap-x-4 gap-y-1" role="group" aria-label="Parts of the article">
                 {ST_PARTS.map(([k, l]) => (
                   <label key={k} className="flex items-center gap-1.5 text-[14px] text-ink">
-                    <input type="checkbox" checked={parts.includes(k)} onChange={e => setParts(p => e.target.checked ? [...p, k] : p.filter(x => x !== k))} className="h-4 w-4 accent-[#9a2b22]" />{l}
+                    <input type="checkbox" checked={parts.includes(k)} onChange={e => setParts(p => e.target.checked ? [...p, k] : p.filter(x => x !== k))} className="h-4 w-4 accent-[var(--rubric)]" />{l}
                   </label>
                 ))}
               </div>
@@ -333,7 +333,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
             {cls.sections.length > 0 && <Btn onClick={() => rebuild({ ...cls, sections: [] })}>Clear for a new week</Btn>}
           </div>
           <label className="flex items-center gap-2 text-[13px] text-soft">
-            <input type="checkbox" checked={!!cls.basic} onChange={e => rebuild({ ...cls, basic: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />
+            <input type="checkbox" checked={!!cls.basic} onChange={e => rebuild({ ...cls, basic: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />
             Include the very common words too (sum, et, qui, dico, deus…)
           </label>
         </div>

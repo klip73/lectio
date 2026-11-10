@@ -139,7 +139,7 @@ function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }
   const anyEn = sections.some(x => x.s[1] && x.s[1].length);
   return (
     <>
-      {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[#9a2b22]" /> English beside the Latin</label>}
+      {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> English beside the Latin</label>}
       {chips.length > 1 && (
         <nav className="flex flex-wrap gap-1.5" aria-label="Sections">
           {chips.map(c => <button key={c.i} type="button" onClick={() => { const el = document.getElementById("office-" + c.i); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}
