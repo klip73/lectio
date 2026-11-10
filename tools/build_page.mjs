@@ -74,7 +74,17 @@ if (offline) {
   if (app) {
     head += `<meta name="theme-color" content="#9a2b22"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Lectio"><meta name="apple-mobile-web-app-status-bar-style" content="default">`;
     page = page.replace("window.__LV_DATA=", "window.__LV_APP=true;window.__LV_DATA=");
-    page += `<script>if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});</script>`;
+    /* Register the service worker; look for a new version whenever the app comes back on screen (a home-screen app
+       is often resumed, not reloaded), and offer a one-tap reload when a new version has taken over. */
+    page += `<script>(function(){if(!("serviceWorker" in navigator))return;var had=!!navigator.serviceWorker.controller,shown=false;
+function bar(){if(shown)return;shown=true;var d=document.createElement("div");d.setAttribute("role","status");
+d.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;background:#2b2520;color:#fbf8f2;font:15px/1.3 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.25)";
+d.innerHTML='<span>A new version of Lectio Vulgata is ready.</span>';var b=document.createElement("button");b.textContent="Reload";
+b.style.cssText="flex:none;padding:6px 14px;border-radius:7px;border:0;background:#9a2b22;color:#fff;font:600 15px system-ui,sans-serif";
+b.onclick=function(){location.reload()};d.appendChild(b);document.body.appendChild(d);}
+navigator.serviceWorker.addEventListener("controllerchange",function(){if(had)bar();had=true;});
+addEventListener("load",function(){navigator.serviceWorker.register("sw.js").then(function(r){
+function check(){try{r.update()}catch(e){}}document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")check()});setInterval(check,36e5);}).catch(function(){})});})();</script>`;
   }
   page = `<!doctype html><html lang="en"><head>${head}</head><body>\n${page}\n</body></html>`;
 }
