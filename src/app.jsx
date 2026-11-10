@@ -1126,6 +1126,7 @@ function tutorErrorText(code, detail) {
   if (code === "bad_key") return "Google didn’t accept your Gemini key for marking." + (detail ? ` Google says: “${detail}”` : "") + " Check it in Skill map & backup → AI marking.";
   if (code === "failed" && detail) return `The check didn’t finish. Google says: “${detail}”`;
   if (code === "no_key") return "Add a free Gemini key to have this marked.";
+  if (code === "busy") return "Google’s AI is very busy right now (this happens at peak times and usually passes within minutes). Your key is fine: try again shortly.";
   if (code === "offline") return "You’re offline. AI marking needs a connection.";
   if (code === "region") return "Google’s free AI isn’t offered in your region.";
   if (code === "session_expired") return "Sign in to Claude again, then try again.";

@@ -47,6 +47,7 @@ async function geminiErr(r) {
   const reason = (JSON.stringify(body).match(/"reason":"([A-Z_]+)"/) || [])[1];
   if (r.status === 400 && /API key/i.test(msg) || r.status === 401 || r.status === 403) return { code: "bad_key", msg: `${msg}${reason ? ` (${reason}, ${r.status})` : ` (${r.status})`}` };
   if (r.status === 404) return { code: "no_model", msg: `${msg} (404)` };
+  if (r.status >= 500 || /high demand|overloaded|unavailable/i.test(msg)) return { code: "busy", msg: `${msg || "Google is busy"} (${r.status})` };
   if (r.status === 400 && /location|region|country/i.test(msg)) return { code: "region", msg };
   return { code: "failed", msg: `${msg || r.statusText || "no message"} (${r.status})` };
 }
@@ -113,6 +114,18 @@ async function geminiCall(prompt, opts = {}) {
         await sleep((last.wait + 1) * 1000, opts.signal);
         order.splice(oi + 1, 0, m);
         continue;
+      }
+      /* Google busy (high demand): wait a few seconds and try the same model once more, then the other model. */
+      if (last.code === "busy") {
+        if (!tried["busy:" + m]) {
+          tried["busy:" + m] = true;
+          await sleep(4000, opts.signal);
+          order.splice(oi + 1, 0, m);
+          continue;
+        }
+        if (m !== models.lite) continue;
+        if (!tried["busyAgain"]) { tried["busyAgain"] = true; await sleep(8000, opts.signal); order.splice(oi + 1, 0, models.best); continue; }
+        throw last;
       }
       /* Refused: try sending the key the other way once, then the other model. */
       if (last.code === "bad_key" && !tried["auth"]) {

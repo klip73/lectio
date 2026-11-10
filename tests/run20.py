@@ -6,7 +6,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 srv = subprocess.Popen([sys.executable, "-m", "http.server", "8783", "--bind", "127.0.0.1", "--directory", here], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1); errs = []; calls = []
 FB = {"v": "partly", "s": "Sense right; one tense slip.", "ok": "Good word order.", "i": [{"sev": "error", "t": "tense", "la": "erat", "vs": "1", "you": "is", "fix": "was", "why": "erat is imperfect of sum.", "c": "null"}]}
-state = {"flash429": False, "queryOnly": False}
+state = {"flash429": False, "queryOnly": False, "busy": 0}
 def gemini(route):
     req = route.request; url = req.url
     if req.method == "OPTIONS":
@@ -29,6 +29,9 @@ def gemini(route):
     body = json.loads(req.post_data or "{}")
     prompt = body["contents"][0]["parts"][0]["text"]
     calls.append((model, prompt[:60].replace("\n", " ")))
+    if state["busy"] > 0:
+        state["busy"] -= 1
+        return route.fulfill(status=503, headers=h, body=json.dumps({"error": {"code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", "status": "UNAVAILABLE"}}))
     if state["flash429"] and model == "gemini-flash-latest":
         return route.fulfill(status=429, headers=h, body=json.dumps({"error": {"code": 429, "message": "Quota exceeded", "status": "RESOURCE_EXHAUSTED",
             "details": [{"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}))
@@ -39,7 +42,7 @@ try:
         ctx.route("https://generativelanguage.googleapis.com/**", gemini)
         ctx.add_init_script("Object.defineProperty(window, 'claude', { value: undefined, writable: false, configurable: false })")  # as in the phone app: no Claude
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
-        pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and "status of 4" not in m.text and errs.append("CONSOLE " + m.text))
+        pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and "status of 4" not in m.text and "status of 5" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8783/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
         pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         # Read: without a key, the tutor offers setup
@@ -52,7 +55,9 @@ try:
         print("  bad key:", pg.locator("text=isn’t valid").count() > 0)
         pg.fill("#ai-key", "AQ.GOODGOODGOODGOOD-GOODGOODGOODGOOD_123"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=Gemini key added", timeout=5000)
         print("  saved:", pg.locator("text=Gemini key added").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["models"])
-        pg.click("button:has-text('Test AI')"); pg.wait_for_selector("text=Working:", timeout=10000)
+        state["busy"] = 2; n0 = len(calls)
+        pg.click("button:has-text('Test AI')"); pg.wait_for_selector("text=Working:", timeout=30000)
+        print("  busy twice, then answered; tries:", [c[0] for c in calls[n0:]])
         print("  test button:", pg.locator("text=Working:").inner_text()[:90])
         # Read: Check Translation marks automatically
         pg.click("button:has-text('Hide Translation')"); pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=10000)
