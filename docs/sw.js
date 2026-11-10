@@ -1,5 +1,5 @@
 /* Keeps Lectio Vulgata working with no signal. A new version replaces the old one the next time the app is opened online. */
-const VERSION = "lectio-14c4d2ee24ec";
+const VERSION = "lectio-34c8c9de83d5";
 const FONTS = "lectio-fonts";
 const OFFICE = "lectio-office-3c4f7f02de";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];

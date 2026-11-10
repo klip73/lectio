@@ -410,6 +410,32 @@ function checkEntry(ans, ep) {
   if (ep.kind === "noun") res.push({ want: ep.gender + ".", ok: genderIn.includes(ep.gender) || (ep.gender === "c" && genderIn.some(g => "mf".includes(g))) });
   return res;
 }
+/* The genitive singular (masculine) of an adjective, from the app's declension tables. */
+function adjGenitive(lemma, head) {
+  try {
+    const t = MORPH.build(lemma, head);
+    if (t && t.kind === "adj" && t.F && t.F.mgs && t.F.mgs[0]) return t.F.mgs[0];
+  } catch (e) {}
+  const m = (head || "").match(/gen\.\s*(\w+)/);
+  return m ? m[1] : null;
+}
+/* Stems: nouns and adjectives from the genitive; verbs present (infinitive less -re), perfect (less -i), supine (less -um / -us). */
+function stemsOf(ep, lemma, head) {
+  if (!ep) return null;
+  if (ep.kind === "noun") { const g = ep.rest[0]; return g ? [{ which: "stem", want: g.replace(/(ae|ei|is|us|i|um)$/, "") }] : null; }
+  if (ep.kind === "adj") { const g = adjGenitive(lemma, head); return g ? [{ which: "stem", want: g.replace(/(ae|ius|is|i)$/, "") }] : null; }
+  if (ep.kind === "verb") {
+    const [inf, perf, sup] = ep.rest.map(x => x.replace(/ sum$/, ""));
+    const out = [];
+    if (inf && /(re|ri|i)$/.test(inf)) out.push({ which: "present stem", want: /(re|ri)$/.test(inf) ? inf.slice(0, -2) : inf.slice(0, -1) });
+    if (perf && /i$/.test(perf) && !/us$/.test(perf)) out.push({ which: "perfect stem", want: perf.replace(/i$/, "") });
+    const sp = /us$/.test(perf || "") ? perf : sup;
+    if (sp && /(um|us)$/.test(sp)) out.push({ which: "supine stem", want: sp.replace(/(um|us)$/, "") });
+    return out.length ? out : null;
+  }
+  return null;
+}
+const stemOk = (got, want) => { const g = wNorm(got).replace(/[^a-z]/g, ""), w = wNorm(want).replace(/[^a-z]/g, ""); return !!g && g === w; };
 const EN_STOP = new Set("the a an of to be in on at by for and or as is it his her their its one who which that with from into upon".split(" "));
 function meaningOk(ans, gloss) {
   const g = wNorm(gloss), ws = wNorm(ans).split(/[^a-z]+/).filter(w => w.length >= 3 && !EN_STOP.has(w));
@@ -422,12 +448,18 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       const inf = classInfo(w[0], lex, V, own);
       if (!inf) return null;
       const ep = entryParts(inf.head, inf.pos || "");
-      const syn = ai && ep && r() < 0.25 ? (r() < 0.5 ? "synonym" : "antonym") : null;
-      return { key: w[0], inf, ep, prompt: ep ? ep.first : inf.head, syn };
+      const gen = ep && ep.kind === "adj" ? adjGenitive(w[0], inf.head) : null;
+      const stems = stemsOf(ep, w[0], inf.head);
+      /* about one word in three also asks for a stem, one in four for an English derivative, and (with AI) one in eight for a synonym or antonym */
+      const x = r();
+      const extra = stems && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }
+        : x < 0.58 && ep ? { kind: "deriv" }
+        : ai && ep && x < 0.7 ? { kind: "syn", which: r() < 0.5 ? "synonym" : "antonym" } : null;
+      return { key: w[0], inf, ep, gen, prompt: ep ? ep.first : inf.head, extra, syn: extra && extra.kind === "syn" ? extra.which : null };
     }).filter(Boolean).slice(0, n);
   });
   const [i, setI] = useState(0);
-  const [form, setForm] = useState(""), [mean, setMean] = useState(""), [syn, setSyn] = useState("");
+  const [form, setForm] = useState(""), [mean, setMean] = useState(""), [syn, setSyn] = useState(""), [extraAns, setExtraAns] = useState("");
   const [res, setRes] = useState(null);   // { parts, meaningAuto, synRes }
   const [mOk, setMOk] = useState(null);
   const [score, setScore] = useState({ got: 0, partly: 0, review: 0, missed: [] });
@@ -451,10 +483,31 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
   }
   const it = items[i];
   async function check() {
-    const parts = it.ep ? checkEntry(form, it.ep) : [];
+    let parts = it.ep ? checkEntry(form, it.ep) : [];
+    /* adjectives: the genitive is what the class gives; the other endings are accepted too */
+    if (it.ep && it.ep.kind === "adj" && it.gen) {
+      const genOk = form.split(/[,\s]+/).some(p => partOk(p.replace(/^gen\.?/i, ""), it.gen, it.ep.first));
+      parts = [{ want: "gen. " + it.gen, ok: genOk || parts.every(p => p.ok) }];
+    }
+    if (it.extra && it.extra.kind === "stem") parts = [...parts, { want: `${it.extra.which}: ${it.extra.want}-`, ok: stemOk(extraAns, it.extra.want) }];
     const auto = meaningOk(mean, it.inf.full);
     setMOk(auto ? true : null);
     let synRes = null;
+    if (it.extra && it.extra.kind === "deriv" && extraAns.trim()) {
+      const stemGuess = (stemsOf(it.ep, it.key, it.inf.head) || [{ want: it.ep.first }])[0].want;
+      const heur = wNorm(extraAns).replace(/[^a-z]/g, "").startsWith(wNorm(stemGuess).replace(/[^a-z]/g, "").slice(0, Math.min(4, stemGuess.length)));
+      synRes = { status: "loading", kind: "derivative" };
+      setRes({ parts, auto, synRes });
+      try {
+        const sm = ai ? await getSample() : null;
+        const raw = sm ? await sm.json(`Latin vocabulary quiz. Latin word: ${it.inf.head} ("${shortGloss(it.inf.full)}"). A student gave "${extraAns.trim().slice(0, 40)}" as an English derivative. Is it really derived from this Latin word (directly or through French)? Reply with only JSON: {"ok":true|false,"note":"max 15 words","ex":["two or three good English derivatives"]}`, { modelTier: "quick" }) : null;
+        synRes = raw ? { status: "done", kind: "derivative", ok: !!raw.ok, note: String(raw.note || "").slice(0, 120), ex: Array.isArray(raw.ex) ? raw.ex.slice(0, 3).map(String) : [] }
+          : { status: "done", kind: "derivative", ok: heur, note: heur ? "it shares the Latin root (check the meaning fits)" : "it doesn’t share the Latin root", ex: [] };
+      } catch (e) { synRes = { status: "done", kind: "derivative", ok: heur, note: heur ? "it shares the Latin root" : "it doesn’t share the Latin root", ex: [] }; }
+      parts = [...parts, { want: "derivative", ok: synRes.ok }];
+      setRes({ parts, auto, synRes });
+      return;
+    }
     if (it.syn && syn.trim()) {
       synRes = { status: "loading" };
       setRes({ parts, auto, synRes });
@@ -472,10 +525,10 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
     const g = formsOk && m ? "got" : formsOk || m ? "partly" : "review";
     onGrade(it.key, g);
     setScore(s => ({ ...s, [g]: s[g] + 1, missed: g === "got" ? s.missed : [...s.missed, it] }));
-    setI(i + 1); setForm(""); setMean(""); setSyn(""); setRes(null); setMOk(null);
+    setI(i + 1); setForm(""); setMean(""); setSyn(""); setExtraAns(""); setRes(null); setMOk(null);
     requestAnimationFrame(() => formRef.current && formRef.current.focus());
   }
-  const what = !it.ep ? "" : it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "the genitive and gender" : "the other endings (or genitive)";
+  const what = !it.ep ? "" : it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "the genitive and gender" : "the genitive";
   const inp = "w-full rounded-md border border-rule bg-paper px-3 py-2 text-[16px] text-ink";
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7" aria-label="Write-it-out question">
@@ -488,12 +541,22 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       {it.ep && (
         <label className="flex flex-col gap-1 text-[14px] text-ink">{what[0].toUpperCase() + what.slice(1)}
           <input ref={formRef} lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={form} readOnly={!!res} onChange={e => setForm(e.target.value)}
-            placeholder={it.ep.kind === "verb" ? "-are, -avi, -atum" : it.ep.kind === "noun" ? "-ae, f." : "-a, -um"} className={`${inp} latin`} />
+            placeholder={it.ep.kind === "verb" ? "-are, -avi, -atum" : it.ep.kind === "noun" ? "-ae, f." : "gen. -i / -is"} className={`${inp} latin`} />
         </label>
       )}
       <label className="flex flex-col gap-1 text-[14px] text-ink">Meaning
         <input autoComplete="off" value={mean} readOnly={!!res} onChange={e => setMean(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res && !it.syn) check(); }} className={inp} />
       </label>
+      {it.extra && it.extra.kind === "stem" && (
+        <label className="flex flex-col gap-1 text-[14px] text-ink">The {it.extra.which}
+          <input lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} placeholder="e.g. reg-" className={`${inp} latin`} />
+        </label>
+      )}
+      {it.extra && it.extra.kind === "deriv" && (
+        <label className="flex flex-col gap-1 text-[14px] text-ink">An English derivative{ai ? " (checked by the AI)" : ""}
+          <input autoComplete="off" value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res) check(); }} className={inp} />
+        </label>
+      )}
       {it.syn && (
         <label className="flex flex-col gap-1 text-[14px] text-ink">A Latin {it.syn} (optional, checked by the AI)
           <input lang="la" autoComplete="off" autoCapitalize="off" value={syn} readOnly={!!res} onChange={e => setSyn(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res) check(); }} className={`${inp} latin`} />
@@ -506,8 +569,8 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
             <p className="flex flex-wrap gap-1.5 text-[14px]">{res.parts.map((p, k) => <span key={k} className={`rounded px-1.5 py-0.5 ${p.ok ? "bg-oktint text-ok" : "bg-warntint text-warn"}`}>{p.ok ? "✓" : "✗"} {p.want}</span>)}</p>
           )}
           <p className="text-[15px] text-ink">{it.inf.full}</p>
-          {res.synRes && (res.synRes.status === "loading" ? <p className="text-[14px] text-soft">Checking your {it.syn}…</p>
-            : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : "text-warn"}`}>{res.synRes.ok ? "✓" : "✗"} {it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
+          {res.synRes && (res.synRes.status === "loading" ? <p className="text-[14px] text-soft">Checking your {res.synRes.kind || it.syn}…</p>
+            : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : "text-warn"}`}>{res.synRes.ok ? "✓" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
           {mOk ? (
             <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-ok">Your meaning matches.</span><Btn variant="primary" onClick={() => next(true)}>Next →</Btn><button type="button" className="text-[13px] text-soft underline" onClick={() => next(false)}>Actually, I had the meaning wrong</button></div>
           ) : (
