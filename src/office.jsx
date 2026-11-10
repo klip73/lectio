@@ -3,12 +3,22 @@
 const OFFICE_VER = "dev"; /*OFFICE_VER*/
 const OFFICE_KEY = "lectio-vulgata-office";
 const officeCache = {};
+/* Which calendar: "" is 1960 (data/office/), anything else one of Divinum Officium's other versions (data/office/v/<id>/). */
+let OFFICE_V = (() => { const v = (readLocal(OFFICE_KEY) || {}).ver; return typeof v === "string" && /^[a-z0-9]*$/.test(v) ? v : ""; })();
+const officePath = name => `data/office/${OFFICE_V ? "v/" + OFFICE_V + "/" : ""}${name}.json?v=${OFFICE_VER}`;
 /* In the phone app, fetching a file through the network lets the service worker keep it for offline use. */
-function officeFetch(name) { return fetch(`data/office/${name}.json?v=${OFFICE_VER}`).then(r => { if (!r.ok) throw new Error(String(r.status)); }); }
+function officeFetch(name) { return fetch(officePath(name)).then(r => { if (!r.ok) throw new Error(String(r.status)); }); }
 function officeGet(name) {
-  if (!officeCache[name]) officeCache[name] = getJSON(`data/office/${name}.json?v=${OFFICE_VER}`).catch(e => { delete officeCache[name]; throw e; });
-  return officeCache[name];
+  const k = OFFICE_V + "/" + name;
+  if (!officeCache[k]) officeCache[k] = getJSON(officePath(name)).catch(e => { delete officeCache[k]; throw e; });
+  return officeCache[k];
 }
+let versionsPromise = null;
+function loadVersions() {
+  if (!versionsPromise) versionsPromise = getJSON(`data/office/versions.json?v=${OFFICE_VER}`).then(v => (Array.isArray(v) ? v : [])).catch(() => []);
+  return versionsPromise;
+}
+const OFFICE_GROUPS = [["roman", "Roman"], ["monastic", "Monastic"], ["cist", "Cistercian"], ["op", "Dominican"]];
 const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const dayNum = iso => Math.round((Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(2000, 0, 1)) / DAY);
 const RANK_EN = { "I. classis": "First class", "II. classis": "Second class", "III. classis": "Third class", "IV. classis": "Fourth class" };
@@ -204,7 +214,7 @@ function CalendarView({ date, onPick }) {
   const n = new Date(y, m, 0).getDate();
   const today = isoOf(new Date());
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const cls = k => ({ "I. classis": 1, "II. classis": 2, "III. classis": 3, "IV. classis": 4 })[k] || 0;
+  const cls = k => { const m = (k || "").match(/\b(I|II|III|IV)\. classis/); return m ? { I: 1, II: 2, III: 3, IV: 4 }[m[1]] : 0; };
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -320,7 +330,37 @@ function RubricsView() {
 }
 
 /* ----- the Liturgy tab ----- */
-function OfficeMode({ prog, onRead, onTable, onTap }) {
+/* The calendar picker sits above the Liturgy; changing it reloads the Office and Mass from that version's files. */
+function OfficeMode(props) {
+  const [ver, setVer] = useState(OFFICE_V);
+  const [list, setList] = useState(null);
+  useEffect(() => { loadVersions().then(setList); }, []);
+  function pick(v) {
+    OFFICE_V = v; setVer(v);
+    writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), ver: v });
+  }
+  const cur = list && list.find(x => x.id === ver);
+  useEffect(() => { if (list && ver && !cur) pick(""); }, [list]);   // a version no longer offered: back to 1960
+  return (
+    <div className="flex flex-col gap-3">
+      {list && list.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="office-ver" className="text-[14px] text-soft">Calendar</label>
+          <select id="office-ver" value={cur ? ver : ""} onChange={e => pick(e.target.value)} className="min-w-0 flex-1 basis-56 rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink sm:flex-none">
+            <option value="">Rubrics 1960 (1962 books, FSSP)</option>
+            {OFFICE_GROUPS.map(([g, gl]) => {
+              const vs = list.filter(x => x.group === g);
+              return vs.length ? <optgroup key={g} label={gl}>{vs.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</optgroup> : null;
+            })}
+          </select>
+          {cur && <span className="text-[12px] text-soft">{cur.note}{cur.years ? ` · texts ${cur.years[0]}–${cur.years[cur.years.length - 1]}` : ""}</span>}
+        </div>
+      )}
+      <OfficeModeInner key={ver} {...props} verLabel={cur ? cur.name : "Rubrics 1960 - 1960"} />
+    </div>
+  );
+}
+function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
   const pref0 = readLocal(OFFICE_KEY) || {};
   const [part, setPart0] = useState(["office", "mass", "calendar", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
   const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
@@ -424,7 +464,7 @@ function OfficeMode({ prog, onRead, onTable, onTap }) {
           )}
           {day && !day.missing && (
             <>
-              <p className="text-[12px] text-soft">Texts, calendar and rubrics: Divinum Officium (1960 rubrics, as in the 1962 Breviary and Missal), with its English translation. Rubrics are in red. Tap any Latin word for its parsing; it joins your vocabulary deck.</p>
+              <p className="text-[12px] text-soft">Texts, calendar and rubrics: Divinum Officium ({OFFICE_V ? `version “${verLabel}”` : "1960 rubrics, as in the 1962 Breviary and Missal"}), with its English translation. Rubrics are in red. Tap any Latin word for its parsing; it joins your vocabulary deck.</p>
               {APP && <div className="flex flex-wrap items-center gap-2"><Btn onClick={keepOffline}>Keep this year offline</Btn>{saving && <span className="text-[13px] text-ink">{saving}</span>}</div>}
             </>
           )}

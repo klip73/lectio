@@ -63,7 +63,7 @@ if (offline) {
   for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
   // The offline copy carries the whole Office too; the phone app fetches it day by day instead (and keeps what it has fetched).
   // The single offline file must stay under 16 MB, so it carries Matins and the Mass (not the other hours, "d-" files).
-  if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f))) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
+  if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f) && f !== "versions.json")) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
   const libDir = path.join(root, "data", "library");
   if (!app) for (const f of readdirSync(libDir).filter(f => f.endsWith(".json")).sort()) pack["library/" + f] = gzipSync(readFileSync(path.join(libDir, f)), { level: 9 }).toString("base64");
   const built = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });

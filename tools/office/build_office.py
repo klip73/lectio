@@ -1,10 +1,13 @@
 """Build the daily Office (all eight hours) and the Mass for a range of dates with the Divinum Officium programs (1960 rubrics).
-Usage: python3 -I tools/office/build_office.py <divinum-officium repo> tools/office/perllib <raw out dir> <first date YYYY-MM-DD> <days>
+Usage: python3 -I tools/office/build_office.py <divinum-officium repo> tools/office/perllib <raw out dir> <first date YYYY-MM-DD> <days> [version] [mass version]
+version: a Divinum Officium version name (default "Rubrics 1960 - 1960"); mass version: the version name missa.pl should use (default: the same).
 Writes <out>/days-YYYY.json (each day: title, rank, tempora, and the ids of its sections) and <out>/pieces.json (each section once,
 Latin and English as lines; ^...^ marks red rubric text, *...* marks a heading)."""
 import sys, os, re, json, html, hashlib, subprocess, datetime
 from concurrent.futures import ThreadPoolExecutor
 DO, LIB, OUT, FIRST, NDAYS = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3]), sys.argv[4], int(sys.argv[5])
+VERSION = sys.argv[6] if len(sys.argv) > 6 else "Rubrics 1960 - 1960"
+MVERSION = sys.argv[7] if len(sys.argv) > 7 else VERSION
 HORAS = os.path.join(DO, "web", "cgi-bin", "horas")
 # m Matins, l Lauds, p Prime, t Terce, s Sext, n None, v Vespers, c Compline; x the Mass (with its rubrics).
 HOURS = {"m": "prayMatutinum", "l": "prayLaudes", "p": "prayPrima", "t": "prayTertia", "s": "praySexta", "n": "prayNona", "v": "prayVesperae", "c": "prayCompletorium", "x": "praySanctaMissa"}
@@ -12,7 +15,7 @@ HOURS = {"m": "prayMatutinum", "l": "prayLaudes", "p": "prayPrima", "t": "prayTe
 MISSA = os.path.join(DO, "web", "cgi-bin", "missa")
 def run(date, cmd):
     mass = cmd == "praySanctaMissa"
-    args = ["perl", "-I" + LIB, "missa.pl" if mass else "officium.pl", f"date={date.strftime('%m-%d-%Y')}", "version=Rubrics 1960 - 1960",
+    args = ["perl", "-I" + LIB, "missa.pl" if mass else "officium.pl", f"date={date.strftime('%m-%d-%Y')}", "version=" + (MVERSION if mass else VERSION),
             f"command={cmd}", "lang1=Latin", "lang2=English"] + (["rubrics=1"] if mass else [])
     r = subprocess.run(args, cwd=MISSA if mass else HORAS, capture_output=True, timeout=120)
     return r.stdout.decode("utf-8", "replace")
@@ -55,7 +58,7 @@ def main():
     start = datetime.date.fromisoformat(FIRST)
     dates = [start + datetime.timedelta(d) for d in range(NDAYS)]
     jobs = [(d, h) for d in dates for h in HOURS]
-    with ThreadPoolExecutor(8) as ex:
+    with ThreadPoolExecutor(int(os.environ.get('JOBS', '8'))) as ex:
         pages = dict(zip(jobs, ex.map(lambda j: run(j[0], HOURS[j[1]]), jobs)))
     years = {}
     for d in dates:

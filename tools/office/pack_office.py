@@ -1,11 +1,14 @@
 """Pack the generated Office for the page.
-Usage: python3 -I tools/office/pack_office.py <raw dir from build_office.py> data
+Usage: python3 -I tools/office/pack_office.py <raw dir from build_office.py> data [version id] [version name]
+With a version id, writes data/office/v/<id>/ instead (another Divinum Officium calendar) and lists it in data/office/versions.json.
 Writes data/office/: index.json (years), days-YYYY.json, common.json (sections used on 30 or more days: psalms, fixed prayers,
 the Ordinary of the Mass), and per calendar month m-MM.json (Matins), d-MM.json (the other hours), x-MM.json (the Mass) with every
 other section used that month; forms.json (word form -> parsing ids, for tapping words)."""
 import sys, os, re, json, glob, collections, unicodedata
 RAW, DATA = sys.argv[1], sys.argv[2]
-OUT = os.path.join(DATA, "office"); os.makedirs(OUT, exist_ok=True)
+VID = sys.argv[3] if len(sys.argv) > 3 else ""
+VNAME = sys.argv[4] if len(sys.argv) > 4 else "Rubrics 1960 - 1960"
+OUT = os.path.join(DATA, "office", "v", VID) if VID else os.path.join(DATA, "office"); os.makedirs(OUT, exist_ok=True)
 P = json.load(open(os.path.join(RAW, "pieces.json")))
 GROUP = {"m": "m", "x": "x"}   # every other hour is in group "d"
 use, where, years = collections.Counter(), collections.defaultdict(set), []
@@ -61,5 +64,30 @@ for la, en in P.values():  # (P is keyed by short id now)
         words.update(norm(w) for w in re.findall(r"[^\W\d_]+", re.sub(r"\^[^^]*\^|\*[^*]*\*", " ", line)))
 forms = {w: [i for i, _ in known[w].most_common(4)] for w in sorted(words) if w in known}
 json.dump(forms, open(os.path.join(OUT, "forms.json"), "w"), separators=(",", ":"))
-json.dump({"years": years, "rubrics": "1960", "source": "Divinum Officium"}, open(os.path.join(OUT, "index.json"), "w"))
+json.dump({"years": years, "rubrics": VNAME, "source": "Divinum Officium"}, open(os.path.join(OUT, "index.json"), "w"))
+if VID:
+    # The list of other calendars the Liturgy section offers.
+    INFO = {
+        "t1570": ("roman", "Tridentine 1570", "St Pius V’s Breviary and Missal"),
+        "t1888": ("roman", "Tridentine 1888", "as revised under Leo XIII"),
+        "t1906": ("roman", "Tridentine 1906", "just before St Pius X’s psalter reform"),
+        "da1939": ("roman", "Divino Afflatu 1939", "St Pius X’s psalter (1911), 1939 calendar"),
+        "da1954": ("roman", "Divino Afflatu 1954", "the books before the 1955 and 1960 reforms"),
+        "r1955": ("roman", "Reduced 1955", "Pius XII’s simplification of the rubrics"),
+        "usa": ("roman", "1960 with newer US feasts", "1962 books, with feasts added since"),
+        "m1617": ("monastic", "Monastic 1617", "Benedictine Breviary, Tridentine"),
+        "m1930": ("monastic", "Monastic 1930", "Benedictine, after Divino Afflatu"),
+        "m1963": ("monastic", "Monastic 1963", "Benedictine, 1960 rubrics"),
+        "m1963b": ("monastic", "Monastic 1963 (Le Barroux)", "as kept at Sainte-Madeleine du Barroux"),
+        "c1951": ("cist", "Cistercian 1951", "Cistercian Breviary"),
+        "cav": ("cist", "Cistercian (Altovadensis)", "the use of Hohenfurth (Vyšší Brod)"),
+        "op1962": ("op", "Dominican 1962", "Ordo Praedicatorum: Office and Dominican Mass"),
+    }
+    vf = os.path.join(DATA, "office", "versions.json")
+    vs = [v for v in (json.load(open(vf)) if os.path.exists(vf) else []) if v["id"] != VID]
+    g, label, note = INFO.get(VID, ("roman", VNAME, ""))
+    vs.append({"id": VID, "name": VNAME, "group": g, "label": label, "note": note, "years": years})
+    order = list(INFO)
+    vs.sort(key=lambda v: order.index(v["id"]) if v["id"] in order else 99)
+    json.dump(vs, open(vf, "w"), ensure_ascii=False, indent=0)
 print(f"years {years[0]}-{years[-1]}; common {len(common)} sections; forms {len(forms)} of {len(words)} words known")
