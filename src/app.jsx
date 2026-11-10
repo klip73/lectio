@@ -848,7 +848,9 @@ function loadLocalProgress() {
   return { ...EMPTY };
 }
 function encodeBackup(prog) {
-  return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, exam: prog.exam }))));
+  return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, exam: prog.exam,
+    /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
+    cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
 }
 function decodeBackup(code) {
   const m = code.trim().match(/^LV1:([A-Za-z0-9+/=]+)$/);
@@ -875,6 +877,10 @@ function decodeBackup(code) {
         concept: CONCEPTS[m.concept] ? m.concept : null, latin: s60(m.latin, 40), fix: s60(m.fix, 60) })).slice(-20);
     const ability = {};
     Object.entries(d.ability || {}).forEach(([k, a]) => { if (PART_IDS.includes(k) && a && Number.isFinite(+a.t) && Number.isFinite(+a.n)) ability[k] = { t: Math.max(-0.3, Math.min(1.3, +a.t)), n: Math.max(0, Math.floor(+a.n)) }; });
+    /* a class list travels with the backup: restore it (the word list itself is rebuilt when Class quiz opens) */
+    if (d.cls && Array.isArray(d.cls.sections)) {
+      try { writeClass({ sections: d.cls.sections.filter(x => x && typeof x === "object"), own: Array.isArray(d.cls.own) ? d.cls.own.filter(o => o && typeof o.head === "string") : [], basic: !!d.cls.basic, words: [], stale: true }); } catch (e) {}
+    }
     return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
   } catch (e) { return null; }
 }

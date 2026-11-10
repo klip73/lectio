@@ -17,10 +17,23 @@ try:
         print("1 reminder shown:", r.count(), "|", r.inner_text()[:120].replace("\n", " ") if r.count() else "")
         with pg.expect_download() as dl: r.locator("button:has-text('Save progress file')").click()
         print("2 file:", dl.value.suggested_filename, "| reminder gone:", pg.locator("[aria-label='Back up your progress']").count() == 0, "| backed up:", "at" in json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-backup')")))
+        path = dl.value.path()
         pg.evaluate("localStorage.removeItem('lectio-vulgata-backup')"); pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
         pg.click("text=Remind me next week"); pg.wait_for_timeout(200)
         pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
         print("3 snoozed, after reload hidden:", pg.locator("[aria-label='Back up your progress']").count() == 0)
+        # the class list travels in the progress file
+        pg.evaluate("localStorage.setItem('lectio-vulgata-class', JSON.stringify({sections:[{t:'nt',b:'mt',c1:5,c2:5}], own:[{head:'gratia', gloss:'grace', lemma:'gratia'}], basic:false, words:[]}))")
+        with pg.expect_download() as dl2:
+            pg.click("button:has-text('Skill map & backup')"); pg.click("button:has-text('Save progress file')")
+        p2 = dl2.value.path()
+        pg.evaluate("localStorage.removeItem('lectio-vulgata-class')"); pg.reload(); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        if pg.locator("button:has-text('Load progress file')").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        pg.set_input_files("input[aria-label='Choose a progress file']", str(p2)); pg.wait_for_timeout(800)
+        print("4 restored class list:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-class')") or "{}").get("sections"))
+        pg.click("nav[aria-label='Practice mode'] button:has-text('Class quiz')"); pg.wait_for_timeout(4000)
+        cl = json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-class')"))
+        print("  words rebuilt:", len(cl.get("words", [])), "| own first:", cl["words"][0][0] if cl.get("words") else None, "| stale flag gone:", "stale" not in cl)
         b.close()
 finally:
     srv.terminate()

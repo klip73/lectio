@@ -87,7 +87,7 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     git clone https://github.com/Jacob-Gray/summa.json ../sources/summa-english
     python3 -I tools/summa/build_summa.py ../sources/summa-latin/SummaTheologica.txt data /tmp/genforms.json ../sources/summa-english/json
     git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
-    python3 -I tools/library/build_library.py ../sources/tll data /tmp/genforms.json   # 76 works on shelves; the offline copy keeps the first eight
+    python3 -I tools/library/build_library.py ../sources/tll data /tmp/genforms.json ../sources/bd/formats/json   # 76 works on shelves; the offline copy keeps the first eight
 
 The current build covers 1 November 2026 to 31 December 2036. Before then, rebuild with a later end date: ten years take about half an hour.
 

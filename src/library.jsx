@@ -82,12 +82,21 @@ function LibraryMode({ onTap, onTable }) {
       </div>
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
         <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
-        <div lang="la" className="lt flex flex-col gap-3">
-          {ch.paras.map((p, i) => (
-            <p key={i} className={`latin text-[1.08rem] leading-[1.8] text-ink${work.verse ? " whitespace-pre-line" : ""}`}>
-              <OfficeText line={p} latin onWord={help.pick} sel={help.word} />
-            </p>
-          ))}
+        {ch.en && (
+          <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={pos._en !== false} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[#9a2b22]" />English (Douay-Rheims)</label>
+        )}
+        <div className="flex flex-col gap-3">
+          {ch.paras.map((p, i) => {
+            const en = ch.en && pos._en !== false ? ch.en[i] : null;
+            return (
+              <div key={i} className={en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}>
+                <p lang="la" className={`lt latin text-[1.08rem] leading-[1.8] text-ink${work.verse ? " whitespace-pre-line" : ""}`}>
+                  <OfficeText line={p} latin onWord={help.pick} sel={help.word} />
+                </p>
+                {en && <p lang="en" className="text-[15px] leading-snug text-soft">{en}</p>}
+              </div>
+            );
+          })}
         </div>
       </article>
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -34,7 +34,7 @@ function sectionLabel(s) {
 /* The words of the chosen sections: [lemma, count, ref, example with [[word]], analysis id], most frequent first. */
 async function classWords(sections, lex, basic) {
   const found = {}, order = [];
-  let total = 0, unknown = 0;
+  let total = 0, unknown = 0, missing = 0;
   /* One paragraph (a verse, or a paragraph of an article): its text, each word's parsing entry, and where it is. */
   function take(text, ents, ref) {
     const words = text.match(WORD_RE) || [];
@@ -61,7 +61,8 @@ async function classWords(sections, lex, basic) {
   }
   for (const s of sections) {
     if (s.t === "sm") {
-      const q = await loadSummaQ(s.p, s.q);
+      let q = null;
+      try { q = await loadSummaQ(s.p, s.q); } catch (e) { missing++; continue; }   // offline copy, or no connection
       if (!q) continue;
       (s.a ? [s.a] : q.a.map((_, i) => i + 1)).forEach(a => {
         let part = null;
@@ -84,7 +85,7 @@ async function classWords(sections, lex, basic) {
     }
   }
   const words = order.map(l => found[l]).sort((x, y) => y[1] - x[1]);
-  return { words, total, unknown };
+  return { words, total, unknown, missing };
 }
 /* Words a student types or pastes (e.g. a textbook chapter's vocabulary): one per line, the Latin entry, then optionally
    " - ", ":", "=" or a tab and the meaning to learn. Matched to the dictionary where possible; the student's meaning wins. */
@@ -117,7 +118,7 @@ function classInfo(l, lex, V, own) {
 }
 /* Recompute a class list's words from its sections and own words, and save it. Also used by the Summa reader's "Add to my class quiz". */
 async function rebuildClass(next, lex) {
-  const { words, total, unknown } = await classWords(next.sections, lex, next.basic);
+  const { words, total, unknown, missing } = await classWords(next.sections, lex, next.basic);
   /* the student's own words come first (their teacher's list), then the sections' words */
   const ownW = (next.own || []).map(o => [ownKey(o), 1, "Your list", "", -1]);
   const same = (a, b) => a === b || n1(a) === n1(b);
@@ -125,7 +126,7 @@ async function rebuildClass(next, lex) {
   ownW.forEach(o => { const w = words.find(x => same(x[0], o[0])); if (w) { o[1] = w[1] + 1; o[2] = w[2]; o[3] = w[3]; o[4] = w[4]; } });
   const cls = { ...next, words: merged };
   writeClass(cls);
-  return { cls, total, unknown };
+  return { cls, total, unknown, missing };
 }
 const shortGloss = g => (g || "").split(/[;(]/)[0].replace(/\s+/g, " ").trim().slice(0, 60);
 
@@ -232,9 +233,11 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
   const nCh = BOOK[b] ? BOOK[b][2].length : 1;
   async function rebuild(next) {
     setBusy(true);
-    try { const { cls: c, total, unknown } = await rebuildClass(next, lex); setCls0(c); setStats({ total, unknown }); }
+    try { const { cls: c, total, unknown, missing } = await rebuildClass(next, lex); setCls0(c); setStats({ total, unknown, missing }); }
     finally { setBusy(false); }
   }
+  /* a list restored from a backup arrives without its words: rebuild them once */
+  useEffect(() => { if (cls.stale && lex) { const { stale, ...c } = cls; rebuild(c); } }, [lex]);
   const [ownText, setOwnText] = useState("");
   function addOwn() {
     const list = parseOwn(ownText, lex);
@@ -275,7 +278,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
         )}
         <div className="flex flex-col gap-2 border-t border-rule pt-3">
           <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-0.5 text-[14px]" role="group" aria-label="Text">
-            {[["nt", "New Testament"], ["st", "Summa"], ["own", "My own words"]].map(([k, l]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => setT(k)} className={`rounded px-2.5 py-1 ${t === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
+            {[["nt", "New Testament"], ...(OFFLINE && !APP ? [] : [["st", "Summa"]]), ["own", "My own words"]].map(([k, l]) => <button key={k} type="button" aria-pressed={t === k} onClick={() => setT(k)} className={`rounded px-2.5 py-1 ${t === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
           </div>
           {t === "own" ? (
             <div className="flex flex-col gap-2">
@@ -340,6 +343,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
         <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Words in these sections">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-[15px] text-ink"><strong className="num">{words.length}</strong> words · <strong className="num text-ok">{knownN}</strong> known</span>
+            {stats && stats.missing > 0 && <span className="text-[12px] text-warn">{stats.missing} Summa section{stats.missing === 1 ? "" : "s"} couldn’t load (offline?): {OFFLINE && !APP ? "the Summa is in the phone app and online page" : "try again with a connection"}.</span>}
             {stats && stats.unknown > 0 && <span className="text-[12px] text-soft">{stats.unknown} of {stats.total} word forms had no parsing and are left out</span>}
           </div>
           <div className="flex flex-wrap gap-2">

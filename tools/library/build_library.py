@@ -64,14 +64,37 @@ AUTO = [
     {"id": "fortunatus", "group": "hymns", "title": "Hymni", "author": "Venantius Fortunatus", "files": ["fortunat.txt", "venantius.txt"], "verse": True, "pertitle": True, "note": "Vexilla Regis and the hymns of the Holy Cross."},
     {"id": "hymnicantica", "group": "hymns", "title": "Hymni et cantica", "author": "Medieval and later", "files": ["hymni.txt", "diesirae.txt"], "verse": True, "note": "Veni Emmanuel, Adeste fideles, Dies irae and other hymns and carols."},
     # Documents
-] + [{"id": "ot-" + f, "group": "ot", "title": t, "author": "Biblia Vulgata", "files": [f"bible/{f}.txt"], "bible": True, "note": ""} for f, t in OT]
+] + [{"id": "ot-" + f, "group": "ot", "title": t, "author": "Biblia Vulgata", "files": [f"bible/{f}.txt"], "bible": True, "bd": i, "note": ""} for i, (f, t) in enumerate(OT)]
+# The Old Testament comes from the Clementine Vulgate with the Douay-Rheims (bible_databases, as the New Testament), when given:
+BD = sys.argv[4] if len(sys.argv) > 4 else None
+BD_BOOKS = None
+if BD:
+    vul = json.load(open(os.path.join(BD, "VulgClementine.json")))["books"]; drc = json.load(open(os.path.join(BD, "DRC.json")))["books"]
+    ot = [i for i, b in enumerate(vul[:46]) if b["name"] != "Psalms"]   # the Psalms are an exam part already
+    BD_BOOKS = [(vul[i], drc[i]) for i in ot]
+def build_bd(w):
+    v, d = BD_BOOKS[w["bd"]]
+    en = {c["chapter"]: {x["verse"]: x["text"] for x in c["verses"]} for c in d["chapters"]}
+    return [{"title": f'{w["title"]} {c["chapter"]}', "paras": [f'{x["verse"]} {x["text"].strip()}' for x in c["verses"]],
+             "en": [en.get(c["chapter"], {}).get(x["verse"], "") for x in c["verses"]]} for c in v["chapters"]]
 GROUPS = [["exam", "Spiritual classics"], ["thomas", "St Thomas Aquinas"], ["fathers", "Fathers of the Church"], ["medieval", "Middle Ages"],
-          ["hymns", "Hymns and poetry"], ["ot", "Vulgate: Old Testament"]]
+          ["hymns", "Hymns and poetry"], ["ot", "Old Testament: Vulgate and Douay-Rheims"]]
 HEAD = re.compile(r"^(CAPUT|Caput|CAP\.|LIBER|Liber|PROLOGUS|Prologus|PRAEFATIO|Praefatio|PROOEMIUM|Prooemium|SERMO|Sermo|EPISTULA|EPISTOLA|Epistula|Epistola|Articulus|ARTICULUS|HYMNUS|Hymnus|Hymnum|PARS|Pars)\b.{0,80}$")
 ROMAN_LINE = re.compile(r"^\[?\(?([IVXLC]+|\d+)\.?\)?\]?\.?$")
 def tcase(t):
+    """Title case for ALL-CAPS headings, keeping Roman numerals (Sermo II) and small Latin words (de, et, in) as they should be."""
     t = t.strip().strip(".")
-    return t if not t.isupper() else " ".join(w if w in ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X") or re.fullmatch(r"[IVXLC]+", w) else w.capitalize() for w in t.lower().split()).replace(" De ", " de ").replace(" Et ", " et ").replace(" In ", " in ")
+    if not t.isupper(): return t
+    out = []
+    for w in t.split():
+        if re.fullmatch(r"[IVXLC]+\.?", w): out.append(w)
+        elif w.lower() in ("de", "et", "in", "ad", "cum", "ex", "a", "ab", "e", "per", "pro", "sub", "super", "contra", "of", "the", "and"): out.append(w.lower())
+        else: out.append(w.capitalize())
+    s2 = " ".join(out)
+    return s2[:1].upper() + s2[1:]
+def clean_title(t):
+    t = re.sub(r"^(Augustini|Sancti \w+|S\. \w+|Prudenti|Sedulius)\s+", "", t)
+    return t[:1].upper() + t[1:]
 def split_long(ch, limit=2200):
     out = []
     for c in ch:
@@ -128,13 +151,16 @@ def build_auto(w):
                 if title0 is None and bi < 3 and not ROMAN_LINE.match(first) and not HEAD.match(first):
                     title0 = first   # the work's own title line
                     if not rest: continue
-                t = tcase(head_txt)
+                t = clean_title(tcase(head_txt))
+                mr = ROMAN_LINE.match(head_txt.strip())
+                if mr: t = "Caput " + mr.group(1).upper()   # a lone numeral heading: "[ii]" → "Caput II"
+                if re.fullmatch(r"(?i)(bernard of cluny|st\.? thomas aquinas|venantius fortunatus)", t): continue
                 if w.get("pertitle") and cur is None: t = tcase(head_txt)
                 cur = {"title": (f"{book} · " if book else "") + t, "paras": []}; chapters.append(cur)
                 if rest: cur["paras"].append("\n".join(rest) if w.get("verse") else " ".join(rest))
                 continue
             if cur is None:
-                cur = {"title": book or (tcase(title0) if title0 and w.get("pertitle") else w["title"]), "paras": []}; chapters.append(cur)
+                cur = {"title": book or (clean_title(tcase(title0)) if title0 and w.get("pertitle") else w["title"]), "paras": []}; chapters.append(cur)
             cur["paras"].append("\n".join(b) if w.get("verse") else " ".join(b))
     chapters = [c for c in chapters if c["paras"]]
     # merge tiny chapters (a heading over a sentence) into the next
@@ -206,9 +232,9 @@ def norm(x):
     return "".join(c for c in x if not unicodedata.combining(c)).replace("j", "i").replace("v", "u")
 index, words, words0 = [], set(), set()
 for w in WORKS + AUTO:
-    ch = build(w) if w in WORKS else build_auto(w)
+    ch = build(w) if w in WORKS else build_bd(w) if (BD_BOOKS and "bd" in w) else build_auto(w)
     if not ch: print("EMPTY", w["id"]); continue
-    json.dump({"id": w["id"], "title": w["title"], "author": w["author"], "verse": bool(w.get("verse")), "chapters": ch},
+    json.dump({"id": w["id"], "title": w["title"], "author": w["author"] if not (BD_BOOKS and "bd" in w) else "Vulgata Clementina · Douay-Rheims", "verse": bool(w.get("verse")), "chapters": ch},
               open(os.path.join(OUT, w["id"] + ".json"), "w"), ensure_ascii=False, separators=(",", ":"))
     nw = sum(len(re.findall(r"[^\W\d_]+", p)) for c in ch for p in c["paras"])
     index.append({"id": w["id"], "title": w["title"], "author": w["author"], "note": w["note"], "words": nw, "chapters": [c["title"] for c in ch],

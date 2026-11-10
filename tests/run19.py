@@ -50,6 +50,11 @@ try:
         print("  confessiones:", pg.locator("article h2").inner_text(), "|", pg.locator("article p").first.inner_text()[:70])
         pg.click("text=‹ Library"); pg.click("button:has-text('Hymni')"); pg.wait_for_selector("#lib-ch", timeout=15000)
         print("  ambrose:", pg.locator("article p").first.inner_text()[:60].replace("\n", " / "))
+        # Old Testament: Vulgate with Douay-Rheims
+        pg.click("text=‹ Library") if pg.locator("text=‹ Library").count() else None
+        pg.click("summary:has-text('Old Testament')"); pg.click("button:has-text('Isaias')"); pg.wait_for_selector("#lib-ch", timeout=15000)
+        pg.select_option("#lib-ch", "6"); pg.wait_for_timeout(500)
+        print("5 Isaias 7:", pg.locator("article h2").inner_text(), "| v14:", pg.locator("article p[lang='la']").nth(13).inner_text()[:60], "|", pg.locator("article p[lang='en']").nth(13).inner_text()[:60])
         b.close()
 finally:
     srv.terminate()
