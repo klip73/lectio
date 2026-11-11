@@ -453,10 +453,10 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       if (!inf) return null;
       const ep = entryParts(inf.head, inf.pos || "");
       const gen = ep && ep.kind === "adj" ? adjGenitive(w[0], inf.head) : null;
-      const stems = stemsOf(ep, w[0], inf.head);
+      const stems = (stemsOf(ep, w[0], inf.head) || []).filter(x => x.which !== "present stem");  /* the present stem is too easy to be worth asking */
       /* about one word in three also asks for a stem, one in four for an English derivative, and (with AI) one in eight for a synonym or antonym */
       const x = r();
-      const extra = stems && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }
+      const extra = stems.length && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }
         : x < 0.58 && ep ? { kind: "deriv" }
         : ai && ep && x < 0.7 ? { kind: "syn", which: r() < 0.5 ? "synonym" : "antonym" } : null;
       return { key: w[0], inf, ep, gen, prompt: ep ? ep.first : inf.head, extra, syn: extra && extra.kind === "syn" ? extra.which : null };
@@ -545,7 +545,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       {it.ep && (
         <label className="flex flex-col gap-1 text-[14px] text-ink">{what[0].toUpperCase() + what.slice(1)}
           <input ref={formRef} lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={form} readOnly={!!res} onChange={e => setForm(e.target.value)}
-            placeholder={it.ep.kind === "verb" ? "-are, -avi, -atum" : it.ep.kind === "noun" ? "-ae, f." : "gen. -i / -is"} className={`${inp} latin`} />
+            className={`${inp} latin`} />
         </label>
       )}
       <label className="flex flex-col gap-1 text-[14px] text-ink">Meaning
@@ -553,7 +553,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       </label>
       {it.extra && it.extra.kind === "stem" && (
         <label className="flex flex-col gap-1 text-[14px] text-ink">The {it.extra.which}
-          <input lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} placeholder="e.g. reg-" className={`${inp} latin`} />
+          <input lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} className={`${inp} latin`} />
         </label>
       )}
       {it.extra && it.extra.kind === "deriv" && (
