@@ -1124,6 +1124,7 @@ function alignCurated(la, src) {
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/
+/*@include home.jsx*/
 
 /* ---------- Links to a passage ---------- */
 const ARTIFACT_URL = "https://claude.ai/artifact/X6N5DSQ3q196vb6ZEzgjty";
@@ -1208,7 +1209,8 @@ function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
-  const [mode, setMode] = useState(["read", "vocab", "exam", "forms", "guide", "office", "library"].includes(ui0.mode) ? ui0.mode : "drill");
+  /* The app opens on Home (Continue + one button per purpose); tests can ask to start where they left off. */
+  const [mode, setMode] = useState(() => !window.__LV_START ? "home" : ["read", "vocab", "exam", "forms", "guide", "office", "library"].includes(ui0.mode) ? ui0.mode : "drill");
   const [formsFocus, setFormsFocus] = useState(null);
   const [lastStudy, setLastStudy] = useState(() => (STUDY_MODES.includes(ui0.study) ? ui0.study : "read"));
   useEffect(() => { if (STUDY_MODES.includes(mode)) setLastStudy(mode); }, [mode]);
@@ -1235,6 +1237,7 @@ function App() {
   const [tutorCfg, setTutorCfg] = useState(() => { const c = readLocal(TUTOR_KEY) || {}; return { tier: c.tier === "default" ? "default" : "quick", log: Array.isArray(c.log) ? c.log : [] }; });
   const [prefs, setPrefs] = useState(() => ({ accents: false, structure: false, size: 1, deck: "all", welcomed: false, ...(readLocal(PREFS_KEY) || {}) }));
   const [day, setDay] = useState(readDay);
+  useEffect(() => { touchRecent(areaOf(mode, prefs.deck)); }, [mode, prefs.deck]);
   const [focusMode, setFocusMode] = useState(false);
   const [examKey, setExamKey] = useState(0);
   const practiceRef = useRef(null);
@@ -1591,6 +1594,15 @@ function App() {
       setMode("exam");
     }
   }
+  /* Home's buttons: an area of the app, or "study" for exam preparation (Today's session) */
+  function goHome(area) {
+    setFocusMode(false); resetView(); window.scrollTo({ top: 0 });
+    if (area === "home") return setMode("home");
+    if (area === "class") { setPrefs(p => ({ ...p, deck: "class" })); return setMode("vocab"); }
+    if (area === "vocab") { if (prefs.deck === "class") setPrefs(p => ({ ...p, deck: "all" })); return setMode("vocab"); }
+    if (area === "study") return setMode(STUDY_MODES.includes(lastStudy) ? lastStudy : "read");
+    setMode(area);
+  }
   const firstVisit = !prefs.welcomed && !Object.keys(prog.cards || {}).length && !Object.keys(prog.pcards || {}).length && !Object.keys(prog.vcards || {}).length;
   const focusText = focusPart ? (untried ? `Next focus: ${PART_INFO[focusPart.id].short} (needs a few graded passages to estimate).` : `Weakest part: ${PART_INFO[focusPart.id].short}.`) : "";
 
@@ -1703,12 +1715,20 @@ function App() {
       </header>
 
       {/* Sections, pinned to the top while scrolling */}
-      <nav className="sticky top-0 z-10 -my-3 grid grid-cols-4 gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
+      <nav className="sticky top-0 z-10 -my-3 grid grid-cols-[auto_repeat(4,minmax(0,1fr))] gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
+        <button type="button" aria-pressed={group === "home"} aria-label="Home" className={`rounded-md px-3 py-1.5 text-center text-[15px] font-medium sm:px-3.5 ${group === "home" ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`} onClick={() => goHome("home")}><span aria-hidden="true" className="sm:hidden">⌂</span><span className="hidden sm:inline">Home</span></button>
         {[["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
-          <button key={g} type="button" aria-pressed={group === g} className={`${tabCls(group === g)} text-center`}
+          <button key={g} type="button" aria-pressed={group === g} className={`min-w-0 rounded-md px-1 py-1.5 text-center text-[15px] font-medium sm:px-3.5 ${group === g ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`}
             onClick={() => { setMode(g === "study" ? (STUDY_MODES.includes(lastStudy) ? lastStudy : "read") : g === "liturgy" ? "office" : g); resetView(); window.scrollTo({ top: 0 }); }}>{l}</button>
         ))}
       </nav>
+
+      {group === "home" && <>
+      {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      <BackupReminder prog={prog} cloud={store === "cloud"} />
+      <HomeScreen go={goHome} office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} day={day} dueCount={dueAll}
+        cls={readClass()} posLabel={`${BOOK_NAME[pos.b] || ""} ${pos.c}:${pos.v}`} examLeft={examLeft} />
+      </>}
 
       {group === "study" && <>
       {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
@@ -1801,7 +1821,7 @@ function App() {
         )}
       </div>
 
-      {mode === "library" ? (
+      {mode === "home" ? null : mode === "library" ? (
         <LibraryMode onTap={addTapped} onTable={openTable} />
       ) : mode === "office" ? (
         <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} />

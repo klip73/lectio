@@ -453,7 +453,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       if (!inf) return null;
       const ep = entryParts(inf.head, inf.pos || "");
       const gen = ep && ep.kind === "adj" ? adjGenitive(w[0], inf.head) : null;
-      const stems = (stemsOf(ep, w[0], inf.head) || []).filter(x => x.which !== "present stem");  /* the present stem is too easy to be worth asking */
+      const stems = [];  /* stems aren't asked: the principal parts already show them */
       /* about one word in three also asks for a stem, one in four for an English derivative, and (with AI) one in eight for a synonym or antonym */
       const x = r();
       const extra = stems.length && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }

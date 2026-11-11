@@ -5,6 +5,7 @@ root = os.path.dirname(here)
 b = open(os.path.join(root, "dist", "lectio-vulgata.html")).read()
 stub = re.search(r'<script>\nwindow.__prompts.*?</script>', open(os.path.join(here, "stub.html")).read(), re.S).group(0)
 stub = stub.replace('localStorage.setItem("lectio-vulgata-ui", JSON.stringify({mode:"read", pos:{b:"mt",c:5,v:16}}));', '')
+stub = '<script>window.__LV_START = "study";  /* older tests start where they left off, not on Home (run25 tests Home) */</script>\n' + stub
 b = b.replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>\n<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>', stub + '\n<script src="react-bundle.js"></script>')
 b = re.sub(r'<link[^>]*fonts.googleapis[^>]*>', '', b)
 open(os.path.join(here, 't.html'), 'w').write('<!doctype html><html><head><meta charset="utf-8"></head><body>' + b + '</body></html>')
