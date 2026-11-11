@@ -53,6 +53,10 @@ AUTO = [
     {"id": "tertull", "group": "fathers", "title": "De oratione, De baptismo, De paenitentia, De praescriptione", "author": "Tertullian", "files": ["tertullian/tertullian.oratione.txt", "tertullian/tertullian.baptismo.txt", "tertullian/tertullian.paen.txt", "tertullian/tertullian.praescrip.txt"], "books": ["De oratione", "De baptismo", "De paenitentia", "De praescriptione haereticorum"], "note": "On prayer (with the Our Father), baptism, penance, and the rule of faith against heretics."},
     {"id": "octavius", "group": "fathers", "title": "Octavius", "author": "Minucius Felix", "files": ["minucius.txt"], "note": "A dialogue between a Christian and a pagan at Ostia."},
     {"id": "mortibus", "group": "fathers", "title": "De mortibus persecutorum", "author": "Lactantius", "files": ["lactantius/demort.txt"], "note": "How the persecutors died: the Great Persecution and Constantine."},
+    # Canon law (classical): headings are the tituli; each CAP. stays inside its titulus
+    {"id": "decretales", "group": "canon", "title": "Decretales Gregorii IX (Liber Extra)", "author": "Gregory IX, 1234", "files": [f"gregdecretals{i}.txt" for i in range(1, 6)], "books": ["Liber I", "Liber II", "Liber III", "Liber IV", "Liber V"],
+     "head": r"^\s*TITULUS\s+[IVXLC]+\.?.*$", "note": "The heart of the Corpus Iuris Canonici, the Church's law until 1917: five books (iudex, iudicium, clerus, connubia, crimen), by titulus."},
+    {"id": "gelasianum", "group": "canon", "title": "Decretum Gelasianum", "author": "6th century", "files": ["decretum.txt"], "note": "On the canon of Scripture, the councils and the books to be received."},
     # Middle Ages
     {"id": "bedehe", "group": "medieval", "title": "Historia ecclesiastica gentis Anglorum", "author": "St Bede", "files": [f"bede/bede{i}.txt" for i in range(1, 6)], "books": ["Liber I", "Liber II", "Liber III", "Liber IV", "Liber V"], "note": "The conversion of England: St Augustine of Canterbury, St Cuthbert, St Hilda."},
     {"id": "martinus", "group": "medieval", "title": "Vita S. Martini", "author": "Sulpicius Severus", "files": ["sulpiciusseverusmartin.txt"], "note": "St Martin of Tours: soldier, monk, bishop."},
@@ -78,7 +82,7 @@ def build_bd(w):
     return [{"title": f'{w["title"]} {c["chapter"]}', "paras": [f'{x["verse"]} {x["text"].strip()}' for x in c["verses"]],
              "en": [en.get(c["chapter"], {}).get(x["verse"], "") for x in c["verses"]]} for c in v["chapters"]]
 GROUPS = [["exam", "Spiritual classics"], ["thomas", "St Thomas Aquinas"], ["fathers", "Fathers of the Church"], ["medieval", "Middle Ages"],
-          ["hymns", "Hymns and poetry"], ["ot", "Old Testament: Vulgate and Douay-Rheims"]]
+          ["hymns", "Hymns and poetry"], ["canon", "Canon law"], ["ot", "Old Testament: Vulgate and Douay-Rheims"]]
 HEAD = re.compile(r"^(CAPUT|Caput|CAP\.|LIBER|Liber|PROLOGUS|Prologus|PRAEFATIO|Praefatio|PROOEMIUM|Prooemium|SERMO|Sermo|EPISTULA|EPISTOLA|Epistula|Epistola|Articulus|ARTICULUS|HYMNUS|Hymnus|Hymnum|PARS|Pars)\b.{0,80}$")
 ROMAN_LINE = re.compile(r"^\[?\(?([IVXLC]+|\d+)\.?\)?\]?\.?$")
 def tcase(t):
@@ -141,6 +145,18 @@ def build_auto(w):
                 b = b[1:]; first = b[0].strip()
             if TRAIL.match(first) or re.fullmatch(r"[\d\s|IVXLC.]+", " ".join(b)) and len(" ".join(b)) < 200: continue
             # a heading: a short all-caps line, a known heading word, or a lone roman numeral
+            H = re.compile(w["head"]) if w.get("head") else None
+            if H:   # a work with its own heading rule: only those lines start chapters
+                is_head = bool(H.match(first))
+                head_txt, rest = first, b[1:]
+                if is_head:
+                    t = (f"{book} · " if book else "") + clean_title(tcase(head_txt.strip()))
+                    cur = {"title": t, "paras": []}; chapters.append(cur)
+                    if rest: cur["paras"].append(" ".join(rest))
+                    continue
+                if cur is None:
+                    cur = {"title": book or w["title"], "paras": []}; chapters.append(cur)
+                cur["paras"].append(" ".join(b)); continue
             is_head = len(b) == 1 and (HEAD.match(first) or ROMAN_LINE.match(first) or (first.isupper() and 3 <= len(first) <= 90))
             if not is_head and len(b) > 1 and (HEAD.match(first) or (first.isupper() and len(first) <= 90)) and len(first) < 90:
                 is_head, b = True, b   # heading with text following in the same block

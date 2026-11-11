@@ -251,6 +251,17 @@ async function geminiCall(prompt, opts = {}) {
 }
 
 /* Setup: where to get a key, paste it, test it. */
+/* The same app on claude.ai: Claude marks translations (no keys) and progress follows the Claude account. The owner shares it. */
+function ClaudeVersionNote({ compact }) {
+  if (window.claude && window.claude.use) return null;
+  return (
+    <p className={`text-[14px] leading-snug ${compact ? "text-soft" : "text-ink"}`}>
+      <strong>Have a Claude account?</strong> The same app runs inside Claude, where Claude itself marks your translations (no keys to set up) and your progress follows your Claude account across devices:{" "}
+      <a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">open it in Claude</a>.
+      {" "}If it says you don’t have access, ask the person who shared this app to share the Claude version with you. Move your progress across with a backup code.
+    </p>
+  );
+}
 function AiSetup({ onDone }) {
   const [a, setA] = useState(readAi);
   const [draft, setDraft] = useState("");
@@ -298,6 +309,7 @@ function AiSetup({ onDone }) {
           ? "On this page Claude marks your translations. To get the same marking in the phone app, add a free Gemini key there."
           : "Have your translations marked by AI, mistake by mistake, for free. You need your own free key from Google (Gemini) or Groq, or both (about a minute each, no card)."}
       </p>
+      <ClaudeVersionNote compact />
       {(a.key || a.groq) && (
         <div className="flex flex-col gap-1.5">
           {a.key && <span className="flex flex-wrap items-center gap-3 text-[14px] text-ok">✓ Gemini key (…{a.key.slice(-4)}) <button type="button" onClick={() => remove("gemini")} className="text-[13px] text-soft underline">Remove</button></span>}

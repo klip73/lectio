@@ -50,6 +50,13 @@ try:
         print("  confessiones:", pg.locator("article h2").inner_text(), "|", pg.locator("article p").first.inner_text()[:70])
         pg.click("text=‹ Library"); pg.click("button:has-text('Hymni')"); pg.wait_for_selector("#lib-ch", timeout=15000)
         print("  ambrose:", pg.locator("article p").first.inner_text()[:60].replace("\n", " / "))
+        # Canon law: 1983 lookup, Decretals
+        pg.click("text=‹ Library") if pg.locator("text=‹ Library").count() else None
+        pg.fill("#canon-n", "915"); pg.wait_for_timeout(500)
+        links = pg.locator("a:has-text('Latin ↗'), a:has-text('English ↗')")
+        print("6 can. 915:", pg.locator("#canon-n ~ span").first.inner_text(), "|", [links.nth(i).get_attribute("href").split("/")[-1] for i in range(links.count())])
+        pg.click("button:has-text('Decretales Gregorii IX')"); pg.wait_for_selector("#lib-ch", timeout=15000)
+        print("  decretales:", pg.locator("#lib-ch option").count(), "titles | 2nd:", pg.locator("#lib-ch option").nth(1).inner_text())
         # Old Testament: Vulgate with Douay-Rheims
         pg.click("text=‹ Library") if pg.locator("text=‹ Library").count() else None
         pg.click("summary:has-text('Old Testament')"); pg.click("button:has-text('Isaias')"); pg.wait_for_selector("#lib-ch", timeout=15000)

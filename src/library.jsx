@@ -5,6 +5,44 @@ function libGet(name) {
   if (!libCache[name]) libCache[name] = getJSON(`data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
   return libCache[name];
 }
+/* The 1983 Code: its text is under copyright, so the lookup opens the canon on the Vatican's site (Latin and English).
+   The 1917 Code (public domain) has no reliable digital Latin text to load yet: links to the scan and to canonlaw.info. */
+function CanonLookup() {
+  const [d, setD] = useState(null);
+  const [n, setN] = useState("");
+  useEffect(() => { getJSON("data/canon1983.json").then(setD).catch(() => {}); }, []);
+  const c = d && n ? d.canons[String(parseInt(n, 10))] : null;
+  const ext = "inline-flex items-center rounded-md border border-rule bg-paper px-3 py-1.5 text-[14px] text-ink hover:border-soft";
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <div className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-4 py-3">
+        <span lang="la" className="latin text-[1.02rem] font-bold text-ink">Codex Iuris Canonici (1983)</span>
+        <span className="text-[13px] leading-snug text-soft">Look up a canon: it opens on the Vatican’s site in Latin and English (the text is under copyright, so it isn’t copied here).</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="canon-n" className="text-[14px] text-ink">Can.</label>
+          <input id="canon-n" inputMode="numeric" value={n} onChange={e => setN(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="1752" className="w-24 rounded-md border border-rule bg-paper px-2 py-1.5 text-[15px] text-ink" />
+          {c && <span className="text-[13px] text-soft">Liber {["", "I", "II", "III", "IV", "V", "VI", "VII"][c[0]]}: {(d.books[String(c[0])] || "").split(" · ")[0]}</span>}
+          {n && d && !c && <span className="text-[13px] text-warn">The Code has canons 1–{d.count}.</span>}
+        </div>
+        {c && (
+          <div className="flex flex-wrap gap-2">
+            <a className={ext} href={d.urls[c[1]]} target="_blank" rel="noopener noreferrer">Latin ↗</a>
+            <a className={ext} href={d.urls[c[2]]} target="_blank" rel="noopener noreferrer">English ↗</a>
+            <span className="self-center text-[12px] text-soft">On the Latin page, find “Can. {parseInt(n, 10)}”.</span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-4 py-3">
+        <span lang="la" className="latin text-[1.02rem] font-bold text-ink">Codex Iuris Canonici (1917)</span>
+        <span className="text-[13px] leading-snug text-soft">The Pio-Benedictine Code, in force until 1983 and behind the 1962 books’ discipline. A scan of the Vatican edition, and Dr Edward Peters’s resources on it.</span>
+        <div className="flex flex-wrap gap-2">
+          <a className={ext} href="https://archive.org/details/codexiuriscanoni00cath_0" target="_blank" rel="noopener noreferrer">Latin text (scan) ↗</a>
+          <a className={ext} href="https://www.canonlaw.info/masterpage1917.htm" target="_blank" rel="noopener noreferrer">canonlaw.info ↗</a>
+        </div>
+      </div>
+    </div>
+  );
+}
 function LibraryMode({ onTap, onTable }) {
   const [idx, setIdx] = useState(null);
   const [err, setErr] = useState("");
@@ -52,6 +90,7 @@ function LibraryMode({ onTap, onTable }) {
                 </button>
               );
             })}</div>;
+          if (g === "canon") return <section key={g} className="flex flex-col gap-2"><h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>{!(OFFLINE && !APP) && <CanonLookup />}{shelf}</section>;
           return g === "ot"
             ? <details key={g} className="rounded-lg border border-rule bg-paper px-4 py-3"><summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">{gl} <span className="font-normal normal-case text-soft">· {ws.length} books, Latin only</span></summary><div className="mt-3">{shelf}</div></details>
             : <section key={g} className="flex flex-col gap-2">{gl && <h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>}{shelf}</section>;

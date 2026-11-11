@@ -27,3 +27,7 @@ Latin text of the complete Summa Theologiae (all four parts) from github.com/and
 ## Library
 
 Latin texts from The Latin Library (via the CLTK collection), built into data/library/ by tools/library/build_library.py. The Old Testament in the Library is the Clementine Vulgate with the Douay-Rheims (Challoner), from bible_databases (`bd`), as for the New Testament.
+
+## Canon law
+
+The Decretals of Gregory IX and the Decretum Gelasianum from The Latin Library (public domain). The 1983 Code is not copied (© Libreria Editrice Vaticana; English © Canon Law Society of America): data/canon1983.json holds only each canon's page on vatican.va, taken from github.com/joconn819/codex-iuris-reader by tools/canon/build_canon_links.py. The 1917 Code is linked (archive.org scan; canonlaw.info).
