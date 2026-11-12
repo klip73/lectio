@@ -133,6 +133,7 @@ function FeedbackPanel({ where, onClose }) {
 const SEEN_KEY = "lectio-vulgata-seen";
 const WHATS_NEW = [
   { d: "2026-11-12", items: [
+    "Sentence by sentence now goes one sentence at a time, even in a long Matins lesson, and can colour the verbs by aspect: in progress or repeated, or complete.",
     "Class quiz: share your class list. One person adds the week’s sections and sends the link; everyone loads the same list (Class quiz → Share this list).",
     "Suggest an improvement or report a problem from Home or How this app works.",
   ] },

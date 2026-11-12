@@ -265,7 +265,57 @@ function PhraseTips({ text, kinds }) {
 /* ---------- Sentence by sentence: one verse or sentence at a time, help chips that light up their words, the translation on
    request, and "I needed help / I got it" (remembered per passage, shown as the progress bar). ---------- */
 const SBS_KEY = "lectio-vulgata-sbs";
-function SentenceReader({ lex, verses, part, prog, title, storeKey, onClose, onTable, onDone }) {
+const ASPECT_KEY = "lectio-vulgata-aspect";
+/* Break each verse (a Matins lesson can be one long "verse") into its sentences, keeping each word's parsing.
+   A break comes after . ? ! before a capital, not after a number or a short reference (Matth. 5, cap. 3), and a
+   fragment under four words joins the next. The English is split the same way when its sentences line up. */
+function splitSentences(text) {
+  const out = []; let start = 0;
+  const re = /([.?!])(["”’)]*)\s+(?=[A-ZÆŒ])/g; let m;
+  while ((m = re.exec(text))) {
+    const before = text.slice(start, m.index).match(/(\S+)$/);
+    const last = before ? before[1] : "";
+    if (m[1] === "." && (/\d$/.test(last) || /^[A-Z][a-z]{0,4}$/.test(last))) continue;
+    out.push(text.slice(start, m.index + m[0].length).trim()); start = m.index + m[0].length;
+  }
+  out.push(text.slice(start).trim());
+  const merged = [];
+  out.filter(Boolean).forEach(t => { if (merged.length && (merged[merged.length - 1].match(WORD_RE) || []).length < 4) merged[merged.length - 1] += " " + t; else merged.push(t); });
+  if (merged.length > 1 && (merged[merged.length - 1].match(WORD_RE) || []).length < 4) { const t = merged.pop(); merged[merged.length - 1] += " " + t; }
+  return merged;
+}
+function sentencesOf(verses) {
+  const out = [];
+  verses.forEach(v => {
+    const la = splitSentences(v[1] || "");
+    if (la.length < 2) { out.push({ v, label: v[0], whole: false }); return; }
+    const en = splitSentences(v[2] || "");
+    let k = 0;
+    la.forEach((t, j) => {
+      const n = (t.match(WORD_RE) || []).length;
+      out.push({ v: [v[0], t, en.length === la.length ? en[j] : v[2], v[3] ? v[3].slice(k, k + n) : null], label: v[0], whole: en.length !== la.length, sub: j + 1, of: la.length });
+      k += n;
+    });
+  });
+  return out;
+}
+/* Aspect of a verb form: in progress or repeated (the present system) or complete (the perfect system). */
+const ASPECT = { p: "on", i: "on", f: "on", r: "done", l: "done", t: "done" };
+function aspectOf(t) {
+  if (!t || !isV(t)) return null;
+  const mo = t.m[3], te = t.m[2];
+  if (!"isnmp".includes(mo)) return null;   // gerunds, gerundives and supines have no aspect to show
+  return ASPECT[te] || null;
+}
+const ASPECT_STYLE = { on: { color: "var(--mid)", background: "var(--mid-tint)" }, done: { color: "var(--warn)", background: "var(--warn-tint)" } };
+const TENSE_NAME = { p: "present", i: "imperfect", f: "future", r: "perfect", l: "pluperfect", t: "future perfect" };
+const MOOD_NAME = { i: "", s: " subjunctive", m: " imperative", n: " infinitive", p: " participle" };
+function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key0, onClose, onTable, onDone }) {
+  const sents = useMemo(() => sentencesOf(verses0), [verses0]);
+  const verses = sents.map(x => x.v);
+  const storeKey = key0 + (sents.length !== verses0.length ? ":s" : "");
+  const [aspect, setAspect0] = useState(() => !!readLocal(ASPECT_KEY));
+  const setAspect = a => { setAspect0(a); writeLocal(ASPECT_KEY, a); };
   const saved = (readLocal(SBS_KEY) || {})[storeKey] || {};
   const [i, setI] = useState(() => Math.min(saved.i || 0, verses.length - 1));
   const [res, setRes] = useState(() => saved.r || {});     // row index -> "got" | "help"
@@ -284,6 +334,9 @@ function SentenceReader({ lex, verses, part, prog, title, storeKey, onClose, onT
     return n.map(x => ({ ...x, w: weak(x.tag) })).sort((a, b) => b.w - a.w);
   }, [i]);
   const tips = useMemo(() => phraseTips(v[1], KINDS_OF_PART[part] || ["church"]).filter(t => t.title !== "Word order in hymns"), [i]);
+  const toks = useMemo(() => (lex ? gTokens(lex, [v]) : []), [i, lex]);
+  const asp = toks.map(aspectOf);
+  const sInfo = sents[i] || {};
   const items = [...notes, ...tips];
   const active = items.find(x => x.id === chip);
   const lit = new Set(active && active.at ? active.at : []);
@@ -301,7 +354,7 @@ function SentenceReader({ lex, verses, part, prog, title, storeKey, onClose, onT
       <div ref={topRef} className="mx-auto flex min-h-full max-w-[46rem] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <button type="button" onClick={onClose} className="text-[15px] font-medium text-rubric">‹ Back to the passage</button>
-          <span className="num text-[14px] text-soft">{done ? "Done" : `Verse ${i + 1} of ${verses.length}`}</span>
+          <span className="num text-[14px] text-soft">{done ? "Done" : `${sents.length !== verses0.length ? "Sentence" : "Verse"} ${i + 1} of ${verses.length}`}</span>
         </div>
         <div className="flex gap-1" aria-hidden="true">
           {verses.map((_, j) => <button key={j} type="button" tabIndex={-1} onClick={() => { setDone(false); setI(j); }} className={`h-2 flex-1 rounded-full ${res[j] === "got" ? "bg-[var(--ok)]" : res[j] === "help" ? "bg-[var(--mid)]" : j === i && !done ? "bg-rubric" : "bg-[var(--rule)]"}`} />)}
@@ -322,12 +375,22 @@ function SentenceReader({ lex, verses, part, prog, title, storeKey, onClose, onT
             {words.map((t, j) => {
               if (j % 2 === 0) return t;
               k++;
-              const my = k, entry = v[3] ? v[3][my] : null;
+              const my = k, entry = v[3] ? v[3][my] : null, ap = aspect && !lit.has(my) ? asp[my] : null;
+              const tk = toks[my];
               return <span key={j} role="button" tabIndex={0} onClick={() => setWord(word && word.k === my ? null : { w: t, entry, k: my })}
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWord({ w: t, entry, k: my }); } }}
-                className={`cursor-pointer rounded px-0.5 underline decoration-dotted decoration-[var(--rule)] underline-offset-[6px] ${lit.has(my) ? "bg-rubrictint text-rubric" : ""} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""}`}>{t}</span>;
+                className={`cursor-pointer rounded px-0.5 underline decoration-dotted decoration-[var(--rule)] underline-offset-[6px] ${lit.has(my) ? "bg-rubrictint text-rubric" : ""} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""} ${ap ? "font-semibold" : ""}`}
+                style={ap ? ASPECT_STYLE[ap] : undefined} title={ap && tk ? `${TENSE_NAME[tk.m[2]]}${MOOD_NAME[tk.m[3]]}: ${ap === "on" ? "in progress or repeated" : "complete"}` : undefined}>{t}</span>;
             })}
           </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+            <label className="flex items-center gap-1.5 text-ink"><input type="checkbox" checked={aspect} onChange={e => setAspect(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />Colour verbs by aspect</label>
+            {aspect && <span className="flex flex-wrap gap-2" aria-label="Aspect colours">
+              <span className="rounded px-1.5 font-semibold" style={ASPECT_STYLE.on}>in progress / repeated</span>
+              <span className="rounded px-1.5 font-semibold" style={ASPECT_STYLE.done}>complete</span>
+            </span>}
+          </div>
+          {aspect && <p className="-mt-2 text-[13px] leading-snug text-soft">Present, imperfect and future (the present system) show an action going on or repeated: “was doing, used to do, will be doing”. Perfect, pluperfect and future perfect show it complete: “did, has done, had done, will have done”. Participles and infinitives too. A&amp;G §§ 463–485.</p>}
           {items.length > 0 && <>
             <span className="smallcaps text-[13px] font-semibold text-soft">Help</span>
             <div className="flex flex-wrap gap-2">
@@ -356,7 +419,7 @@ function SentenceReader({ lex, verses, part, prog, title, storeKey, onClose, onT
           )}
           <div className="rounded-lg border border-rule bg-leaf px-4 py-3">
             {showEn
-              ? <><span className="smallcaps text-[13px] font-semibold text-soft">Translation</span><p lang="en" className="mt-1 text-[1.05rem] leading-relaxed text-ink">{v[2]}</p></>
+              ? <><span className="smallcaps text-[13px] font-semibold text-soft">{sInfo.whole ? "Translation of the whole passage" : "Translation"}</span><p lang="en" className="mt-1 text-[1.05rem] leading-relaxed text-ink">{v[2]}</p></>
               : <button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => setShowEn(true)}>Show the translation</button>}
           </div>
         </>)}
