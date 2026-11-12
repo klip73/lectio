@@ -22,7 +22,7 @@ self.addEventListener("fetch", e => {
       return;
     }
     // The Office: each file is kept once fetched, so days already opened (or saved for the year) work offline.
-    if (url.pathname.includes("/data/office/") || url.pathname.includes("/data/library/") || url.pathname.includes("/data/summa/") || url.pathname.includes("/data/search/") || url.pathname.includes("/data/ls/") || url.pathname.includes("/data/wkt/")) {
+    if (url.pathname.includes("/data/office/") || url.pathname.includes("/data/library/") || url.pathname.includes("/data/summa/") || url.pathname.includes("/data/search/") || url.pathname.includes("/data/ls/") || url.pathname.includes("/data/wkt/") || url.pathname.includes("/data/dict/")) {
       e.respondWith(caches.open(OFFICE).then(c => c.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }))));
       return;
     }

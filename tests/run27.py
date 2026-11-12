@@ -10,7 +10,7 @@ try:
         b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 900})
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
-        pg.add_init_script("localStorage.setItem('lectio-vulgata-library', JSON.stringify({_open: 'cic1917', cic1917: 4}))")
+        pg.add_init_script("window.__LV_APP_SITE = ''; localStorage.setItem('lectio-vulgata-library', JSON.stringify({_open: 'cic1917', cic1917: 4}))")
         pg.goto("http://127.0.0.1:8792/t.html"); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000)
         pg.click("nav[aria-label='Section'] button:has-text('Library')"); pg.wait_for_selector("article h2", timeout=20000)
         def tap(word):
@@ -22,10 +22,13 @@ try:
             if pg.locator(f"article span.lw:text-is('{w}')").count(): print(w, "→", tap(w))
         # open L&S on a known word
         pg.locator("article span.lw:text-is('possunt'), article span.lw:text-is('Rescripta')").first.click(); pg.wait_for_timeout(800)
-        btn = pg.locator("div.fixed.bottom-0 button:has-text('Lewis')")
+        btn = pg.locator("div.fixed.bottom-0 button:has-text('Dictionary')")
         if btn.count() and btn.get_attribute("aria-expanded") == "false": btn.click()
         pg.wait_for_timeout(2500)
         print("L&S:", pg.locator("div.fixed.bottom-0").inner_text().replace("\n", " | ")[:400])
+        for name in ["Wiktionary", "Du Cange"]:
+            pg.click(f"div.fixed.bottom-0 [aria-label='Dictionary'] button:has-text('{name}')"); pg.wait_for_timeout(2500)
+            print(name + ":", pg.locator("div.fixed.bottom-0").inner_text().replace("\n", " | ")[:400])
         b.close()
 finally:
     srv.terminate()

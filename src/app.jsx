@@ -1003,20 +1003,26 @@ function WordPanel({ lex, word, entry, onClose, where, onTable }) {
    Opens on request; the choice is remembered, so it can stay open for every word. */
 const LS_KEY = "lectio-vulgata-ls";
 const lsCache = {};
-const lsGet = name => (lsCache[name] = lsCache[name] || getJSON(`data/ls/${name}.json`).catch(e => { delete lsCache[name]; throw e; }));
+/* three dictionaries in the same shape: headword -> entries, packed by two or three letters (where.json says which file) */
+const DICT_SRC = {
+  ls: { name: "Lewis & Short", path: n => `data/ls/${n === "where" ? "where" : "l" + n}.json` },
+  wk: { name: "Wiktionary", path: n => `data/dict/wk/${n}.json` },
+  dc: { name: "Du Cange", path: n => `${REMOTE_V ? APP_SITE : ""}data/dict/dc/${n}.json` }   // large: the online page reads it from the phone app's site
+};
+const lsGet = (name, src = "ls") => { const k = src + ":" + name; return (lsCache[k] = lsCache[k] || getJSON(DICT_SRC[src].path(name)).catch(e => { delete lsCache[k]; throw e; })); };
 const lsNorm = l => normForm(String(l).replace(/[#\d]+$/, "")).replace(/[^a-z]/g, "");
-async function lsLookup(lemma) {
+async function lsLookup(lemma, src = "ls") {
   /* Whitaker writes optional letters in brackets, ex(s)urgo: try the word with them, then without */
   const base = [lemma.replace(/\(([^)]*)\)/g, "$1"), lemma.replace(/\([^)]*\)/g, "")].map(lsNorm).filter(Boolean);
   /* then spellings Lewis & Short prefers: assimilated prefixes (adnuntio → annuntio), oboedio, tento; a deponent's active form */
   const alt = k => [k.replace(/^adn/, "ann").replace(/^adc/, "acc").replace(/^adp/, "app").replace(/^adt/, "att").replace(/^ads/, "ass").replace(/^adf/, "aff").replace(/^adg/, "agg").replace(/^adl/, "all").replace(/^adr/, "arr").replace(/^inm/, "imm").replace(/^inp/, "imp").replace(/^inl/, "ill").replace(/^inr/, "irr").replace(/^conl/, "coll").replace(/^conm/, "comm").replace(/^conr/, "corr"),
     k.replace(/^obed/, "oboed"), k.replace(/tempt/, "tent"), k.replace(/or$/, "o"), k.replace(/^sollemn/, "solemn"), k.replace(/^solemn/, "sollemn")];
   const ks = [...new Set([...base, ...base.flatMap(alt)])];
-  const where = await lsGet("where");
+  const where = await lsGet("where", src);
   for (const k of ks) {
     const f = where[k.slice(0, 3).padEnd(3, "_")] ?? where[k.slice(0, 2).padEnd(2, "_")];
     if (f == null) continue;
-    const shard = await lsGet("l" + f);
+    const shard = await lsGet(f, src);
     if (shard[k]) return shard[k];
   }
   return [];
@@ -1105,18 +1111,24 @@ function LsGuessPanel({ word, onClose }) {
   );
 }
 function LewisShort({ lemmas, openFirst }) {
-  const [open, setOpen0] = useState(() => !!openFirst || !!readLocal(LS_KEY));
+  /* the dictionary panel: Lewis & Short, Wiktionary (English, with Church and Late Latin senses marked) and Du Cange
+     (medieval and Church Latin, in Latin). Whether it is open, and which dictionary, are remembered. */
+  const pref = (() => { const v = readLocal(LS_KEY); return v && typeof v === "object" ? v : { open: !!v, src: "ls" }; })();
+  const [open, setOpen0] = useState(() => !!openFirst || !!pref.open);
+  const [src, setSrc0] = useState(DICT_SRC[pref.src] ? pref.src : "ls");
   const [res, setRes] = useState(null);   // [{ lemma, entries }] | "err"
   const [all, setAll] = useState({});
-  const setOpen = v => { setOpen0(v); writeLocal(LS_KEY, v ? 1 : 0); };
+  const save = (o, sr) => writeLocal(LS_KEY, { open: o, src: sr });
+  const setOpen = v => { setOpen0(v); save(v, src); };
+  const setSrc = v => { setSrc0(v); setOpen0(true); save(true, v); };
   const key = lemmas.join("|");
   useEffect(() => {
     if (!open || !lemmas.length || OFFLINE && !APP) return;
     let alive = true; setRes(null); setAll({});
-    Promise.all(lemmas.map(async l => ({ lemma: l, entries: await lsLookup(l) })))
+    Promise.all(lemmas.map(async l => ({ lemma: l, entries: await lsLookup(l, src) })))
       .then(r => alive && setRes(r)).catch(() => alive && setRes("err"));
     return () => { alive = false; };
-  }, [open, key]);
+  }, [open, key, src]);
   if (!lemmas.length) return null;
   const first = lemmas[0];
   const links = (
@@ -1125,34 +1137,65 @@ function LewisShort({ lemmas, openFirst }) {
       <a className="text-rubric underline underline-offset-2" href={`https://en.wiktionary.org/wiki/${encodeURIComponent(first)}#Latin`} target="_blank" rel="noopener noreferrer">Wiktionary ↗</a>
     </span>
   );
+  const name = DICT_SRC[src].name;
+  const credit = { ls: "Lewis & Short, A Latin Dictionary (1879), from the Perseus Digital Library (CC BY-SA).",
+    wk: "Wiktionary (CC BY-SA), via James Penfold’s Lexicon Scholasticum.",
+    dc: "Du Cange, Glossarium mediae et infimae Latinitatis (1883–87), digital edition of the École nationale des chartes, via James Penfold’s Lexicon Scholasticum." }[src];
+  const none = { ls: "it is mostly a classical dictionary. Try Wiktionary or Du Cange for Church words.",
+    wk: "try Lewis & Short or Du Cange.", dc: "Du Cange lists only the words and senses of medieval and Church Latin; try Lewis & Short or Wiktionary." }[src];
+  const entry = (r, e, j) => {
+    const k = r.lemma + j, more = all[k];
+    if (src === "ls") {
+      const senses = more ? e[2] : e[2].slice(0, 4);
+      const w0 = (e[1] || "").split(/[ ,]/)[0];
+      return (
+        <div key={k} className="text-[14px] leading-snug">
+          {/* the notes often begin with the headword marked for quantity (ordĭnārĭus, a, um): then that is the heading */}
+          {w0 && lsNorm(w0) === lsNorm(e[0].split(/[ ,]/)[0])
+            ? <p><span lang="la" className="latin font-bold text-ink">{w0}</span><span className="text-soft">{e[1].slice(w0.length)}</span></p>
+            : <p><span lang="la" className="latin font-bold text-ink">{e[0]}</span>{e[1] && <span className="text-soft"> {e[1]}</span>}</p>}
+          {senses.length > 0 && <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5 text-ink">{senses.map((x, i) => <li key={i} className={x.startsWith("· ") ? "list-none -ml-1 pl-3 text-soft" : ""}>{x.replace(/^(· )+/, "")}</li>)}</ol>}
+          {e[2].length > 4 && <button type="button" className="mt-1 text-[13px] text-rubric underline" onClick={() => setAll(a => ({ ...a, [k]: !more }))}>{more ? "Fewer senses" : `All ${e[2].length} senses`}</button>}
+        </div>
+      );
+    }
+    if (src === "wk") return (
+      <div key={k} className="text-[14px] leading-snug">
+        <p><span lang="la" className="latin font-bold text-ink">{e[0]}</span>{e[1] && <span className="text-soft"> {e[1]}</span>}</p>
+        <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5 text-ink">{e[2].map((x, i) => {
+          const m = x.match(/^\(([^)]*)\) (.*)$/);
+          return <li key={i}>{m ? <><span className="smallcaps text-[12px] text-rubric">{m[1]}</span> {m[2]}</> : x}</li>;
+        })}</ol>
+      </div>
+    );
+    const t = more || e[1].length <= 700 ? e[1] : e[1].slice(0, 650).replace(/\s\S*$/, "") + " …";
+    return (
+      <div key={k} className="text-[14px] leading-snug">
+        <p lang="la" className="latin text-ink"><span className="font-bold">{e[0]}</span> {t.replace(new RegExp("^" + e[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[,.]?\\s*"), "")}</p>
+        {e[1].length > 700 && <button type="button" className="mt-1 text-[13px] text-rubric underline" onClick={() => setAll(a => ({ ...a, [k]: !more }))}>{more ? "Less" : "The whole entry"}</button>}
+      </div>
+    );
+  };
   return (
     <div className="mt-3 border-t border-rule pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {OFFLINE && !APP ? <span className="text-[13px] text-soft">Lewis &amp; Short is in the phone app and online page.</span>
-          : <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-[14px] font-medium text-rubric underline underline-offset-2">Lewis &amp; Short {open ? "▴" : "▾"}</button>}
+        {OFFLINE && !APP ? <span className="text-[13px] text-soft">The dictionaries are in the phone app and online page.</span>
+          : <div className="flex flex-wrap items-center gap-1.5">
+            <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-[14px] font-medium text-rubric underline underline-offset-2">Dictionary {open ? "▴" : "▾"}</button>
+            {open && <div className="flex gap-1" role="group" aria-label="Dictionary">
+              {Object.entries(DICT_SRC).map(([k, v]) => <button key={k} type="button" aria-pressed={src === k} onClick={() => setSrc(k)}
+                className={`rounded border px-2 py-0.5 text-[12px] ${src === k ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-paper text-ink"}`}>{v.name}</button>)}
+            </div>}
+          </div>}
         {links}
       </div>
       {open && !(OFFLINE && !APP) && (
         <div className="mt-2 flex max-h-[50vh] flex-col gap-3 overflow-auto">
           {res === null ? <p className="text-[14px] text-soft">Looking it up…</p>
-            : res === "err" ? <p className="text-[14px] text-warn">Lewis &amp; Short didn’t load. Check your connection and try again.</p>
-            : res.every(r => !r.entries.length) ? <p className="text-[14px] text-soft">No Lewis &amp; Short entry under <span lang="la" className="latin">{lemmas.join(", ")}</span>; it is mostly a classical dictionary. Try Logeion, which also has Du Cange and Latin–English dictionaries of Church Latin.</p>
-            : res.map(r => r.entries.map((e, j) => {
-              const k = r.lemma + j, more = all[k], senses = more ? e[2] : e[2].slice(0, 4);
-              return (
-                <div key={k} className="text-[14px] leading-snug">
-                  {(() => {
-                    /* the notes often begin with the headword marked for quantity (ordĭnārĭus, a, um): then that is the heading */
-                    const w0 = (e[1] || "").split(/[ ,]/)[0];
-                    if (w0 && lsNorm(w0) === lsNorm(e[0].split(/[ ,]/)[0])) return <p><span lang="la" className="latin font-bold text-ink">{w0}</span><span className="text-soft">{e[1].slice(w0.length)}</span></p>;
-                    return <p><span lang="la" className="latin font-bold text-ink">{e[0]}</span>{e[1] && <span className="text-soft"> {e[1]}</span>}</p>;
-                  })()}
-                  {senses.length > 0 && <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5 text-ink">{senses.map((s, i) => <li key={i} className={s.startsWith("· ") ? "list-none -ml-1 pl-3 text-soft" : ""}>{s.replace(/^(· )+/, "")}</li>)}</ol>}
-                  {e[2].length > 4 && <button type="button" className="mt-1 text-[13px] text-rubric underline" onClick={() => setAll(a => ({ ...a, [k]: !more }))}>{more ? "Fewer senses" : `All ${e[2].length} senses`}</button>}
-                </div>
-              );
-            }))}
-          <p className="text-[11px] text-soft">Lewis &amp; Short, A Latin Dictionary (1879), from the Perseus Digital Library (CC BY-SA).</p>
+            : res === "err" ? <p className="text-[14px] text-warn">{src === "dc" && REMOTE_V ? "Du Cange comes from the phone app’s site and didn’t load here; it is in the phone app (klip73.github.io/lectio)." : `${name} didn’t load. Check your connection and try again.`}</p>
+            : res.every(r => !r.entries.length) ? <p className="text-[14px] text-soft">No {name} entry under <span lang="la" className="latin">{lemmas.join(", ")}</span>; {none}</p>
+            : res.map(r => r.entries.map((e, j) => entry(r, e, j)))}
+          <p className="text-[11px] text-soft">{credit}</p>
         </div>
       )}
     </div>

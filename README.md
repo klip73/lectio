@@ -89,7 +89,13 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     git -C ../sources/tll sparse-checkout disable     # the full Latin Library collection
     python3 -I tools/library/build_extra.py <corpus-thomisticum> <magisterium> <rituale dir> <cic1917.txt> data /tmp/genforms.json ../extra ../sources/tll   # Catena, Rituale, Catechism, 1917 Code
     python3 -I tools/library/build_library.py ../sources/tll data /tmp/genforms.json ../sources/bd/formats/json ../extra   # 85 works on shelves; the offline copy keeps the first eight
+    python3 -I tools/library/build_opera.py <corpus-thomisticum> ../opera       # St Thomas's other works, Cajetan
+    python3 -I tools/library/build_readers.py <reading-additions.json> ../readers ../sources/tll /tmp/genforms.json   # manuals, readers
+    python3 -I tools/library/add_works.py data /tmp/genforms.json ../opera/extra-opera.json ../readers/extra-readers.json
     python3 -I tools/library/build_search.py data     # Library and Summa search; the Summa's Gospel citations
+    python3 -I tools/data/build_ls.py <lewis-short-json> data                  # Lewis & Short
+    python3 -I tools/data/build_wkt.py <latin-forms.csv> data                  # Wiktionary word forms (after build_search)
+    python3 -I tools/data/build_dicts.py data <latin-dict-1.csv> <latin-dict-2.csv>   # Wiktionary senses, Du Cange
 
 The current build covers 1 November 2026 to 31 December 2036. Before then, rebuild with a later end date: ten years take about half an hour.
 

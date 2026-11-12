@@ -1,8 +1,11 @@
 /* ---------- Library: classic Church texts in Latin (The Latin Library), read chapter by chapter with word help ---------- */
 const LIB_KEY = "lectio-vulgata-library";
 const libCache = {};
+/* The larger additions (St Thomas's other works ct-*, the manuals and readers rd-*) are read by the online page from the
+   phone app's site, to keep the page within its size limit. */
 function libGet(name) {
-  if (!libCache[name]) libCache[name] = getJSON(`data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
+  const remote = REMOTE_V && /^(ct|rd)-/.test(name);
+  if (!libCache[name]) libCache[name] = getJSON(`${remote ? APP_SITE : ""}data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
   return libCache[name];
 }
 /* The 1983 Code: its text is under copyright, so the lookup opens the canon on the Vatican's site (Latin and English).
@@ -94,7 +97,9 @@ function LibraryMode({ onTap, onTable }) {
         {(idx.groups || [["exam", ""]]).map(([g, gl]) => {
           const ws = idx.works.filter(w => (w.group || "exam") === g && (!OFFLINE || APP || w.offline));
           if (!ws.length) return null;
-          const shelf = g === "ot"
+          const shelf = g === "opera"
+            ? <div className="grid gap-1.5 sm:grid-cols-2">{ws.map(w => <button key={w.id} type="button" onClick={() => setPos({ ...pos, _open: w.id })} className="rounded-md border border-rule bg-leaf px-3 py-2 text-left hover:border-soft"><span lang="la" className="latin block text-[14px] font-semibold text-ink">{w.title}</span><span className="block text-[12px] text-soft">{w.author !== "St Thomas Aquinas" ? w.author + " · " : ""}{w.note}{pos[w.id] != null ? ` · reading part ${pos[w.id] + 1}` : ""}</span></button>)}</div>
+            : g === "ot"
             ? <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">{ws.map(w => <button key={w.id} type="button" onClick={() => setPos({ ...pos, _open: w.id })} className="rounded-md border border-rule bg-leaf px-2.5 py-1.5 text-left text-[14px] hover:border-soft"><span lang="la" className="latin">{w.title}</span>{pos[w.id] != null && <span className="num ml-1 text-[11px] text-soft">· {pos[w.id] + 1}</span>}</button>)}</div>
             : <div className="grid gap-2 sm:grid-cols-2">{ws.map(w => {
               const at = pos[w.id];
@@ -108,12 +113,12 @@ function LibraryMode({ onTap, onTable }) {
               );
             })}</div>;
           if (g === "canon") return <section key={g} className="flex flex-col gap-2"><h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>{!(OFFLINE && !APP) && <CanonLookup onOpen={openAt} />}{shelf}</section>;
-          return g === "ot"
-            ? <details key={g} className="rounded-lg border border-rule bg-paper px-4 py-3"><summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">{gl} <span className="font-normal normal-case text-soft">· {ws.length} books, Latin only</span></summary><div className="mt-3">{shelf}</div></details>
+          return g === "ot" || g === "opera"
+            ? <details key={g} className="rounded-lg border border-rule bg-paper px-4 py-3"><summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">{gl} <span className="font-normal normal-case text-soft">· {ws.length} {g === "ot" ? "books, with the Douay-Rheims" : "works, most with English"}</span></summary><div className="mt-3">{shelf}</div></details>
             : <section key={g} className="flex flex-col gap-2">{gl && <h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>}{shelf}</section>;
         })}
         {OFFLINE && !APP && <p className="text-[13px] text-soft">This offline copy carries the first eight works; the whole Library and the complete Summa are in the phone app and the online page.</p>}
-        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium). Word help covers the words these texts share with the parsed exam texts.</p>
+        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); St Thomas's other works and Cajetan from the Corpus Thomisticum (via github.com/antstratfordlol-bit/corpus-thomisticum); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium); Zigliara, Mazzella and Boethius from scans collected in James Penfold’s Lexicon Scholasticum. Word help covers the words these texts share with the parsed exam texts.</p>
       </div>
     );
   }

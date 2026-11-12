@@ -40,6 +40,14 @@ Lewis and Short, A Latin Dictionary (1879), from the Perseus Digital Library's X
 
 Latin word forms from Wiktionary (CC BY-SA 3.0/4.0, via Wiktextract), as collected in James Penfold's Lexicon Scholasticum (github.com/piakobos/lexiconscholasticum), exported from its `forms` table and built into data/wkt/ by tools/data/build_wkt.py; only forms occurring in the app's texts are kept. Used for words the parsed texts never met, with all possible parsings shown.
 
+## Wiktionary and Du Cange
+
+From the Latin dictionary entries of Lexicon Scholasticum (exported as CSV), built into data/dict/ by tools/data/build_dicts.py: Wiktionary's English senses of Latin words (CC BY-SA; inflected-form entries left out) and Du Cange, Glossarium mediae et infimae Latinitatis (1883–87; digital edition of the École nationale des chartes). Gaffiot (French, partial) is not used.
+
+## St Thomas's other works, manuals and readers
+
+St Thomas's other works and Cajetan's commentary on the Summa, Latin with English where there is one, from github.com/antstratfordlol-bit/corpus-thomisticum (Corpus Thomisticum; Kenny's collection), by tools/library/build_opera.py. Zigliara's Summa philosophica, Mazzella's De Religione et Ecclesia and Boethius from the scans in Lexicon Scholasticum's reading-additions.json (OCR corrected by tools/library/ocrfix.py); Phaedrus, Eutropius, Lhomond and Erasmus from The Latin Library; by tools/library/build_readers.py. All added to the Library by tools/library/add_works.py. The online page reads these (and Du Cange) from the phone app's site.
+
 ## More books (tools/library/build_extra.py)
 
 | What | Where | Licence |
