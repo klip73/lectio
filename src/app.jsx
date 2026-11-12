@@ -1330,6 +1330,7 @@ function alignCurated(la, src) {
 /*@include exam.jsx*/
 /*@include home.jsx*/
 /*@include grammar.jsx*/
+/*@include about.jsx*/
 /*@include sunday.jsx*/
 
 /* ---------- Links to a passage ---------- */
@@ -2054,7 +2055,9 @@ function App() {
         )}
       </div>
 
-      {mode === "home" ? null : mode === "library" ? (
+      {mode === "home" ? null : mode === "about" ? (
+        <AboutScreen onBack={() => goHome("home")} onGo={goHome} />
+      ) : mode === "library" ? (
         <LibraryMode onTap={addTapped} onTable={openTable} />
       ) : mode === "office" ? (
         <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} onOpen={openLibrary} />
@@ -2347,6 +2350,7 @@ function App() {
             setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;
           }} />
         </div>
+        <p><button type="button" className="text-rubric underline underline-offset-2" onClick={() => { setMode("about"); resetView(); window.scrollTo({ top: 0 }); }}>How this app works</button> · free and open source (MIT) · <a href="https://github.com/klip73/lectio" target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">source code</a></p>
         <details>
           <summary className="cursor-pointer">Sources and credits</summary>
           <p className="mt-1 leading-snug">

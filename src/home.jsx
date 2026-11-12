@@ -97,6 +97,7 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
           <span className={note}>Search the whole Summa, the Catena Aurea, the Fathers, the Roman Catechism and Ritual, both Codes of canon law and the Vulgate, with every word tappable.</span>
         </button>
       </div>
+      <button type="button" onClick={() => go("about")} className="self-start text-[14px] text-rubric underline underline-offset-2">How this app works: word help, AI marking, your data, sources, and the open-source code →</button>
     </div>
   );
 }
