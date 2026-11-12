@@ -938,7 +938,7 @@ function LatinWords({ text, ids, selected, onPick, prefix = "", marks, noStructu
     const shown = aids.acc ? accentWord(p, aids.acc) : p;
     const mk = marks && marks[key];
     const mcls = mk ? ` mk mk-${mk.sev}${mk.on ? " mk-on" : ""}` : "";
-    const scls = aids.structure && !noStructure && ids ? structClass(aids.lex, ids[k]) : "";
+    const scls = (aids.structure && !noStructure && ids ? structClass(aids.lex, ids[k]) : "") + (aids.hl && aids.hl.has(key) ? " gh" : "");
     const num = mk && mk.first ? <sup className="mk-n">{mk.n}</sup> : null;
     const known = ids && ids[k] !== undefined;
     if (!known) return mk || scls ? <span key={i} className={`${mcls} ${scls}`.trim()}>{shown}{num}</span> : shown;
@@ -1329,6 +1329,7 @@ function alignCurated(la, src) {
 
 /*@include exam.jsx*/
 /*@include home.jsx*/
+/*@include grammar.jsx*/
 /*@include sunday.jsx*/
 
 /* ---------- Links to a passage ---------- */
@@ -1410,6 +1411,22 @@ function ThemeSwitch() {
   const label = { auto: "Theme: as device", dark: "Theme: dark", light: "Theme: light" }[t];
   return <button type="button" onClick={next} title={label} aria-label={label} className="rounded-md border border-rule bg-leaf px-2.5 py-1 text-[13px] text-soft hover:text-ink">{t === "dark" ? "Dark" : t === "light" ? "Light" : "Auto"}</button>;
 }
+/* The Latin font: Merriweather by default; Alegreya, EB Garamond, Gentium (good with macrons), Cardo, Literata. */
+const FONT_KEY = "lectio-vulgata-font";
+const FONT_L = { merriweather: "Merriweather", alegreya: "Alegreya", garamond: "EB Garamond", gentium: "Gentium", cardo: "Cardo", literata: "Literata" };
+function FontSwitch() {
+  const [f, setF] = useState(() => { const v = readLocal(FONT_KEY); return FONT_L[v] ? v : "merriweather"; });
+  function pick(k) { setF(k); writeLocal(FONT_KEY, k); try { window.LV_setFont && window.LV_setFont(k); } catch (e) {} }
+  return (
+    <label className="flex items-center gap-1 rounded-md border border-rule bg-leaf px-1.5 py-0.5 text-[13px] text-soft" title="Latin font">
+      <span aria-hidden="true" className="latin text-[14px] text-ink">Aa</span>
+      <span className="sr-only">Latin font</span>
+      <select value={f} onChange={e => pick(e.target.value)} className="bg-transparent py-0.5 text-[13px] text-ink outline-none">
+        {Object.entries(FONT_L).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
+    </label>
+  );
+}
 function App() {
   const ui0 = readLocal(UI_KEY) || {};
   const [prog, setProg] = useState(loadLocalProgress);
@@ -1433,6 +1450,8 @@ function App() {
   const [posWhy, setPosWhy] = useState("");
   const [showDR, setShowDR] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [sbs, setSbs] = useState(false);   // sentence-by-sentence reader open
+  const [gHl, setGHl] = useState(null);     // words lit up by a grammar note
   const [showStats, setShowStats] = useState(false);
   const [word, setWord] = useState(null);
   const [session, setSession] = useState({});
@@ -1537,7 +1556,7 @@ function App() {
       .catch(e => { if (e && e.code !== "unavailable") { cloudRef.current = null; setStore("local"); } });
   }
 
-  function resetView() { setShowDR(false); setShowNotes(false); setWord(null); setActiveIssue(null); undoRef.current = null; }
+  function resetView() { setSbs(false); setShowDR(false); setShowNotes(false); setWord(null); setActiveIssue(null); undoRef.current = null; }
 
   /* ----- tutor ----- */
   function logMistakes(ref, fb) {
@@ -1890,7 +1909,7 @@ function App() {
 
   const tabCls = on => `rounded-md px-3.5 py-1.5 text-[15px] font-medium ${on ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`;
 
-  const aidsValue = { acc: prefs.accents ? accMap : null, structure: !!prefs.structure, lex: lexAll };
+  const aidsValue = { acc: prefs.accents ? accMap : null, structure: !!prefs.structure, lex: lexAll, hl: gHl };
   const lz = [0.88, 1, 1.15, 1.32][prefs.size == null ? 1 : prefs.size] * (focusMode ? 1.2 : 1);
   const examTutor = { avail: tutorAvail, fbs, run: runTutor, stop: stopTutor, active: activeIssue, setActive: setActiveIssue };
   if (focusMode && mode === "exam") {
@@ -1922,7 +1941,7 @@ function App() {
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
-        <ThemeSwitch />
+        <div className="flex items-center gap-1.5"><FontSwitch /><ThemeSwitch /></div>
       </header>
 
       {/* Sections, pinned to the top while scrolling */}
@@ -2136,6 +2155,7 @@ function App() {
             </section>
           )}
           {showDR && drillIds && <ExaminerQuiz lex={drillNT.lex} verses={drillVerses} seed={verse.id} onAnswer={answerQuiz} />}
+          {drillIds && <GrammarNotes lex={drillNT.lex} verses={drillVerses} part="nt" prog={prog} onDrill={drillConcept} onHighlight={setGHl} keyPrefix="" />}
 
           {showNotes && (
             <section className="reveal grid gap-6 rounded-lg border border-rule bg-leaf px-5 py-5 sm:grid-cols-[1.6fr_1fr] sm:px-6" aria-label="Grammar notes">
@@ -2287,6 +2307,13 @@ function App() {
 
           {block && (
             <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Btn variant="primary" onClick={() => setSbs(true)}>Read it sentence by sentence</Btn>
+                <span className="text-[13px] text-soft">one verse at a time, with help on each construction</span>
+              </div>
+              {sbs && <SentenceReader lex={readNT.lex} verses={block} part={curPart} prog={prog} title={hideRef ? PART_INFO[curPart].short : passageLabel(pos.b, pos.c, block, readNT.book)} storeKey={pkey} onTable={openTable}
+                onClose={() => { setSbs(false); requestAnimationFrame(() => { const el = document.getElementById("translation"); if (el) el.scrollIntoView({ block: "center" }); }); }} />}
+              <GrammarNotes lex={readNT.lex} verses={block} part={curPart} prog={prog} onDrill={drillConcept} onHighlight={setGHl} />
               <DrillTools open={!!prefs.tools} setOpen={v => setPrefs(p => ({ ...p, tools: v }))}>
                 <SkeletonCheck lex={readNT.lex} verses={block} seed={pkey} hymn={curPart === "hy"} onAnswer={answerQuiz} />
                 <RecordAloud id={"p:" + pkey} />

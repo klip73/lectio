@@ -111,6 +111,7 @@ function SummaReader({ onTap, onTable, onBack }) {
         <Btn onClick={addToClass}>Add to my class quiz</Btn>
         {added && <span className="text-[13px] text-ok" aria-live="polite">{added}</span>}
       </div>
+      {q && <PhraseTips text={la.join(" ")} kinds={["thomas"]} />}
       {!q ? <p className="text-[15px] text-soft">Loading…</p> : (
         <article className="flex flex-col gap-4 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
           <header>

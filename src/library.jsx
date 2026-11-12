@@ -145,6 +145,11 @@ function LibraryMode({ onTap, onTable }) {
         </select>
         <Btn onClick={() => go(ci + 1)} disabled={ci === work.chapters.length - 1} aria-label="Next chapter">›</Btn>
       </div>
+      {(() => {
+        const g = meta.group || "exam";
+        const kinds = ["thomas", "opera", "manuals"].includes(g) ? ["thomas"] : g === "ot" ? ["bible"] : g === "hymns" ? ["hymn", "church"] : ["rites", "fathers", "canon", "medieval"].includes(g) ? ["church"] : [];
+        return kinds.length ? <PhraseTips text={ch.paras.join(" ")} kinds={kinds} /> : null;
+      })()}
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
         <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
         {meta.caveat && <p className="mb-3 text-[13px] text-soft">{meta.caveat}</p>}

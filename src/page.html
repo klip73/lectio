@@ -2,6 +2,10 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Source+Sans+3:wght@400;500;600&display=swap">
+<script>/* the Latin font chosen in the header (FontSwitch): set before the page draws */
+window.LV_FONTS = { merriweather: ["Merriweather", ""], alegreya: ["Alegreya", "Alegreya:ital,wght@0,400;0,700;1,400"], garamond: ["EB Garamond", "EB+Garamond:ital,wght@0,400;0,700;1,400"], gentium: ["Gentium Book Plus", "Gentium+Book+Plus:ital,wght@0,400;0,700;1,400"], cardo: ["Cardo", "Cardo:ital,wght@0,400;0,700;1,400"], literata: ["Literata", "Literata:ital,wght@0,400;0,700;1,400"] };
+window.LV_setFont = function (k) { var f = window.LV_FONTS[k] || window.LV_FONTS.merriweather; if (f[1] && !document.getElementById("lvf-" + k)) { var l = document.createElement("link"); l.id = "lvf-" + k; l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=" + f[1] + "&display=swap"; document.head.appendChild(l); } document.documentElement.style.setProperty("--font-latin", '"' + f[0] + '", Georgia, "Times New Roman", serif'); };
+try { var lf = JSON.parse(localStorage.getItem("lectio-vulgata-font") || "null"); if (lf && lf !== "merriweather") window.LV_setFont(lf); } catch (e) {}</script>
 <script>try { var th = JSON.parse(localStorage.getItem("lectio-vulgata-theme") || "null"); if (th === "dark" || th === "light") document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
 <style>
   /* Layout: one quiet reading column, like a single page of a breviary; a progress ledger above, the verse in the middle, grading below. */
@@ -48,6 +52,7 @@
     padding-block: 1.5rem 3rem;
   }
   .latin { font-family: var(--font-latin); }
+  .gh { background: var(--rubric-tint); color: var(--rubric); border-radius: 3px; box-shadow: 0 0 0 2px var(--rubric-tint); }
   .smallcaps { font-variant-caps: all-small-caps; letter-spacing: .08em; }
   .num { font-variant-numeric: tabular-nums; }
   .initial::first-letter {
