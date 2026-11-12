@@ -1,4 +1,4 @@
-"""Build the Latin library (classic Church texts, Latin only) from The Latin Library collection (CLTK).
+"""Build the Latin library (usage line below; argument 5, optional: the out dir of build_extra.py) (classic Church texts, Latin only) from The Latin Library collection (CLTK).
 Usage: python3 -I tools/library/build_library.py <lat_text_latin_library repo> data
 Writes data/library/index.json (works and chapter titles), data/library/<work>.json (chapters of paragraphs) and
 data/library/forms.json (word form -> parsing ids from the parsed corpora, for tapping words)."""
@@ -81,8 +81,10 @@ def build_bd(w):
     en = {c["chapter"]: {x["verse"]: x["text"] for x in c["verses"]} for c in d["chapters"]}
     return [{"title": f'{w["title"]} {c["chapter"]}', "paras": [f'{x["verse"]} {x["text"].strip()}' for x in c["verses"]],
              "en": [en.get(c["chapter"], {}).get(x["verse"], "") for x in c["verses"]]} for c in v["chapters"]]
-GROUPS = [["exam", "Spiritual classics"], ["thomas", "St Thomas Aquinas"], ["fathers", "Fathers of the Church"], ["medieval", "Middle Ages"],
-          ["hymns", "Hymns and poetry"], ["canon", "Canon law"], ["ot", "Old Testament: Vulgate and Douay-Rheims"]]
+GROUPS = [["exam", "Spiritual classics"], ["thomas", "St Thomas Aquinas"], ["rites", "Catechism and the Roman Ritual"], ["canon", "Canon law"],
+          ["fathers", "Fathers of the Church"], ["medieval", "Middle Ages"], ["hymns", "Hymns and poetry"], ["ot", "Old Testament: Vulgate and Douay-Rheims"]]
+# Ready-made works from tools/library/build_extra.py (Catena Aurea, Rituale Romanum, Catechismus Romanus, the 1917 Code), argument 5
+EXTRA = sys.argv[5] if len(sys.argv) > 5 else None
 HEAD = re.compile(r"^(CAPUT|Caput|CAP\.|LIBER|Liber|PROLOGUS|Prologus|PRAEFATIO|Praefatio|PROOEMIUM|Prooemium|SERMO|Sermo|EPISTULA|EPISTOLA|Epistula|Epistola|Articulus|ARTICULUS|HYMNUS|Hymnus|Hymnum|PARS|Pars)\b.{0,80}$")
 ROMAN_LINE = re.compile(r"^\[?\(?([IVXLC]+|\d+)\.?\)?\]?\.?$")
 def tcase(t):
@@ -261,6 +263,16 @@ for w in WORKS + AUTO:
             words.update(ws)
             if w in WORKS: words0.update(ws)
     print(f'{w["id"]}: {len(ch)} chapters, {nw} words; first: {ch[0]["title"]!r}: {ch[0]["paras"][0][:70]!r}')
+if EXTRA:
+    import shutil
+    for e in json.load(open(os.path.join(EXTRA, "extra.json"))):
+        shutil.copy(os.path.join(EXTRA, e["id"] + ".json"), os.path.join(OUT, e["id"] + ".json"))
+        index.append({k: e[k] for k in ("id", "title", "author", "note", "words", "chapters", "group", "en", "caveat") if k in e})
+        for c in json.load(open(os.path.join(OUT, e["id"] + ".json")))["chapters"]:
+            for p in c["paras"]: words.update(norm(x) for x in re.findall(r"[^\W\d_]+", p))
+        print(f'{e["id"]}: {len(e["chapters"])} chapters, {e["words"]} words (ready-made)')
+    shutil.copy(os.path.join(EXTRA, "catena-map.json"), os.path.join(OUT, "catena-map.json"))
+    index.sort(key=lambda w: [g[0] for g in GROUPS].index(w.get("group", "exam")))   # shelves in order; stable within each
 json.dump({"source": "The Latin Library (thelatinlibrary.com), via the CLTK collection", "groups": GROUPS, "works": index}, open(os.path.join(OUT, "index.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 lex = json.load(open(os.path.join(DATA, "lexicon.json")))
 known = collections.defaultdict(collections.Counter)

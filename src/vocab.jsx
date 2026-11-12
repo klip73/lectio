@@ -25,7 +25,7 @@ function vocabOf(lex) {
 }
 let vocabPromise = null;
 function loadVocab() { if (!vocabPromise) vocabPromise = getJSON("data/vocab.json").catch(e => { vocabPromise = null; throw e; }); return vocabPromise; }
-const DECKS = [["class", "My class list"], ["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
+const DECKS = [["class", "My class list"], ["past", "Past class words"], ["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
   ["pp", "Principal parts"], ["tap", "Words I looked up"], ["mk", "My mistakes"]];
 /* Words any student sitting the exam already knows; they are left out of the decks. */
 const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sine sub super inter post ante apud propter ego tu nos vos is hic ille ipse iste idem " +
@@ -56,8 +56,18 @@ function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
       return base ? { ...base, back: inf.full || base.back } : { key: l, front: inf.head, sub: "Your list", back: inf.full, aid: -1 };
     }).filter(Boolean);
   }
+  if (deck === "past") {
+    const cl = readClass();
+    return Object.keys(cl.past || {}).map(l => {
+      const inf = classInfo(l, lex, V, cl.own);
+      if (!inf) return null;
+      const base = V.byLemma[l] !== undefined ? word(l) : null;
+      return base ? { ...base, back: inf.full || base.back, sub: "Past class words" } : { key: l, front: inf.head, sub: "Past class words", back: inf.full, aid: -1 };
+    }).filter(Boolean);
+  }
   if (deck === "pp") return V.order.filter(notBasic).map(l => { const li = V.byLemma[l]; const [, gloss, pp] = lex.lemmas[li]; return pp && /^V/.test(V.posOf[li]) && pp.includes(",") ? { key: "pp:" + l, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }).filter(Boolean);
-  if (deck === "mk") return (prog.mistakes || []).slice().reverse().filter(m => m.latin && m.fix)
+  if (deck === "mk" || deck.startsWith("mk:")) return (prog.mistakes || []).slice().reverse().filter(m => m.latin && m.fix)
+    .filter(m => deck === "mk" || deck === "mk:" + (m.concept ? "c:" + m.concept : "t:" + m.type))
     .map(m => ({ key: "mk:" + m.ref + ":" + m.latin, front: m.latin, sub: `${ISSUE_TYPES[m.type] || "Mistake"} · ${m.ref}`, back: m.fix, extra: m.concept ? CONCEPTS[m.concept] : "", mk: true }));
   return [];
 }
@@ -128,7 +138,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
       {deck === "class" && learn > 0 && <button type="button" className="self-start text-[14px] text-rubric underline underline-offset-2" onClick={() => setLearn(0)}>‹ My class list (quizzes, word list)</button>}
     </div>
   );
-  if (deck === "class" && !learn) return <>{deckPicker}{lex ? <ClassVocab lex={lex} V={V} prog={prog} onGrade={onGrade} ai={aiOn} onLearn={() => setLearn(Date.now())} /> : <article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || "Loading the word list…"}</article>}</>;
+  if (deck === "class" && !learn) return <>{deckPicker}{lex ? <ClassVocab lex={lex} V={V} prog={prog} onGrade={onGrade} ai={aiOn} onLearn={() => setLearn(Date.now())} onPast={() => setDeck("past")} /> : <article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || "Loading the word list…"}</article>}</>;
   if (!lex || !cards) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{err || verr || "Loading the word list…"}</article></>;
 
   const vc = prog.vcards || {};
@@ -138,7 +148,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
   const keys = new Set(cards.map(c => c.key));
   const due = Object.entries(vc).filter(([k, c]) => keys.has(k) && c.due <= Date.now()).length;
   const inDeck = cards.filter(c => vc[c.key] && vc[c.key].box >= 2).length;
-  const empty = { class: "Add your class’s sections first (‹ My class list).", tap: "Words you tap in passages and drills will collect here.", mk: "Mistakes Claude marks in your checked translations will collect here, so you can re-test them." }[deck];
+  const empty = { class: "Add your class’s sections first (‹ My class list).", past: "When you clear a week’s sections, their words move here for review.", tap: "Words you tap in passages and drills will collect here.", mk: "Mistakes Claude marks in your checked translations will collect here, so you can re-test them." }[deck];
 
   if (!pick || !pick.card) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{cards.length ? "You’ve been through this whole deck." : empty || "This deck is empty."}</article></>;
   const c = pick.card;

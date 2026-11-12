@@ -291,3 +291,44 @@ function MistakeSummary({ log, onRemove }) {
     </div>
   );
 }
+
+/* ---------- Mistake drills: what the AI keeps marking, and a way to work on each ----------
+   Kinds marked twice or more (by grammar concept, or by type) each get: verses that need that concept, the forms
+   trainer set up for it, and a re-test of the very phrases you got wrong. */
+const TYPE_FORMS = { tense: { what: "verb" }, mood: { what: "verb", moods: { i: 1, s: 1, m: 1 } }, voice: { what: "verb", voices: { a: 1, p: 1 } }, number: { what: "verb" }, case: { what: "noun" }, agreement: { what: "agree" } };
+const CONCEPT_FORMS = { fut: { what: "verb", tenses: { p: 0, i: 0, f: 1, r: 0, l: 0, t: 1 } }, perf: { what: "verb", tenses: { p: 0, i: 0, f: 0, r: 1, l: 1, t: 1 } }, pass: { what: "verb", voices: { a: 0, p: 1 } }, dep: { what: "verb", set: "dep" }, imp: { what: "verb", moods: { i: 0, s: 0, m: 1 } }, subj: { what: "verb", moods: { i: 0, s: 1, m: 0 } }, abl: { what: "noun" }, gen: { what: "noun" }, dat: { what: "noun" }, comp: { what: "adj" } };
+function mistakeGroups(log) {
+  const g = {};
+  (log || []).forEach(m => { const k = m.concept ? "c:" + m.concept : "t:" + m.type; (g[k] = g[k] || []).push(m); });
+  return Object.entries(g).filter(([, ms]) => ms.length >= 2).sort((a, b) => b[1].length - a[1].length);
+}
+function MistakeDrills({ log, onDrill, onForms, onRetest }) {
+  const groups = mistakeGroups(log).slice(0, 4);
+  if (!groups.length) return null;
+  return (
+    <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Mistake drills">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="latin text-[1.1rem] font-bold text-ink">Your repeated mistakes</h2>
+        <span className="text-[13px] text-soft">from the AI’s marking of your translations</span>
+      </div>
+      <ul className="mt-2 flex flex-col gap-2">
+        {groups.map(([k, ms]) => {
+          const c = k.startsWith("c:") ? k.slice(2) : null, t = c ? null : k.slice(2);
+          const forms = c ? CONCEPT_FORMS[c] : TYPE_FORMS[t];
+          const ex = ms[ms.length - 1];
+          return (
+            <li key={k} className="flex flex-col gap-1.5 rounded-md border border-rule bg-paper px-3 py-2">
+              <span className="text-[14px] text-ink"><strong>{c ? CONCEPTS[c] : ISSUE_TYPES[t] || "Other"}</strong> <span className="num text-soft">· {ms.length} times</span>
+                {ex && ex.latin && <span className="text-soft"> · e.g. <span lang="la" className="latin font-semibold text-ink">{ex.latin}</span>{ex.fix ? ` → “${ex.fix}”` : ""}</span>}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {ms.some(m => m.latin && m.fix) && <Btn className="px-2.5 py-1 text-[13px]" onClick={() => onRetest(k)}>Re-test these {ms.filter(m => m.latin && m.fix).length}</Btn>}
+                {c && <Btn className="px-2.5 py-1 text-[13px]" onClick={() => onDrill(c)}>Drill verses with it</Btn>}
+                {forms && <Btn className="px-2.5 py-1 text-[13px]" onClick={() => onForms(forms)}>Forms trainer</Btn>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

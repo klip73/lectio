@@ -124,7 +124,13 @@ async function rebuildClass(next, lex) {
   const same = (a, b) => a === b || n1(a) === n1(b);
   const merged = [...ownW, ...words.filter(w => !ownW.some(o => same(o[0], w[0])))];
   ownW.forEach(o => { const w = words.find(x => same(x[0], o[0])); if (w) { o[1] = w[1] + 1; o[2] = w[2]; o[3] = w[3]; o[4] = w[4]; } });
-  const cls = { ...next, words: merged };
+  /* words that leave the list (a new week) are kept as "past class words", for spaced review later */
+  const prev = readClass(), keep = new Set(merged.map(w => w[0])), past = { ...(prev.past || {}), ...(next.past || {}) };
+  (prev.words || []).forEach(w => { if (!keep.has(w[0])) past[w[0]] = past[w[0]] || Date.now(); });
+  merged.forEach(w => { delete past[w[0]]; });
+  const pk = Object.keys(past);
+  if (pk.length > 2000) pk.sort((a, b) => past[a] - past[b]).slice(0, pk.length - 2000).forEach(k => delete past[k]);
+  const cls = { ...next, words: merged, past };
   writeClass(cls);
   return { cls, total, unknown, missing };
 }
@@ -211,7 +217,7 @@ function ClassQuiz({ words, lex, V, n, onGrade, onDone, own }) {
   );
 }
 
-function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
+function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   const [cls, setCls0] = useState(readClass);
   const setCls = c => { setCls0(c); writeClass(c); };
   const [t, setT] = useState("nt");
@@ -254,12 +260,17 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
   const words = cls.words || [];
   const knownN = words.filter(w => vc[w[0]] && vc[w[0]].box >= 2).length;
   const sel = "rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink";
+  /* past weeks: words that have left the list, due ones first */
+  const now = Date.now();
+  const pastW = Object.keys(cls.past || {}).filter(l => classInfo(l, lex, V, cls.own))
+    .sort((a, b) => ((vc[a] ? vc[a].due : 0) - (vc[b] ? vc[b].due : 0)));
+  const pastDue = pastW.filter(l => !vc[l] || vc[l].due <= now).length;
   if (quiz) {
-    const pool = quiz.only ? words.filter(w => quiz.only.includes(w[0])) : words;
+    const pool = quiz.past ? (quiz.only || pastW.slice(0, quiz.n)).map(l => [l, 1, "", "", -1]) : quiz.only ? words.filter(w => quiz.only.includes(w[0])) : words;
     if (quiz.write) return <WriteQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade} ai={ai}
-      onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), write: true } : null)} />;
+      onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), write: true, past: quiz.past } : null)} />;
     return <ClassQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade}
-      onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now() } : null)} />;
+      onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), past: quiz.past } : null)} />;
   }
   return (
     <div className="flex flex-col gap-4">
@@ -338,6 +349,21 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, ai }) {
           </label>
         </div>
       </section>
+
+      {pastW.length > 0 && (
+        <section className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Past weeks">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="latin text-[1.05rem] font-bold text-ink">Past weeks</h3>
+            <span className="num text-[14px] text-soft"><strong className="text-ink">{pastW.length}</strong> words · <strong className={pastDue ? "text-rubric" : "text-ok"}>{pastDue}</strong> due for review</span>
+          </div>
+          <p className="text-[14px] leading-snug text-soft">Words from the sections you’ve cleared stay in spaced review, so last month’s quiz words are still there at the exam.</p>
+          <div className="flex flex-wrap gap-2">
+            <Btn variant={pastDue ? "primary" : "plain"} onClick={() => setQuiz({ n: Math.min(20, pastW.length), past: true, k: Date.now(), write: true })}>Write-it-out ({Math.min(20, pastW.length)})</Btn>
+            <Btn onClick={() => setQuiz({ n: Math.min(20, pastW.length), past: true, k: Date.now() })}>Quiz me ({Math.min(20, pastW.length)})</Btn>
+            {onPast && <Btn onClick={onPast}>Flashcards</Btn>}
+          </div>
+        </section>
+      )}
 
       {words.length > 0 && (
         <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Words in these sections">

@@ -373,9 +373,9 @@ function OfficeMode(props) {
     </div>
   );
 }
-function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
+function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const pref0 = readLocal(OFFICE_KEY) || {};
-  const [part, setPart0] = useState(["office", "mass", "calendar", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
+  const [part, setPart0] = useState(["office", "mass", "sunday", "calendar", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
   const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
   const [mview, setMview] = useState(pref0.mview === "full" ? "full" : "lessons");
   const [xview, setXview] = useState(pref0.xview === "full" ? "full" : "propers");
@@ -425,11 +425,12 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, verLabel }) {
       <div className="flex gap-0.5 self-start overflow-x-auto rounded-lg border border-rule bg-paper p-1 [scrollbar-width:none] max-w-full" role="group" aria-label="Liturgy section">
         <button type="button" className={tabCls(part === "office")} aria-pressed={part === "office"} onClick={() => setPart("office")}>Office</button>
         <button type="button" className={tabCls(part === "mass")} aria-pressed={part === "mass"} onClick={() => setPart("mass")}>Mass</button>
+        <button type="button" className={tabCls(part === "sunday")} aria-pressed={part === "sunday"} onClick={() => setPart("sunday")}>Sunday</button>
         <button type="button" className={tabCls(part === "calendar")} aria-pressed={part === "calendar"} onClick={() => setPart("calendar")}>Calendar</button>
         <button type="button" className={tabCls(part === "prayers")} aria-pressed={part === "prayers"} onClick={() => setPart("prayers")}>Prayers</button>
         <button type="button" className={tabCls(part === "rubrics")} aria-pressed={part === "rubrics"} onClick={() => setPart("rubrics")}>Rubrics</button>
       </div>
-      {part === "rubrics" ? <RubricsView /> : part === "prayers" ? <PrayersView onTap={onTap} onTable={onTable} /> : part === "calendar" ? <CalendarView date={date} onPick={iso => { setDate(iso); setPart("office"); }} /> : (
+      {part === "sunday" ? <SundayPrep onTap={onTap} onTable={onTable} onOpen={onOpen} /> : part === "rubrics" ? <RubricsView /> : part === "prayers" ? <PrayersView onTap={onTap} onTable={onTable} /> : part === "calendar" ? <CalendarView date={date} onPick={iso => { setDate(iso); setPart("office"); }} /> : (
         <>
           <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="The day">
             <div className="flex flex-wrap items-center gap-2">

@@ -29,7 +29,7 @@ function continueItems(libIdx, posLabel) {
     else if (area === "office") {
       const o = readLocal(OFFICE_KEY) || {};
       const h = HOURS_L.find(x => x[0] === o.hour);
-      label = "Today’s " + (o.part === "mass" ? "Mass" : o.part === "calendar" ? "calendar" : h ? h[1] : "Office");
+      label = o.part === "sunday" ? "Sunday preparation" : "Today’s " + (o.part === "mass" ? "Mass" : o.part === "calendar" ? "calendar" : h ? h[1] : "Office");
     } else if (area === "library") {
       const l = readLocal(LIB_KEY) || {};
       if (l._open === "summa") { const s = readLocal(SUMMA_POS_KEY) || {}; label = "Summa Theologiae"; sub = s.p ? `${SM_PART[s.p]} q. ${s.q || 1}, a. ${s.a || 1}` : ""; }
@@ -89,11 +89,12 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
               <button key={h} type="button" onClick={() => openHour(h)} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">{l}</button>
             ))}
             <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "mass" }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Mass</button>
+            <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "sunday" }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Sunday prep</button>
           </div>
         </div>
         <button type="button" className={tile} onClick={() => go("library")}>
           <span className={head}>Read &amp; look up</span>
-          <span className={note}>The whole Summa, the Fathers, hymns, canon law and the Vulgate, with every word tappable. Grammar and pronunciation are in the Guide.</span>
+          <span className={note}>Search the whole Summa, the Catena Aurea, the Fathers, the Roman Catechism and Ritual, both Codes of canon law and the Vulgate, with every word tappable.</span>
         </button>
       </div>
     </div>

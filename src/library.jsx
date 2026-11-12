@@ -6,8 +6,13 @@ function libGet(name) {
   return libCache[name];
 }
 /* The 1983 Code: its text is under copyright, so the lookup opens the canon on the Vatican's site (Latin and English).
-   The 1917 Code (public domain) has no reliable digital Latin text to load yet: links to the scan and to canonlaw.info. */
-function CanonLookup() {
+   The 1917 Code (public domain) is in the Library: the lookup opens it at the canon. */
+function CanonLookup({ onOpen }) {
+  const [n17, setN17] = useState("");
+  const [c17, setC17] = useState(null);
+  useEffect(() => { if (n17 && !c17) libGet("cic1917").then(w => setC17(w.canons)).catch(() => {}); }, [n17]);
+  const k17 = c17 && n17 ? parseInt(n17, 10) : 0;
+  const at17 = k17 >= 1 && k17 <= 2414 ? (() => { for (let k = k17; k > 0; k--) if (c17[k] != null) return c17[k]; return 0; })() : null;
   const [d, setD] = useState(null);
   const [n, setN] = useState("");
   useEffect(() => { getJSON("data/canon1983.json").then(setD).catch(() => {}); }, []);
@@ -34,11 +39,14 @@ function CanonLookup() {
       </div>
       <div className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-4 py-3">
         <span lang="la" className="latin text-[1.02rem] font-bold text-ink">Codex Iuris Canonici (1917)</span>
-        <span className="text-[13px] leading-snug text-soft">The Pio-Benedictine Code, in force until 1983 and behind the 1962 books’ discipline. A scan of the Vatican edition, and Dr Edward Peters’s resources on it.</span>
-        <div className="flex flex-wrap gap-2">
-          <a className={ext} href="https://archive.org/details/codexiuriscanoni00cath_0" target="_blank" rel="noopener noreferrer">Latin text (scan) ↗</a>
-          <a className={ext} href="https://www.canonlaw.info/masterpage1917.htm" target="_blank" rel="noopener noreferrer">canonlaw.info ↗</a>
+        <span className="text-[13px] leading-snug text-soft">The Pio-Benedictine Code, in force until 1983 and behind the 1962 books’ discipline. The whole Latin text is on the shelf below; look up a canon to open it there.</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="canon17-n" className="text-[14px] text-ink">Can.</label>
+          <input id="canon17-n" inputMode="numeric" value={n17} onChange={e => setN17(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="1325" className="w-24 rounded-md border border-rule bg-paper px-2 py-1.5 text-[15px] text-ink" />
+          {at17 != null && onOpen && <Btn onClick={() => onOpen("cic1917", at17, `Can. ${k17}.`)}>Open can. {k17}</Btn>}
+          {n17 && c17 && at17 == null && <span className="text-[13px] text-warn">The Code has canons 1–2414.</span>}
         </div>
+        <a className="self-start text-[13px] text-rubric underline underline-offset-2" href="https://www.canonlaw.info/masterpage1917.htm" target="_blank" rel="noopener noreferrer">Dr Edward Peters on the 1917 Code ↗</a>
       </div>
     </div>
   );
@@ -52,6 +60,14 @@ function LibraryMode({ onTap, onTable }) {
   const [work, setWork] = useState(null);
   const help = useWordHelp(() => libGet("forms"), onTap);
   const topRef = useRef(null);
+  /* open a work at a chapter, scrolling to the first paragraph that holds `hl` (a canon number or a searched word) */
+  const openAt = (id, ci, hl) => { setPos({ ...readLocal(LIB_KEY), _open: id, [id]: ci, _hl: hl || "" }); window.scrollTo({ top: 0 }); };
+  const hlRef = useRef(null);
+  useEffect(() => {
+    if (!work || !pos._hl) return;
+    const t = setTimeout(() => { if (hlRef.current) hlRef.current.scrollIntoView({ block: "center" }); }, 60);
+    return () => clearTimeout(t);
+  }, [work, pos._hl, pos[open]]);
   useEffect(() => { libGet("index").then(setIdx).catch(() => setErr("The library didn’t load. Check your connection and try again.")); }, []);
   useEffect(() => {
     if (!open || open === "summa") { setWork(null); return; }
@@ -67,7 +83,8 @@ function LibraryMode({ onTap, onTable }) {
       <div className="flex flex-col gap-3">
         <section className="rounded-lg border border-rule bg-leaf px-5 py-4">
           <h2 className="latin text-[1.15rem] font-bold text-ink">Library</h2>
-          <p className="mt-1 text-[14px] leading-snug text-soft">Classics of the Church in Latin, for reading a little every day. Latin only: tap any word for its parsing, and it joins your vocabulary deck. Your place in each book is kept.</p>
+          <p className="mt-1 text-[14px] leading-snug text-soft">Classics of the Church in Latin, for reading a little every day. Tap any word for its parsing, and it joins your vocabulary deck. Your place in each book is kept.</p>
+          {!(OFFLINE && !APP) && <LibrarySearch idx={idx} onOpen={openAt} />}
         </section>
         {!(OFFLINE && !APP) && <button type="button" onClick={() => setPos({ ...pos, _open: "summa" })} className="rounded-lg border border-rubric bg-leaf px-4 py-3 text-left hover:bg-rubrictint">
           <span lang="la" className="latin block text-[1.08rem] font-bold text-ink">Summa Theologiae</span>
@@ -90,20 +107,24 @@ function LibraryMode({ onTap, onTable }) {
                 </button>
               );
             })}</div>;
-          if (g === "canon") return <section key={g} className="flex flex-col gap-2"><h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>{!(OFFLINE && !APP) && <CanonLookup />}{shelf}</section>;
+          if (g === "canon") return <section key={g} className="flex flex-col gap-2"><h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>{!(OFFLINE && !APP) && <CanonLookup onOpen={openAt} />}{shelf}</section>;
           return g === "ot"
             ? <details key={g} className="rounded-lg border border-rule bg-paper px-4 py-3"><summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">{gl} <span className="font-normal normal-case text-soft">· {ws.length} books, Latin only</span></summary><div className="mt-3">{shelf}</div></details>
             : <section key={g} className="flex flex-col gap-2">{gl && <h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>}{shelf}</section>;
         })}
         {OFFLINE && !APP && <p className="text-[13px] text-soft">This offline copy carries the first eight works; the whole Library and the complete Summa are in the phone app and the online page.</p>}
-        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit. Word help covers the words these texts share with the parsed exam texts.</p>
+        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium). Word help covers the words these texts share with the parsed exam texts.</p>
       </div>
     );
   }
   if (!work) return <p className="text-[15px] text-soft">Loading…</p>;
   const ci = Math.min(pos[work.id] || 0, work.chapters.length - 1);
   const ch = work.chapters[ci];
-  const go = i => { setPos({ ...pos, [work.id]: i }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
+  const meta = idx.works.find(w => w.id === work.id) || {};
+  const enOn = pos._en !== false;
+  const hlN = pos._hl ? normForm(pos._hl.replace(/\.$/, "")) : "";
+  const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? normForm(p).startsWith(hlN + ".") : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
+  const go = i => { setPos({ ...pos, [work.id]: i, _hl: "" }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
   return (
     <div className="flex flex-col gap-3">
       <div ref={topRef} className="scroll-mt-16 flex flex-wrap items-center gap-2">
@@ -121,15 +142,18 @@ function LibraryMode({ onTap, onTable }) {
       </div>
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
         <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
-        {ch.en && (
-          <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={pos._en !== false} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />English (Douay-Rheims)</label>
+        {meta.caveat && <p className="mb-3 text-[13px] text-soft">{meta.caveat}</p>}
+        {(ch.en || ch.enb) && (
+          <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={enOn} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />{meta.en || "English (Douay-Rheims)"}</label>
         )}
         <div className="flex flex-col gap-3">
           {ch.paras.map((p, i) => {
-            const en = ch.en && pos._en !== false ? ch.en[i] : null;
+            const en = ch.en && enOn ? ch.en[i] : null;
+            const rub = ch.r && ch.r.includes(i), head = ch.head && i === 0;
             return (
-              <div key={i} className={en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}>
-                <p lang="la" className={`lt latin text-[1.08rem] leading-[1.8] text-ink${work.verse ? " whitespace-pre-line" : ""}`}>
+              <div key={i} ref={i === hlAt ? hlRef : null} className={`${en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}${i === hlAt ? " -mx-2 rounded-md bg-rubrictint px-2 py-1" : ""}${head ? " border-b border-rule pb-3" : ""}`}>
+                {head && <span className="smallcaps mb-1 block text-[12px] font-semibold text-rubric">The Gospel</span>}
+                <p lang="la" className={`lt latin leading-[1.8] ${rub ? "text-[0.98rem] italic text-rubric" : head ? "text-[1.08rem] font-semibold text-ink" : "text-[1.08rem] text-ink"}${work.verse ? " whitespace-pre-line" : ""}`}>
                   <OfficeText line={p} latin onWord={help.pick} sel={help.word} />
                 </p>
                 {en && <p lang="en" className="text-[15px] leading-snug text-soft">{en}</p>}
@@ -137,12 +161,129 @@ function LibraryMode({ onTap, onTable }) {
             );
           })}
         </div>
+        {ch.enb && enOn && ch.enb.length > 0 && (
+          <div lang="en" className="mt-5 flex flex-col gap-2 border-t border-rule pt-4">
+            <span className="smallcaps text-[13px] font-semibold text-rubric">{meta.en || "English"}</span>
+            {ch.enb.map((t, i) => <p key={i} className="text-[15px] leading-snug text-soft">{t}</p>)}
+          </div>
+        )}
       </article>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="num text-[13px] text-soft">Chapter {ci + 1} of {work.chapters.length}</span>
         {ci < work.chapters.length - 1 && <Btn variant="primary" onClick={() => go(ci + 1)}>Next chapter →</Btn>}
       </div>
       {help.panel(work.title, onTable)}
+    </div>
+  );
+}
+
+/* ---------- Search the Library and the Summa ----------
+   data/search (tools/library/build_search.py): every word form -> the chapters and Summa articles that hold it.
+   Each search word matches the forms that begin with it (caritat finds caritas, caritatis, caritatem…);
+   several words find the places that have all of them. */
+const searchCache = {};
+const searchGet = name => (searchCache[name] = searchCache[name] || getJSON(`data/search/${name}.json`).catch(e => { delete searchCache[name]; throw e; }));
+async function searchDocs(q) {
+  const terms = [...new Set(normForm(q).split(/[^a-z]+/).filter(t => t.length >= 2))].slice(0, 5);
+  if (!terms.length) return { terms, hits: [] };
+  const meta = await searchGet("docs");
+  let acc = null;
+  for (const t of terms) {
+    const where = meta.where[t.slice(0, 2)];
+    const set = new Set();
+    if (where != null) {
+      const shard = await searchGet("s" + where);
+      for (const [w, ds] of Object.entries(shard)) {
+        if (!w.startsWith(t)) continue;
+        let d = 0; for (const x of ds) { d += x; set.add(d); }
+      }
+    }
+    acc = acc ? new Set([...acc].filter(d => set.has(d))) : set;
+    if (!acc.size) break;
+  }
+  return { terms, hits: [...acc].sort((a, b) => a - b).map(d => meta.docs[d]) };
+}
+function snippetOf(paras, terms) {
+  const hit = w => terms.some(t => normForm(w).startsWith(t));
+  for (const p of paras) {
+    const words = p.split(/([A-Za-zÀ-ÿæœÆŒ]+)/);
+    const k = words.findIndex((w, i) => i % 2 === 1 && hit(w));
+    if (k < 0) continue;
+    const before = words.slice(0, k).join(""), after = words.slice(k + 1).join("");
+    return { pre: (before.length > 90 ? "…" + before.slice(-90) : before), w: words[k], post: after.length > 140 ? after.slice(0, 140) + "…" : after };
+  }
+  return null;
+}
+function LibrarySearch({ idx, onOpen }) {
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState(null);   // { q, terms, hits }
+  const [shown, setShown] = useState(10);
+  const [snips, setSnips] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [sidx, setSidx] = useState(null);
+  async function run(e) {
+    if (e) e.preventDefault();
+    if (!q.trim()) return;
+    setBusy(true); setSnips({}); setShown(10);
+    try { const r = await searchDocs(q); setRes({ q, ...r }); if (!sidx) loadSummaIndex().then(setSidx).catch(() => {}); }
+    catch (err) { setRes({ q, terms: [], hits: [], err: true }); }
+    finally { setBusy(false); }
+  }
+  const keyOf = h => h.join(":");
+  useEffect(() => {
+    if (!res) return;
+    let alive = true;
+    res.hits.slice(0, shown).forEach(async h => {
+      const k = keyOf(h);
+      if (snips[k] !== undefined) return;
+      try {
+        const paras = h[0] === "L" ? (await libGet(h[1])).chapters[h[2]].paras : ((await loadSummaQ(h[1], h[2])) || { a: [] }).a[h[3] - 1] || [];
+        if (alive) setSnips(s => ({ ...s, [k]: snippetOf(paras, res.terms) }));
+      } catch (e) { if (alive) setSnips(s => ({ ...s, [k]: null })); }
+    });
+    return () => { alive = false; };
+  }, [res, shown]);
+  const title = h => {
+    if (h[0] === "S") {
+      const part = sidx && sidx.parts.find(x => x.id === h[1]), qr = part && part.qs.find(x => x[0] === h[2]);
+      return { t: `Summa ${SM_PART[h[1]]}, q. ${h[2]}, a. ${h[3]}`, s: qr ? (qr[2][h[3] - 1] || qr[1]) : "" };
+    }
+    const w = idx.works.find(x => x.id === h[1]);
+    return { t: w ? w.title : h[1], s: w ? w.chapters[h[2]] : "" };
+  };
+  function open(h) {
+    if (h[0] === "S") {
+      writeLocal(SUMMA_POS_KEY, { ...(readLocal(SUMMA_POS_KEY) || {}), p: h[1], q: h[2], a: h[3] });
+      onOpen("summa");
+    } else onOpen(h[1], h[2], res.terms[0]);
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <form onSubmit={run} className="flex gap-2" role="search">
+        <label htmlFor="lib-search" className="sr-only">Search the Library and the Summa</label>
+        <input id="lib-search" lang="la" type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search the Latin: e.g. caritas amicitia"
+          className="min-w-0 flex-1 rounded-md border border-rule bg-paper px-3 py-2 text-[15px] text-ink" />
+        <Btn variant="primary" type="submit" disabled={busy || !q.trim()}>{busy ? "…" : "Search"}</Btn>
+      </form>
+      {res && (
+        <div className="flex flex-col gap-1.5" aria-live="polite">
+          <p className="text-[13px] text-soft">{res.err ? "The search didn’t load. Check your connection and try again." : res.hits.length ? `${res.hits.length} place${res.hits.length === 1 ? "" : "s"} with ${res.terms.length > 1 ? "all of " : ""}“${res.terms.join(" ")}…” (words beginning so)` : `Nothing found for “${res.q}”. Try the beginning of the word (caritat for caritas, caritatis…).`}</p>
+          <ul className="flex flex-col gap-1.5">
+            {res.hits.slice(0, shown).map(h => {
+              const t = title(h), sn = snips[keyOf(h)];
+              return (
+                <li key={keyOf(h)}>
+                  <button type="button" onClick={() => open(h)} className="w-full rounded-md border border-rule bg-paper px-3 py-2 text-left hover:border-soft">
+                    <span className="block text-[14px] font-semibold text-ink">{t.t}<span className="font-normal text-soft">{t.s ? " · " + (t.s.length > 70 ? t.s.slice(0, 68) + "…" : t.s) : ""}</span></span>
+                    {sn && <span lang="la" className="latin block text-[14px] leading-snug text-soft">{sn.pre}<mark className="rounded bg-rubrictint px-0.5 font-bold text-rubric">{sn.w}</mark>{sn.post}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {res.hits.length > shown && <Btn onClick={() => setShown(n => n + 10)}>Show more ({res.hits.length - shown} left)</Btn>}
+        </div>
+      )}
     </div>
   );
 }

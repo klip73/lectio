@@ -30,4 +30,14 @@ Latin texts from The Latin Library (via the CLTK collection), built into data/li
 
 ## Canon law
 
-The Decretals of Gregory IX and the Decretum Gelasianum from The Latin Library (public domain). The 1983 Code is not copied (© Libreria Editrice Vaticana; English © Canon Law Society of America): data/canon1983.json holds only each canon's page on vatican.va, taken from github.com/joconn819/codex-iuris-reader by tools/canon/build_canon_links.py. The 1917 Code is linked (archive.org scan; canonlaw.info).
+The Decretals of Gregory IX and the Decretum Gelasianum from The Latin Library (public domain). The 1983 Code is not copied (© Libreria Editrice Vaticana; English © Canon Law Society of America): data/canon1983.json holds only each canon's page on vatican.va, taken from github.com/joconn819/codex-iuris-reader by tools/canon/build_canon_links.py. The 1917 Code (public domain) is in the Library: Latin text from the PDF kept in github.com/realitix/magisterium (A-pre-vatican-ii/droit-canonique; originally documentacatholicaomnia.eu), turned to text with pdftotext and divided by titulus in tools/library/build_extra.py.
+
+## More books (tools/library/build_extra.py)
+
+| What | Where | Licence |
+|---|---|---|
+| Catena Aurea on the four Gospels, Latin and the Oxford English (1841–45) | github.com/antstratfordlol-bit/corpus-thomisticum (Corpus Thomisticum; Kenny's edition) | public domain texts |
+| Rituale Romanum (1952), Latin only | rituale/ in github.com/Noslenor/my_website | Latin liturgical text; the English there is not copied |
+| Catechismus Romanus (1566), Latin machine-read from a scan (misreadings corrected against word frequencies of The Latin Library), with a machine English translation | github.com/realitix/magisterium | public domain Latin; the English is labelled as machine translation |
+
+The Library search (data/search/) and the Summa's Gospel citations (data/summa/cites.json, for Sunday preparation and the mock exam from today's liturgy) are built by tools/library/build_search.py.

@@ -523,7 +523,7 @@ function Trainer({ index, prog, onAnswer, openTable, preset }) {
 function FormsMode({ prog, onAnswer, focus }) {
   const [lex, setLex] = useState(null);
   const [err, setErr] = useState("");
-  const [tab, setTab] = useState("tables");
+  const [tab, setTab] = useState(focus && focus.trainer ? "drill" : "tables");
   const [cur, setCur] = useState(null); // { it, form }
   const [preset, setPreset] = useState(null);
   useEffect(() => { loadLex().then(setLex).catch(() => setErr("The dictionary didn’t load. Check your connection and try again.")); }, []);
@@ -534,7 +534,7 @@ function FormsMode({ prog, onAnswer, focus }) {
     const it = index.byLemma[lemma];
     if (it) { setCur({ it, form: focus.form || null }); setTab("tables"); }
   }, [index, focus]);
-  useEffect(() => { if (index && !cur && !focus) setCur({ it: index.byLemma.dico || index.list[0], form: null }); }, [index]);
+  useEffect(() => { if (index && !cur && (!focus || focus.trainer)) setCur({ it: index.byLemma.dico || index.list[0], form: null }); }, [index]);
   if (!index) return <p className="text-[15px] text-soft">{err || "Loading the dictionary…"}</p>;
   const tabCls = on => `rounded-md px-3.5 py-1.5 text-[15px] font-medium ${on ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`;
   function openTable(it, form) { setCur({ it, form }); setTab("tables"); }

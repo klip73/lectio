@@ -1125,6 +1125,7 @@ function alignCurated(la, src) {
 
 /*@include exam.jsx*/
 /*@include home.jsx*/
+/*@include sunday.jsx*/
 
 /* ---------- Links to a passage ---------- */
 const ARTIFACT_URL = "https://claude.ai/artifact/X6N5DSQ3q196vb6ZEzgjty";
@@ -1594,6 +1595,12 @@ function App() {
       setMode("exam");
     }
   }
+  /* open the Library at a work's chapter (or the Summa at an article), e.g. from Sunday preparation */
+  function openLibrary(id, ci, hl, sm) {
+    if (sm) writeLocal(SUMMA_POS_KEY, { ...(readLocal(SUMMA_POS_KEY) || {}), ...sm });
+    writeLocal(LIB_KEY, { ...(readLocal(LIB_KEY) || {}), _open: id, ...(id !== "summa" ? { [id]: ci } : {}), _hl: hl || "" });
+    setMode("library"); resetView(); window.scrollTo({ top: 0 });
+  }
   /* Home's buttons: an area of the app, or "study" for exam preparation (Today's session) */
   function goHome(area) {
     setFocusMode(false); resetView(); window.scrollTo({ top: 0 });
@@ -1735,6 +1742,9 @@ function App() {
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
+      <MistakeDrills log={prog.mistakes} onDrill={drillConcept} onRetest={k => { setPrefs(p => ({ ...p, deck: "mk:" + k })); setMode("vocab"); resetView(); showPractice(); }}
+        onForms={f => { writeLocal(FORMS_CFG, { ...(readLocal(FORMS_CFG) || {}), set: "top", ...f }); setFormsFocus({ trainer: true, at: Date.now() }); setMode("forms"); resetView(); showPractice(); }} />
+
       {/* Progress ledger: folded to one line until opened (remembered) */}
       <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Your progress">
         <button type="button" onClick={() => setPrefs(p => ({ ...p, ledger: !p.ledger }))} aria-expanded={!!prefs.ledger || showStats}
@@ -1824,7 +1834,7 @@ function App() {
       {mode === "home" ? null : mode === "library" ? (
         <LibraryMode onTap={addTapped} onTable={openTable} />
       ) : mode === "office" ? (
-        <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} />
+        <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} onOpen={openLibrary} />
       ) : mode === "place" && placeParts ? (
         <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} ai={tutorAvail === true} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
       ) : mode === "guide" ? (
