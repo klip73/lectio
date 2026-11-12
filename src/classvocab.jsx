@@ -23,7 +23,7 @@ const summaChunks = {};
 const loadSummaQ = (p, q) => { const k = `${p}-${Math.floor((q - 1) / 20)}`; summaChunks[k] = summaChunks[k] || getJSON(`data/summa/${k}.json`).catch(e => { delete summaChunks[k]; throw e; }); return summaChunks[k].then(c => c[String(q)]); };
 function sectionLabel(s) {
   const parts = s.parts && s.parts.length < 4 ? " · " + s.parts.map(p => ST_PARTS.find(x => x[0] === p)[1]).join(", ") : "";
-  if (s.t === "sm") return `Summa ${SM_PART[s.p]} q. ${s.q}, ${s.a ? "a. " + s.a : "all articles"}${parts}`;
+  if (s.t === "sm") return `Summa ${SM_PART[s.p]} q. ${s.q}, ${Array.isArray(s.a) && s.a.length ? (s.a.length > 1 ? "aa. " : "a. ") + s.a.join(", ") : s.a && !Array.isArray(s.a) ? "a. " + s.a : "all articles"}${parts}`;
   const bk = BOOK[s.b];
   if (!bk) return "?";
   if (s.t === "nt") return `${bk[1]} ${s.c1}${s.c2 && s.c2 !== s.c1 ? "–" + s.c2 : ""}`;
@@ -64,7 +64,7 @@ async function classWords(sections, lex, basic) {
       let q = null;
       try { q = await loadSummaQ(s.p, s.q); } catch (e) { missing++; continue; }   // offline copy, or no connection
       if (!q) continue;
-      (s.a ? [s.a] : q.a.map((_, i) => i + 1)).forEach(a => {
+      (Array.isArray(s.a) && s.a.length ? s.a : s.a && !Array.isArray(s.a) ? [s.a] : q.a.map((_, i) => i + 1)).forEach(a => {
         let part = null;
         (q.a[a - 1] || []).forEach((par, j) => {
           part = stPart(par, part);
@@ -227,7 +227,8 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   const [sidx, setSidx] = useState(null);
   const [sp, setSp] = useState("2-2");
   const [sq, setSq] = useState(1);
-  const [art, setArt] = useState(0);
+  const [art, setArt0] = useState([]);   // chosen articles of the question; none = all
+  const setArt = v => setArt0(Array.isArray(v) ? v : v ? [v] : []);
   useEffect(() => { if (t === "st" && !sidx) loadSummaIndex().then(setSidx).catch(() => {}); }, [t]);
   const spart = sidx && sidx.parts.find(x => x.id === sp);
   const sques = spart && spart.qs.find(x => x[0] === sq);
@@ -253,7 +254,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
     setOwnText("");
   }
   function add() {
-    const s = t === "nt" ? { t, b, c1: Math.min(c1, c2), c2: Math.max(c1, c2) } : { t: "sm", p: sp, q: sq, a: art, parts: parts.length ? parts : ST_PARTS.map(p => p[0]) };
+    const s = t === "nt" ? { t, b, c1: Math.min(c1, c2), c2: Math.max(c1, c2) } : { t: "sm", p: sp, q: sq, a: art.length === 0 ? 0 : art.length === 1 ? art[0] : art, parts: parts.length ? parts : ST_PARTS.map(p => p[0]) };
     rebuild({ ...cls, sections: [...cls.sections, s] });
   }
   const vc = prog.vcards || {};
@@ -319,11 +320,20 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
                   <select id="cv-q" value={sq} onChange={e => { setSq(+e.target.value); setArt(0); }} className={`${sel} min-w-0 flex-1 basis-60`}>
                     {spart.qs.map(x => <option key={x[0]} value={x[0]}>q. {x[0]}: {x[1].length > 60 ? x[1].slice(0, 58) + "…" : x[1]}</option>)}
                   </select>
-                  <label htmlFor="cv-a" className="sr-only">Article</label>
-                  <select id="cv-a" value={art} onChange={e => setArt(+e.target.value)} className={`${sel} min-w-0 max-w-full basis-full`}>
-                    <option value={0}>All articles</option>
-                    {sques && sques[2].map((l, i) => <option key={i} value={i + 1}>a. {i + 1}{l ? ": " + (l.length > 70 ? l.slice(0, 68) + "…" : l) : ""}</option>)}
-                  </select>
+                  {sques && (
+                    <fieldset className="flex w-full flex-col gap-1 rounded-md border border-rule bg-paper px-3 py-2" aria-label="Articles">
+                      <legend className="px-1 text-[13px] text-soft">Articles: tick the ones you're reading{art.length ? ` (${art.length} chosen)` : " (none ticked = all)"}</legend>
+                      <label className="flex items-center gap-2 text-[14px] text-ink">
+                        <input type="checkbox" checked={!art.length} onChange={() => setArt([])} className="h-4 w-4 flex-none accent-[var(--rubric)]" />All articles
+                      </label>
+                      {sques[2].map((l, i) => (
+                        <label key={i} className="flex items-start gap-2 text-[14px] leading-snug text-ink">
+                          <input type="checkbox" value={i + 1} checked={art.includes(i + 1)} onChange={e => setArt(e.target.checked ? [...art, i + 1].sort((a, b) => a - b) : art.filter(x => x !== i + 1))} className="mt-0.5 h-4 w-4 flex-none accent-[var(--rubric)]" />
+                          <span><span className="num font-semibold">a. {i + 1}</span>{l ? ": " + l : ""}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
                 </div>
               )}
               <div className="flex flex-wrap gap-x-4 gap-y-1" role="group" aria-label="Parts of the article">
