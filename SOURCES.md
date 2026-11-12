@@ -32,6 +32,10 @@ Latin texts from The Latin Library (via the CLTK collection), built into data/li
 
 The Decretals of Gregory IX and the Decretum Gelasianum from The Latin Library (public domain). The 1983 Code is not copied (© Libreria Editrice Vaticana; English © Canon Law Society of America): data/canon1983.json holds only each canon's page on vatican.va, taken from github.com/joconn819/codex-iuris-reader by tools/canon/build_canon_links.py. The 1917 Code (public domain) is in the Library: Latin text from the PDF kept in github.com/realitix/magisterium (A-pre-vatican-ii/droit-canonique; originally documentacatholicaomnia.eu), turned to text with pdftotext and divided by titulus in tools/library/build_extra.py.
 
+## Lewis & Short
+
+Lewis and Short, A Latin Dictionary (1879), from the Perseus Digital Library's XML (CC BY-SA 3.0) via github.com/IohannesArnold/lewis-short-json, built into data/ls/ by tools/data/build_ls.py. It opens under the word panel; for words the parsed texts never met, its headwords are matched to the word's ending as a labelled guess.
+
 ## More books (tools/library/build_extra.py)
 
 | What | Where | Licence |

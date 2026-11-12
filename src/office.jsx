@@ -106,6 +106,26 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
   );
 }
 const PROPERS = /^(Introitus|Oratio|Lectio|Epistola|Graduale|Tractus|Allel[uú][ij]a|Sequentia|Evangelium|Offertorium|Secreta|Pr[æa]fatio|Communio|Postcommunio)(\s|$)/;
+/* A form as printed, then as the parsed texts spell it: older and medieval spellings (quum, literae, coelum, michi,
+   gracia, ecclesie) are tried in their classical form. */
+function formVariants(w) {
+  const n = normForm(w), out = [n];
+  const add = x => { if (x && !out.includes(x)) out.push(x); };
+  add(n.replace(/^quum/, "cum"));
+  add(n.replace(/^liter/, "litter"));
+  add(n.replace(/coel/, "cael").replace(/coen/, "cen").replace(/foemin/, "femin").replace(/caus{2}/, "caus"));
+  add(n.replace(/^michi$/, "mihi").replace(/^nichil/, "nihil"));
+  add(n.replace(/y/g, "i"));
+  add(n.replace(/([^s])ci([aeiou])/g, "$1ti$2"));
+  add(n.replace(/e$/, "ae"));
+  add(n.replace(/oe/g, "e")); add(n.replace(/ae/g, "e"));
+  return out;
+}
+function formLookup(forms, w) {
+  if (!forms) return undefined;
+  for (const k of formVariants(w)) if (forms[k]) return forms[k];
+  return null;
+}
 /* Word help shared by the Liturgy and the Library: tap a word, see its parsing; it joins the vocabulary deck. */
 function useWordHelp(formsLoad, onTap) {
   const [word, setWord] = useState(null);
@@ -113,7 +133,7 @@ function useWordHelp(formsLoad, onTap) {
   const [forms, setForms] = useState(null);
   useEffect(() => {
     if (!word || !lex || !forms || !onTap) return;
-    const ids = forms[normForm(word)];
+    const ids = formLookup(forms, word);
     if (ids) onTap([...new Set(ids.slice(0, 1).map(id => lex.lemmas[lex.ana[id][0]][0]))]);
   }, [word, lex, forms]);
   function pick(w) {
@@ -123,12 +143,12 @@ function useWordHelp(formsLoad, onTap) {
   }
   function panel(where, onTable) {
     if (!word) return null;
-    const entry = forms ? (forms[normForm(word)] || null) : undefined;
+    const entry = formLookup(forms, word);
     return (
       <div className="fixed inset-x-0 bottom-0 z-20 max-h-[45vh] overflow-auto border-t border-rule bg-paper px-4 pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
         <div className="mx-auto max-w-[46rem]">
           {lex && forms ? (entry ? <WordPanel lex={lex} word={word} entry={entry} onClose={() => setWord(null)} where={where} onTable={onTable} />
-            : <div className="mt-4 flex items-baseline justify-between gap-3 text-[15px]"><span><span lang="la" className="latin font-bold">{word}</span> <span className="text-soft">isn’t in the parsed texts. Try the Forms tab or a dictionary.</span></span><button type="button" onClick={() => setWord(null)} className="text-[13px] text-soft underline">Close</button></div>)
+            : <LsGuessPanel word={word} onClose={() => setWord(null)} />)
             : <p className="mt-4 text-[14px] text-soft">Looking up…</p>}
         </div>
       </div>

@@ -146,7 +146,7 @@ function SummaReader({ onTap, onTable, onBack }) {
           <div className="mx-auto max-w-[46rem]">
             {!lex ? <p className="mt-4 text-[14px] text-soft">Looking up…</p>
               : readings(tap.entry).ids.length ? <WordPanel lex={lex} word={tap.w} entry={tap.entry} onClose={() => setTap(null)} where={`Summa ${SM_PART[p]} q. ${qn} a. ${a}`} onTable={onTable} />
-              : <div className="mt-4 flex items-baseline justify-between gap-3 text-[15px]"><span><span lang="la" className="latin font-bold">{tap.w}</span> <span className="text-soft">isn’t in the app’s dictionary. Try the Forms tab or a dictionary.</span></span><button type="button" onClick={() => setTap(null)} className="text-[13px] text-soft underline">Close</button></div>}
+              : <LsGuessPanel word={tap.w} onClose={() => setTap(null)} />}
           </div>
         </div>
       )}

@@ -993,7 +993,129 @@ function WordPanel({ lex, word, entry, onClose, where, onTable }) {
           </div>
         );
       })()}
+      <LewisShort lemmas={[...new Set(items.filter(d => !d.guess || items.length === 1).map(d => d.lemma))].slice(0, 3)} />
       <ReportParse word={word} where={where} items={items} />
+    </div>
+  );
+}
+
+/* ---------- Lewis & Short under the word panel (data/ls, tools/data/build_ls.py), with links to Logeion and Wiktionary ----------
+   Opens on request; the choice is remembered, so it can stay open for every word. */
+const LS_KEY = "lectio-vulgata-ls";
+const lsCache = {};
+const lsGet = name => (lsCache[name] = lsCache[name] || getJSON(`data/ls/${name}.json`).catch(e => { delete lsCache[name]; throw e; }));
+const lsNorm = l => normForm(String(l).replace(/[#\d]+$/, "")).replace(/[^a-z]/g, "");
+async function lsLookup(lemma) {
+  /* Whitaker writes optional letters in brackets, ex(s)urgo: try the word with them, then without */
+  const base = [lemma.replace(/\(([^)]*)\)/g, "$1"), lemma.replace(/\([^)]*\)/g, "")].map(lsNorm).filter(Boolean);
+  /* then spellings Lewis & Short prefers: assimilated prefixes (adnuntio → annuntio), oboedio, tento; a deponent's active form */
+  const alt = k => [k.replace(/^adn/, "ann").replace(/^adc/, "acc").replace(/^adp/, "app").replace(/^adt/, "att").replace(/^ads/, "ass").replace(/^adf/, "aff").replace(/^adg/, "agg").replace(/^adl/, "all").replace(/^adr/, "arr").replace(/^inm/, "imm").replace(/^inp/, "imp").replace(/^inl/, "ill").replace(/^inr/, "irr").replace(/^conl/, "coll").replace(/^conm/, "comm").replace(/^conr/, "corr"),
+    k.replace(/^obed/, "oboed"), k.replace(/tempt/, "tent"), k.replace(/or$/, "o"), k.replace(/^sollemn/, "solemn"), k.replace(/^solemn/, "sollemn")];
+  const ks = [...new Set([...base, ...base.flatMap(alt)])];
+  const where = await lsGet("where");
+  for (const k of ks) {
+    const f = where[k.slice(0, 3).padEnd(3, "_")] ?? where[k.slice(0, 2).padEnd(2, "_")];
+    if (f == null) continue;
+    const shard = await lsGet("l" + f);
+    if (shard[k]) return shard[k];
+  }
+  return [];
+}
+/* A word the parsed texts never met: likely dictionary forms from its ending, kept if Lewis & Short has them
+   (clerici → clericus, excommunicationis → excommunicatio, ordinavit → ordino). A guess, and labelled so. */
+const LS_ENDINGS = [
+  // nouns and adjectives
+  ["ionibus", ["io"]], ["ionis", ["io"]], ["ionem", ["io"]], ["ione", ["io"]], ["iones", ["io"]], ["ionum", ["io"]],
+  ["tatibus", ["tas"]], ["tatis", ["tas"]], ["tatem", ["tas"]], ["tate", ["tas"]], ["tates", ["tas"]], ["tatum", ["tas"]],
+  ["tudinis", ["tudo"]], ["tudinem", ["tudo"]], ["tudine", ["tudo"]], ["toris", ["tor"]], ["torem", ["tor"]], ["tori", ["tor"]], ["tore", ["tor"]], ["tores", ["tor"]], ["torum", ["tor"]], ["toribus", ["tor"]],
+  ["ntis", ["ns"]], ["ntem", ["ns"]], ["nte", ["ns"]], ["ntes", ["ns"]], ["ntium", ["ns"]], ["ntibus", ["ns"]], ["nti", ["ns"]],
+  ["arum", ["a"]], ["orum", ["us", "um", "er"]], ["ibus", ["is", "s", "us", "x", "o", "e"]], ["ium", ["is", "e"]], ["uum", ["us"]], ["ebus", ["es"]],
+  ["ae", ["a"]], ["am", ["a"]], ["as", ["a"]], ["is", ["us", "um", "a", "is", "e", "s", "x"]], ["os", ["us", "um"]], ["um", ["us", "um", "is", "e"]], ["em", ["is", "es", "s", "x"]],
+  ["es", ["is", "es", "s", "x"]], ["a", ["us", "um", "a"]], ["i", ["us", "um", "is", "er"]], ["o", ["us", "um", "o"]], ["e", ["us", "is", "e", "es"]], ["u", ["us"]], ["ei", ["es"]], ["ui", ["us"]],
+  // verbs
+  ["averunt", ["o"]], ["avit", ["o"]], ["avi", ["o"]], ["abat", ["o"]], ["abant", ["o"]], ["abit", ["o"]], ["abunt", ["o"]], ["antur", ["o"]], ["atur", ["o"]], ["andum", ["o"]], ["andi", ["o"]], ["ando", ["o"]], ["atus", ["o"]], ["ata", ["o"]], ["atum", ["o"]], ["ati", ["o"]], ["atis", ["o"]], ["are", ["o"]], ["ari", ["o"]], ["at", ["o"]], ["ant", ["o"]], ["et", ["o", "eo"]], ["ent", ["o", "eo"]], ["etur", ["eo"]], ["entur", ["eo", "o"]], ["ere", ["eo", "o"]], ["eri", ["eor"]],
+  ["it", ["o", "io"]], ["unt", ["o", "io"]], ["itur", ["o", "io"]], ["untur", ["o", "io"]], ["iunt", ["io"]], ["iendum", ["io"]], ["ire", ["io"]], ["iri", ["io"]], ["itus", ["io", "o"]], ["ivit", ["io"]], ["iverunt", ["io"]]
+];
+async function lsGuess(word) {
+  const n = lsNorm(word), seen = new Set(), out = [];
+  const tries = [n];
+  for (const [end, leads] of LS_ENDINGS) if (n.endsWith(end) && n.length - end.length >= 2) for (const l of leads) tries.push(n.slice(0, -end.length) + l);
+  for (const k of tries) {
+    if (seen.has(k) || out.length >= 3) continue; seen.add(k);
+    try { if ((await lsLookup(k)).length) out.push(k); } catch (e) { break; }
+  }
+  return out;
+}
+function LsGuessPanel({ word, onClose }) {
+  const [g, setG] = useState(null);
+  useEffect(() => { let alive = true; setG(null); if (OFFLINE && !APP) { setG([]); return; } lsGuess(word).then(r => alive && setG(r)).catch(() => alive && setG([])); return () => { alive = false; }; }, [word]);
+  return (
+    <div className="reveal mt-4 rounded-md border border-rule bg-paper px-4 py-3" aria-live="polite">
+      <div className="flex items-baseline justify-between gap-3">
+        <span lang="la" className="latin text-[1.05rem] font-bold text-ink">{word}</span>
+        <button type="button" onClick={onClose} className="text-[13px] text-soft underline">Close</button>
+      </div>
+      {g === null ? <p className="mt-1 text-[14px] text-soft">Not in the parsed texts; looking in Lewis &amp; Short…</p>
+        : g.length ? <>
+          <p className="smallcaps mt-0.5 text-[13px] text-soft">Not in the parsed texts · dictionary guess from the ending</p>
+          <p className="mt-1 text-[15px] text-ink">Probably a form of <span lang="la" className="latin font-bold text-rubric">{g.join(", ")}</span>. Check the ending yourself.</p>
+          <LewisShort lemmas={g} openFirst />
+        </>
+        : <><p className="mt-1 text-[14px] text-soft">This word isn’t in the parsed texts, and no Lewis &amp; Short headword fits its ending (it may be a name, an abbreviation or a misprint).</p><LewisShort lemmas={[word]} /></>}
+    </div>
+  );
+}
+function LewisShort({ lemmas, openFirst }) {
+  const [open, setOpen0] = useState(() => !!openFirst || !!readLocal(LS_KEY));
+  const [res, setRes] = useState(null);   // [{ lemma, entries }] | "err"
+  const [all, setAll] = useState({});
+  const setOpen = v => { setOpen0(v); writeLocal(LS_KEY, v ? 1 : 0); };
+  const key = lemmas.join("|");
+  useEffect(() => {
+    if (!open || !lemmas.length || OFFLINE && !APP) return;
+    let alive = true; setRes(null); setAll({});
+    Promise.all(lemmas.map(async l => ({ lemma: l, entries: await lsLookup(l) })))
+      .then(r => alive && setRes(r)).catch(() => alive && setRes("err"));
+    return () => { alive = false; };
+  }, [open, key]);
+  if (!lemmas.length) return null;
+  const first = lemmas[0];
+  const links = (
+    <span className="flex flex-wrap gap-x-3 text-[13px]">
+      <a className="text-rubric underline underline-offset-2" href={`https://logeion.uchicago.edu/${encodeURIComponent(first)}`} target="_blank" rel="noopener noreferrer">Logeion ↗</a>
+      <a className="text-rubric underline underline-offset-2" href={`https://en.wiktionary.org/wiki/${encodeURIComponent(first)}#Latin`} target="_blank" rel="noopener noreferrer">Wiktionary ↗</a>
+    </span>
+  );
+  return (
+    <div className="mt-3 border-t border-rule pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {OFFLINE && !APP ? <span className="text-[13px] text-soft">Lewis &amp; Short is in the phone app and online page.</span>
+          : <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-[14px] font-medium text-rubric underline underline-offset-2">Lewis &amp; Short {open ? "▴" : "▾"}</button>}
+        {links}
+      </div>
+      {open && !(OFFLINE && !APP) && (
+        <div className="mt-2 flex max-h-[50vh] flex-col gap-3 overflow-auto">
+          {res === null ? <p className="text-[14px] text-soft">Looking it up…</p>
+            : res === "err" ? <p className="text-[14px] text-warn">Lewis &amp; Short didn’t load. Check your connection and try again.</p>
+            : res.every(r => !r.entries.length) ? <p className="text-[14px] text-soft">No Lewis &amp; Short entry under <span lang="la" className="latin">{lemmas.join(", ")}</span>; it is mostly a classical dictionary. Try Logeion, which also has Du Cange and Latin–English dictionaries of Church Latin.</p>
+            : res.map(r => r.entries.map((e, j) => {
+              const k = r.lemma + j, more = all[k], senses = more ? e[2] : e[2].slice(0, 4);
+              return (
+                <div key={k} className="text-[14px] leading-snug">
+                  {(() => {
+                    /* the notes often begin with the headword marked for quantity (ordĭnārĭus, a, um): then that is the heading */
+                    const w0 = (e[1] || "").split(/[ ,]/)[0];
+                    if (w0 && lsNorm(w0) === lsNorm(e[0].split(/[ ,]/)[0])) return <p><span lang="la" className="latin font-bold text-ink">{w0}</span><span className="text-soft">{e[1].slice(w0.length)}</span></p>;
+                    return <p><span lang="la" className="latin font-bold text-ink">{e[0]}</span>{e[1] && <span className="text-soft"> {e[1]}</span>}</p>;
+                  })()}
+                  {senses.length > 0 && <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5 text-ink">{senses.map((s, i) => <li key={i} className={s.startsWith("· ") ? "list-none -ml-1 pl-3 text-soft" : ""}>{s.replace(/^(· )+/, "")}</li>)}</ol>}
+                  {e[2].length > 4 && <button type="button" className="mt-1 text-[13px] text-rubric underline" onClick={() => setAll(a => ({ ...a, [k]: !more }))}>{more ? "Fewer senses" : `All ${e[2].length} senses`}</button>}
+                </div>
+              );
+            }))}
+          <p className="text-[11px] text-soft">Lewis &amp; Short, A Latin Dictionary (1879), from the Perseus Digital Library (CC BY-SA).</p>
+        </div>
+      )}
     </div>
   );
 }

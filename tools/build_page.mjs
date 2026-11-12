@@ -117,6 +117,7 @@ if (app) {
   cpSync(path.join(root, "data", "library"), path.join(dir, "data", "library"), { recursive: true });
   cpSync(path.join(root, "data", "summa"), path.join(dir, "data", "summa"), { recursive: true });
   cpSync(path.join(root, "data", "search"), path.join(dir, "data", "search"), { recursive: true });
+  cpSync(path.join(root, "data", "ls"), path.join(dir, "data", "ls"), { recursive: true });
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);
