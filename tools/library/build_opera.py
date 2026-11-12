@@ -18,7 +18,7 @@ def latin_head(t):
     for a, b in LA: t = re.sub(a, b, t, flags=re.I)
     return t[:1].upper() + t[1:].lower() if t.isupper() and len(t) > 3 and not re.fullmatch(r"[IVXLC]+", t) else t
 def split(path):
-    t = open(path, encoding="utf-8").read()
+    t = open(path, encoding="utf-8").read().replace("\ufffd", "©")   # the source lost its copyright signs (translators' credits)
     meta = {}
     if t.startswith("---"):
         fm, t = t[3:].split("\n---\n", 1)
