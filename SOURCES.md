@@ -36,6 +36,10 @@ The Decretals of Gregory IX and the Decretum Gelasianum from The Latin Library (
 
 Lewis and Short, A Latin Dictionary (1879), from the Perseus Digital Library's XML (CC BY-SA 3.0) via github.com/IohannesArnold/lewis-short-json, built into data/ls/ by tools/data/build_ls.py. It opens under the word panel; for words the parsed texts never met, its headwords are matched to the word's ending as a labelled guess.
 
+## Wiktionary word forms
+
+Latin word forms from Wiktionary (CC BY-SA 3.0/4.0, via Wiktextract), as collected in James Penfold's Lexicon Scholasticum (github.com/piakobos/lexiconscholasticum), exported from its `forms` table and built into data/wkt/ by tools/data/build_wkt.py; only forms occurring in the app's texts are kept. Used for words the parsed texts never met, with all possible parsings shown.
+
 ## More books (tools/library/build_extra.py)
 
 | What | Where | Licence |

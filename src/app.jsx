@@ -1046,16 +1046,55 @@ async function lsGuess(word) {
   }
   return out;
 }
+/* Wiktionary's Latin forms (data/wkt, tools/data/build_wkt.py; from James Penfold's Lexicon Scholasticum): every
+   dictionary word a form can belong to, with its parsing, but not chosen by context. */
+const wktCache = {};
+const wktGet = name => (wktCache[name] = wktCache[name] || getJSON(`data/wkt/${name}.json`).catch(e => { delete wktCache[name]; throw e; }));
+async function wktLookup(word) {
+  const where = await wktGet("where");
+  for (const k of formVariants(word).map(x => x.replace(/[^a-z]/g, ""))) {
+    const f = where[k.slice(0, 3).padEnd(3, "_")] ?? where[k.slice(0, 2).padEnd(2, "_")];
+    if (f == null) continue;
+    const shard = await wktGet("w" + f);
+    if (shard[k]) return shard[k];
+  }
+  return [];
+}
 function LsGuessPanel({ word, onClose }) {
   const [g, setG] = useState(null);
-  useEffect(() => { let alive = true; setG(null); if (OFFLINE && !APP) { setG([]); return; } lsGuess(word).then(r => alive && setG(r)).catch(() => alive && setG([])); return () => { alive = false; }; }, [word]);
+  const [wk, setWk] = useState(null);
+  useEffect(() => {
+    let alive = true; setG(null); setWk(null);
+    if (OFFLINE && !APP) { setG([]); setWk([]); return; }
+    wktLookup(word).then(r => { if (!alive) return; setWk(r); if (!r.length) lsGuess(word).then(x => alive && setG(x)).catch(() => alive && setG([])); })
+      .catch(() => { if (alive) { setWk([]); lsGuess(word).then(x => alive && setG(x)).catch(() => alive && setG([])); } });
+    return () => { alive = false; };
+  }, [word]);
+  if (wk && wk.length) return (
+    <div className="reveal mt-4 rounded-md border border-rule bg-paper px-4 py-3" aria-live="polite">
+      <div className="flex items-baseline justify-between gap-3">
+        <span lang="la" className="latin text-[1.05rem] font-bold text-ink">{word}</span>
+        <button type="button" onClick={onClose} className="text-[13px] text-soft underline">Close</button>
+      </div>
+      <p className="smallcaps mt-0.5 text-[13px] text-soft">{wk.length > 1 ? "Possible parsings (Wiktionary; the sentence decides which)" : "Parsing from Wiktionary"}</p>
+      <ul className="mt-2 flex flex-col gap-1.5">
+        {wk.map((x, i) => (
+          <li key={i} className="text-[15px] leading-snug">
+            <span lang="la" className="latin font-bold text-rubric">{x[0]}</span> <span className="text-[14px] text-soft">{x[1]}{x[2] ? ": " + x[2] : ""}</span>
+          </li>
+        ))}
+      </ul>
+      <LewisShort lemmas={[...new Set(wk.map(x => x[0]))].slice(0, 3)} />
+      <p className="mt-2 text-[11px] text-soft">Word forms from Wiktionary (CC BY-SA), via James Penfold’s Lexicon Scholasticum.</p>
+    </div>
+  );
   return (
     <div className="reveal mt-4 rounded-md border border-rule bg-paper px-4 py-3" aria-live="polite">
       <div className="flex items-baseline justify-between gap-3">
         <span lang="la" className="latin text-[1.05rem] font-bold text-ink">{word}</span>
         <button type="button" onClick={onClose} className="text-[13px] text-soft underline">Close</button>
       </div>
-      {g === null ? <p className="mt-1 text-[14px] text-soft">Not in the parsed texts; looking in Lewis &amp; Short…</p>
+      {g === null ? <p className="mt-1 text-[14px] text-soft">Not in the parsed texts; looking it up…</p>
         : g.length ? <>
           <p className="smallcaps mt-0.5 text-[13px] text-soft">Not in the parsed texts · dictionary guess from the ending</p>
           <p className="mt-1 text-[15px] text-ink">Probably a form of <span lang="la" className="latin font-bold text-rubric">{g.join(", ")}</span>. Check the ending yourself.</p>
