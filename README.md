@@ -6,6 +6,15 @@
 **How it works:** the app's own explanation screen (Home → "How this app works", or the footer), and this README.
 **Licence:** MIT for the code; texts and data keep their own licences (SOURCES.md). See LICENSE and CONTRIBUTING.md.
 
+## Using it in Claude
+
+The same app also runs as a page inside Claude (claude.ai), where Claude marks your translations and your progress is saved to your Claude account.
+
+1. Have a Claude account (a free one is enough to open it; marking uses your own Claude usage).
+2. Open the Claude version's link (the app has an "Open the Claude version" button under Home → How this app works).
+3. If Claude says you don't have access, the page hasn't been shared with you: ask whoever sent you the app. (The owner shares it from the page's Share menu in Claude.)
+4. To bring your progress: in the version you've been using, Study → Progress & readiness → Skill map & backup → copy the backup code; paste it in the same place in the Claude version.
+
 ## What it does
 
 - **Study**: verse drill, passages from the five exam texts, the weekly class quiz (with past weeks kept in review), vocabulary with spaced review, verb and noun forms, timed exam sittings, sight-reading, a mock exam from today's liturgy, drills for repeated mistakes, and a placement check.

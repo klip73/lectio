@@ -7,7 +7,7 @@ function AboutScreen({ onBack, onGo }) {
   const P = ({ children }) => <p className="text-[15px] leading-relaxed text-ink">{children}</p>;
   const A = ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">{children}</a>;
   const sec = "flex flex-col gap-2.5 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7";
-  const toc = [["what", "What this is"], ["use", "Using it"], ["words", "How word help works"], ["grammar", "Grammar notes"], ["ai", "AI marking"], ["data", "Your data"], ["texts", "Where the texts come from"], ["open", "Open source: build it, change it, share it"], ["limits", "Limits"]];
+  const toc = [["what", "What this is"], ["claude", "Using it in Claude"], ["use", "Using it"], ["words", "How word help works"], ["grammar", "Grammar notes"], ["ai", "AI marking"], ["data", "Your data"], ["texts", "Where the texts come from"], ["open", "Open source: build it, change it, share it"], ["limits", "Limits"]];
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -30,6 +30,22 @@ function AboutScreen({ onBack, onGo }) {
           <li><strong>The Claude version</strong>, a shared page on claude.ai: Claude marks your translations and your progress follows your Claude account.</li>
           <li><strong>The offline copy</strong>: one HTML file you can download and keep, with the core texts inside.</li>
         </ul>
+      </section>
+
+      <section className={sec}>
+        <H id="claude">Using it in Claude</H>
+        <P>In Claude, Claude itself marks your translations (no keys to set up), and your progress is saved to your Claude account, so it follows you to any device.</P>
+        <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-relaxed text-ink">
+          <li><strong>Have a Claude account.</strong> A free one is enough to open the app; marking uses your own Claude usage.</li>
+          <li><strong>Open the Claude version</strong> from the link below (or the one a classmate sent you), and sign in to claude.ai if asked.</li>
+          <li><strong>If it says you don’t have access</strong>, the page hasn’t been shared with you: ask whoever sent you the app to share the Claude version (in Claude, its Share menu).</li>
+          <li><strong>Bring your progress</strong> (optional): in the version you’ve been using, go to Study → Progress &amp; readiness → Skill map &amp; backup and copy your backup code; in the Claude version, paste it in the same place.</li>
+          <li><strong>Use it like the phone app.</strong> Everything else is the same. When you check a translation, Claude marks it.</li>
+        </ol>
+        {!(window.claude && window.claude.use)
+          ? <div><a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="inline-block rounded-md bg-[var(--rubric)] px-4 py-2 text-[15px] font-semibold text-paper">Open the Claude version ↗</a></div>
+          : <p className="text-[14px] text-ok">You’re in the Claude version now.</p>}
+        <P>Prefer not to use Claude? The phone app (klip73.github.io/lectio) does everything except Claude’s marking; for marking there, add a free Gemini or Groq key (Study → Progress → Skill map &amp; backup → AI marking).</P>
       </section>
 
       <section className={sec}>
