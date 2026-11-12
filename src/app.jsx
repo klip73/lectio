@@ -1331,6 +1331,7 @@ function alignCurated(la, src) {
 /*@include home.jsx*/
 /*@include grammar.jsx*/
 /*@include about.jsx*/
+/*@include share.jsx*/
 /*@include sunday.jsx*/
 
 /* ---------- Links to a passage ---------- */
@@ -1488,6 +1489,12 @@ function App() {
   useEffect(() => { if (prefs.structure && !lexAll) loadLex().then(setLexAll).catch(() => {}); }, [prefs.structure, lexAll]);
   // A link ending #p-<book>-<chapter>-<verse> opens that passage.
   useEffect(() => {
+    const cm = (location.hash || "").match(/^#class=(LV1\.[A-Za-z0-9_-]+)$/);
+    if (cm) {   // a shared class list: open Class quiz, which asks before loading it
+      window.__LV_CLASS_IN = cm[1];
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+      setPrefs(p => ({ ...p, deck: "class" })); setMode("vocab"); return;
+    }
     const m = (location.hash || "").match(/^#p-([0-9a-z]+)-(\d+)-(\d+)$/);
     if (m && BOOK[m[1]] && +m[2] >= 1 && +m[2] <= BOOK[m[1]][2].length) { setMode("read"); setPos({ b: m[1], c: +m[2], v: +m[3] }); setPosWhy("Opened from a shared link."); }
   }, []);
@@ -1957,7 +1964,7 @@ function App() {
       {group === "home" && <>
       {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
-      <HomeScreen go={goHome} office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} day={day} dueCount={dueAll}
+      <HomeScreen fresh={firstVisit} go={goHome} office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} day={day} dueCount={dueAll}
         cls={readClass()} posLabel={`${BOOK_NAME[pos.b] || ""} ${pos.c}:${pos.v}`} examLeft={examLeft} />
       </>}
 

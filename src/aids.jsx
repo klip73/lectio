@@ -333,7 +333,7 @@ function WelcomeCard({ onClose, onPlace }) {
         <li><strong>Find my level</strong> first: a short check in each of the five exam parts, so everything starts at your level.</li>
         <li>Each day, <strong>Start today’s session</strong>: it mixes reviews, vocabulary, your weakest exam part and a short oral mock.</li>
         <li>For your weekly vocab quiz, <strong>Class quiz</strong>: add the chapters or Summa articles you’re reading (or paste your book’s list), then write out the dictionary entries.</li>
-        <li>For marking of your translations, add a free AI key in <strong>Skill map &amp; backup → AI marking</strong> (a minute; no card){!(window.claude && window.claude.use) && <>, or <a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">use the app inside Claude</a>, where Claude marks them and your progress follows your account</>}.</li>
+        <li>For marking of your translations, add a free AI key in <strong>Skill map &amp; backup → AI marking</strong> (a minute; no card){!(window.claude && window.claude.use) && <>, or <a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">use the app inside Claude</a>, where Claude marks them</>}.</li>
       </ol>
       <details className="mt-2 text-[14px] text-ink">
         <summary className="cursor-pointer text-rubric">More: tapping words, Liturgy, Library, Guide, backups</summary>

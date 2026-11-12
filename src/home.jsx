@@ -42,7 +42,8 @@ function continueItems(libIdx, posLabel) {
   return out;
 }
 
-function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, examLeft }) {
+function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, examLeft, fresh }) {
+  const [fb, setFb] = useState(false);
   const [libIdx, setLibIdx] = useState(null);
   useEffect(() => { const l = readLocal(LIB_KEY) || {}; if (l._open && l._open !== "summa") libGet("index").then(setLibIdx).catch(() => {}); }, []);
   const items = continueItems(libIdx, posLabel);
@@ -53,6 +54,7 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
   const openHour = h => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "office", hour: h }); go("office"); };
   return (
     <div className="flex flex-col gap-3">
+      <WhatsNewCard fresh={fresh} />
       {items.length > 0 && (
         <section aria-label="Continue" className="flex flex-col gap-1.5">
           <span className="smallcaps text-[13px] font-semibold text-rubric">Continue</span>
@@ -98,6 +100,8 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
         </button>
       </div>
       <button type="button" onClick={() => go("about")} className="self-start text-[14px] text-rubric underline underline-offset-2">How this app works: word help, AI marking, your data, sources, and the open-source code →</button>
+      {fb ? <FeedbackPanel where="Home" onClose={() => setFb(false)} />
+        : <button type="button" onClick={() => setFb(true)} className="self-start text-[14px] text-rubric underline underline-offset-2">Suggest an improvement or report a problem →</button>}
     </div>
   );
 }

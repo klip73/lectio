@@ -245,6 +245,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   }
   /* a list restored from a backup arrives without its words: rebuild them once */
   useEffect(() => { if (cls.stale && lex) { const { stale, ...c } = cls; rebuild(c); } }, [lex]);
+  const [incoming, setIncoming] = useState(() => window.__LV_CLASS_IN || "");
   const [ownText, setOwnText] = useState("");
   function addOwn() {
     const list = parseOwn(ownText, lex);
@@ -358,6 +359,8 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
             Include the very common words too (sum, et, qui, dico, deus…)
           </label>
         </div>
+              <ClassShare key={incoming} cls={cls} incoming={incoming} onIncomingDone={() => { window.__LV_CLASS_IN = ""; setIncoming(""); }}
+          onLoad={x => rebuild({ ...cls, sections: x.sections, own: x.own, basic: x.basic })} />
       </section>
 
       {pastW.length > 0 && (

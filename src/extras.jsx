@@ -258,7 +258,7 @@ function ReportParse({ word, where, items }) {
     } catch (e) { /* outside viewers can't write shared data: keep it on this device */ }
     if (!sent) writeLocal(REPORT_KEY, [...(readLocal(REPORT_KEY) || []), r].slice(-200));
     setBusy(false); setOpen(false);
-    setDone(sent ? "Thanks: reported." : "Saved on this device. Send your reports on from Skill map & backup.");
+    setDone(sent ? "Thanks: reported." : "Saved on this device. Send your reports on from Study → Progress → Skill map & backup.");
   }
   if (done) return <p className="mt-2 text-[13px] text-ok" aria-live="polite">{done}</p>;
   if (!open) return <button type="button" className="mt-2 text-[13px] text-soft underline decoration-rule underline-offset-2 hover:text-rubric" onClick={() => setOpen(true)}>This parsing looks wrong</button>;
@@ -280,15 +280,16 @@ function ReportsPanel() {
   if (!list.length) return null;
   const text = "Lectio Vulgata parse reports\n" + list.map(r => `${r.where} · ${r.word} · shown: ${r.shown}${r.note ? ` · should be: ${r.note}` : ""}`).join("\n");
   function copy() {
-    const ok = () => setMsg("Copied. Email or message it to whoever shared this page with you.");
+    const ok = () => setMsg("Copied. Pass it on to whoever shared the app, or post it on GitHub.");
     const fallback = () => { if (outRef.current) { outRef.current.focus(); outRef.current.select(); } setMsg("Copy the selected text with Ctrl/⌘ + C."); };
     try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
   }
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[14px] text-soft">{list.length} parse report{list.length === 1 ? "" : "s"} saved on this device. Copy them and send them to whoever shared this page, so the parsing can be fixed for everyone.</p>
+      <p className="text-[14px] text-soft">{list.length} parse report{list.length === 1 ? "" : "s"} saved on this device. Post them on GitHub, or copy them and pass them on to whoever shared the app, so the parsing can be fixed for everyone.</p>
       <textarea ref={outRef} readOnly rows={3} value={text} aria-label="Your parse reports" className="w-full rounded-md border border-rule bg-paper px-2 py-1.5 font-mono text-[12px] text-soft" />
       <div className="flex flex-wrap items-center gap-2">
+        <a href={`${ISSUES_URL}?title=${encodeURIComponent(`Parse reports (${list.length})`)}&body=${encodeURIComponent(text.slice(0, 6000))}`} target="_blank" rel="noopener noreferrer" className="inline-block rounded-md border border-rule bg-paper px-3.5 py-2 text-[15px] font-medium text-ink hover:border-soft">Post on GitHub ↗</a>
         <Btn onClick={copy}>Copy reports</Btn>
         <button type="button" className="text-[13px] text-soft underline" onClick={() => { writeLocal(REPORT_KEY, []); setList([]); }}>Clear (once sent)</button>
         {msg && <span className="text-[13px] text-ink" aria-live="polite">{msg}</span>}

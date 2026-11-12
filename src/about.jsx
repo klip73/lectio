@@ -7,7 +7,7 @@ function AboutScreen({ onBack, onGo }) {
   const P = ({ children }) => <p className="text-[15px] leading-relaxed text-ink">{children}</p>;
   const A = ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">{children}</a>;
   const sec = "flex flex-col gap-2.5 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7";
-  const toc = [["what", "What this is"], ["claude", "Using it in Claude"], ["use", "Using it"], ["words", "How word help works"], ["grammar", "Grammar notes"], ["ai", "AI marking"], ["data", "Your data"], ["texts", "Where the texts come from"], ["open", "Open source: build it, change it, share it"], ["limits", "Limits"]];
+  const toc = [["what", "What this is"], ["claude", "Using it in Claude"], ["use", "Using it"], ["words", "How word help works"], ["grammar", "Grammar notes"], ["ai", "AI marking"], ["data", "Your data"], ["texts", "Where the texts come from"], ["open", "Open source: build it, change it, share it"], ["limits", "Limits"], ["new", "What’s new"], ["feedback", "Feedback"]];
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -27,14 +27,14 @@ function AboutScreen({ onBack, onGo }) {
         <P>One web page and its data files. There is no server, no account to create and no tracking: everything runs in your browser. It comes three ways, built from the same source:</P>
         <ul className="list-disc pl-5 text-[15px] leading-relaxed text-ink">
           <li><strong>The phone app</strong> (klip73.github.io/lectio): add it to your home screen; it works offline once opened.</li>
-          <li><strong>The Claude version</strong>, a shared page on claude.ai: Claude marks your translations and your progress follows your Claude account.</li>
+          <li><strong>The Claude version</strong>, a shared page on claude.ai: Claude marks your translations.</li>
           <li><strong>The offline copy</strong>: one HTML file you can download and keep, with the core texts inside.</li>
         </ul>
       </section>
 
       <section className={sec}>
         <H id="claude">Using it in Claude</H>
-        <P>In Claude, Claude itself marks your translations (no keys to set up), and your progress is saved to your Claude account, so it follows you to any device.</P>
+        <P>In Claude, Claude itself marks your translations (no keys to set up), and your progress is saved in that browser, or to your Claude account where your access to the page allows it (the line at the foot of the page says which).</P>
         <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-relaxed text-ink">
           <li><strong>Have a Claude account.</strong> A free one is enough to open the app; marking uses your own Claude usage.</li>
           <li><strong>Open the Claude version</strong> from the link below (or the one a classmate sent you), and sign in to claude.ai if asked.</li>
@@ -108,7 +108,7 @@ function AboutScreen({ onBack, onGo }) {
           <li><strong>Read the code:</strong> <A href={REPO}>github.com/klip73/lectio</A>. The app is in <code>src/</code> (React, one file per part: <code>office.jsx</code> is the Liturgy, <code>library.jsx</code> the Library, <code>grammar.jsx</code> the grammar notes…); the data builders are in <code>tools/</code>.</li>
           <li><strong>Build it:</strong> <code>node tools/build_page.mjs</code> makes the page; <code>--app</code> makes the phone app; <code>--offline</code> the single-file copy. The README explains each step and how to rebuild the data from the original sources.</li>
           <li><strong>Make your own:</strong> fork the repository, change it, and publish the <code>docs/</code> build with GitHub Pages: you have your own copy at your own address.</li>
-          <li><strong>Help improve it:</strong> report a wrong parsing with “This parsing looks wrong” under any word, or open an issue on GitHub. See <A href={REPO + "/blob/main/CONTRIBUTING.md"}>CONTRIBUTING.md</A> for adding texts, fixing parsings and running the tests.</li>
+          <li><strong>Help improve it:</strong> report a wrong parsing with “This parsing looks wrong” under any word, or send feedback (below), which opens a GitHub issue. See <A href={REPO + "/blob/main/CONTRIBUTING.md"}>CONTRIBUTING.md</A> for adding texts, fixing parsings and running the tests.</li>
         </ul>
       </section>
 
@@ -116,6 +116,12 @@ function AboutScreen({ onBack, onGo }) {
         <H id="limits">Limits</H>
         <P>Automatic parsings, guesses and grammar notes can be wrong; the AI can mark a correct translation as wrong. Scanned books (the Catechism, Zigliara, Mazzella) keep some misprints. The exam's exact format is not published, so the practice follows what students report. Check what matters against your grammar, your teacher and the books themselves.</P>
       </section>
+      <section className={sec}>
+        <H id="new">What’s new</H>
+        <WhatsNewList />
+      </section>
+
+      <section id="feedback" className="scroll-mt-16"><FeedbackPanel where="How this app works" /></section>
     </div>
   );
 }

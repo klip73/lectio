@@ -256,7 +256,7 @@ function ClaudeVersionNote({ compact }) {
   if (window.claude && window.claude.use) return null;
   return (
     <p className={`text-[14px] leading-snug ${compact ? "text-soft" : "text-ink"}`}>
-      <strong>Have a Claude account?</strong> The same app runs inside Claude, where Claude itself marks your translations (no keys to set up) and your progress follows your Claude account across devices:{" "}
+      <strong>Have a Claude account?</strong> The same app runs inside Claude, where Claude itself marks your translations (no keys to set up):{" "}
       <a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">open it in Claude</a>.
       {" "}You need a Claude account (a free one works). If it says you don’t have access, ask the person who shared this app to share the Claude version with you. To bring your progress, copy your backup code here and paste it there. Step by step: Home → How this app works → Using it in Claude.
     </p>
