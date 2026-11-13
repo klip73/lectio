@@ -8,7 +8,7 @@ function touchRecent(area) {
   r[area] = Date.now();
   writeLocal(RECENT_KEY, r);
 }
-const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["read", "drill", "forms", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
+const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["read", "drill", "forms", "meter", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
 
 function continueItems(libIdx, posLabel) {
   const r = readLocal(RECENT_KEY) || {};
@@ -24,6 +24,7 @@ function continueItems(libIdx, posLabel) {
     else if (area === "drill") label = "Verse drill";
     else if (area === "vocab") label = "Vocabulary";
     else if (area === "forms") label = "Forms";
+    else if (area === "meter") label = "Meter";
     else if (area === "guide") label = "Guide";
     else if (area === "exam") { const x = readLocal(EXAM_KEY) || {}; label = x.run && !x.run.end ? "Finish your exam sitting" : "Exam sitting"; }
     else if (area === "office") {
