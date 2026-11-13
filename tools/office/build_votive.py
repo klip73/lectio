@@ -44,7 +44,7 @@ VOTIVE = [
     ("cruce", "Missa votiva de Sancta Cruce", "The Holy Cross", "Friday", D(2027, 9, 14)),
     ("passione", "Missa votiva de Passione D. N. Jesu Christi", "The Passion of Our Lord", "Friday", "V6"),
     ("cor", "Missa votiva de Sacratissimo Corde Jesu", "The Sacred Heart", "First Friday", D(2027, 6, 4)),
-    ("bvm", "Missa votiva de Sancta Maria", "Our Lady (Saturday)", "Saturday", "C11"),
+    ("bvm", "Missa votiva de Sancta Maria", "Our Lady", "Saturday", "C11"),
     ("defuncti", "Missa quotidiana pro defunctis", "For the dead (daily Requiem)", "", "C9"),
     ("dedicatio", "Missa in anniversario Dedicationis Ecclesiae", "Anniversary of the dedication of a church", "", "C8"),
     ("propaganda", "Missa pro Propagatione Fidei", "For the Propagation of the Faith", "", "Propaganda"),

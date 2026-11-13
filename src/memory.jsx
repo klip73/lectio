@@ -1,0 +1,63 @@
+/* ---------- Memory aids: the lists and rhymes the old grammars taught by heart ----------
+   Only what a reputable source prints: public-domain grammars (Allen & Greenough 1903, Bennett 1908, Kennedy 1888)
+   and schoolroom verses recorded with their source. Each item says where it comes from. A rhyme whose wording varies
+   from book to book is marked so. */
+const MEMORY = [
+  { id: "prep", title: "Prepositions: which case?", items: [
+    { k: "Ablative only", la: "ā, ab, abs · absque · cōram · cum · dē · ē, ex · prae · prō · sine · tenus", note: "tenus usually follows its noun (pectoribus tenus, up to the breast).", src: "Bennett, New Latin Grammar § 142", url: "https://www.gutenberg.org/ebooks/15665" },
+    { k: "Accusative", la: "ad · adversus · ante · apud · circā, circum · circiter · cis, citrā · contrā · ergā · extrā · īnfrā · inter · intrā · iūxtā · ob · penes · per · pōne · post · praeter · prope · propter · secundum · suprā · trāns · ultrā · versus", src: "Bennett § 141; Allen & Greenough § 220", url: "https://www.gutenberg.org/ebooks/15665" },
+    { k: "Either", la: "in · sub (also, rarely, subter, super)", note: "With the accusative they mean motion (in urbem, into the city), with the ablative rest (in urbe, in the city).", src: "Bennett § 143", url: "https://www.gutenberg.org/ebooks/15665" },
+    { k: "The rhyme", verse: ["A, ab, absque, coram, de,", "palam, clam, cum, ex, et e,", "sine, tenus, pro, et prae"], note: "The opening of the Latin memory verse for the ablative prepositions, as given by William Windham Bradley; English schoolbooks (Kennedy’s Primer) had an English version ending “when state, not motion, ’tis they mean” for in, sub, super, subter.", src: "Bradley, cited in Wikipedia, “Latin mnemonics”", url: "https://en.wikipedia.org/wiki/Latin_mnemonics" }
+  ] },
+  { id: "dat", title: "Verbs that take the dative", items: [
+    { k: "The list", en: true, la: "favour, help, please, trust (and their opposites); believe, persuade, command, obey, serve, resist, envy, threaten, pardon, spare", note: "So crēdō tibi, faveō, noceō, placeō, cōnfīdō, persuādeō, imperō, pāreō, serviō, resistō, invideō, minor, ignōscō, parcō all take the dative. A&G gives the list in this order: it has been learnt as a chant for a century.", src: "Allen & Greenough § 367", url: "https://dcc.dickinson.edu/grammar/latin" }
+  ] },
+  { id: "abl5", title: "Five deponents with the ablative", items: [
+    { k: "Learn as one line", la: "ūtor, fruor, fungor, potior, vēscor", note: "“use, enjoy, perform, get possession of, feed on”, with their compounds, take the ablative: ūtor gladiō, I use a sword. (potior also takes the genitive: potīrī rērum, to be master of affairs.)", src: "Allen & Greenough § 410", url: "https://dcc.dickinson.edu/grammar/latin" }
+  ] },
+  { id: "gender", title: "Gender by meaning", items: [
+    { k: "The rule", en: true, la: "Masculine: names of men, rivers, winds, months, mountains, peoples. Feminine: women, cities, countries, islands, trees. Neuter: indeclinable words and infinitives used as nouns.", note: "Kennedy’s Memorial Lines on Gender (Appendix IV of his Primer) put this into English rhyme; the declension rules follow there. The same rule in prose is in Allen & Greenough’s chapter on gender.", src: "Kennedy, Revised Latin Primer (1888), Appendix IV; Allen & Greenough, Gender", url: "https://dcc.dickinson.edu/grammar/latin" }
+  ] },
+  { id: "verb", title: "Verb endings", items: [
+    { k: "Personal endings", la: "-ō (-m), -s, -t, -mus, -tis, -nt · passive -r, -ris, -tur, -mur, -minī, -ntur", note: "The nonsense phrase “most must isn’t” gives the active endings (m-o-s-t, mus-t…), all but the perfect’s.", src: "Wikipedia, “Latin mnemonics”", url: "https://en.wikipedia.org/wiki/Latin_mnemonics" },
+    { k: "Four short imperatives", la: "dīc, dūc, fac, fer", note: "From dīcō, dūcō, faciō, ferō: the -e of the imperative is dropped (but dīce, dūce, face in old Latin). Schoolchildren learnt it as a rhyme, “Dic, duc, fac and fer / should have an e but it isn’t there” (wording varies).", src: "Allen & Greenough § 182", url: "https://dcc.dickinson.edu/grammar/latin" },
+    { k: "Present subjunctive", en: true, la: "1st -e-, 2nd -ea-, 3rd -a-, 4th -ia-", note: "“We bEAt A lIAr”: amet, moneat, regat, audiat. Recorded on the Classics list in 1994 and kept in Cornell College’s collection of Latin mnemonics.", src: "Cornell College, Mnemonic Devices for Learning Latin", url: "https://www.cornellcollege.edu/classical-studies/Mnemonic Devices.shtml" },
+    { k: "Future", en: true, la: "1st and 2nd: -bō, -bis, -bit… · 3rd and 4th: -am, -ēs, -et…", note: "amābō, monēbō; regam, regēs; audiam, audiēs. So regēs can be “you will rule”, not “kings”.", src: "Allen & Greenough, the four conjugations", url: "https://dcc.dickinson.edu/grammar/latin" }
+  ] },
+  { id: "case", title: "What the cases mean", items: [
+    { k: "Ablative", en: true, la: "by, with, from, in, on, at", note: "The ablative’s “basic meanings”, as a modern Oxford grammar sums them up.", src: "Morwood, A Latin Grammar (Oxford, 1999), glossary", url: "" },
+    { k: "Quantity", la: "Vōcālis ante vōcālem corripitur", note: "“A vowel before a vowel is shortened”: deus, via, fīlius. The rule of the old Latin grammars; see the Meter tab in Study.", src: "Allen & Greenough, Prosody (§§ 602 ff.)", url: "https://dcc.dickinson.edu/grammar/latin" }
+  ] },
+  { id: "fun", title: "For fun", items: [
+    { k: "Mālō", verse: ["Mālō: I would rather be", "Mālō: in an apple tree", "Mālō: than a naughty boy", "Mālō: in adversity"], note: "Four meanings of malo: “I prefer” (mālō), “in an apple tree” (mālus), “than a bad boy” (malus, ablative of comparison), “in adversity” (malum). The verse came from an old Latin grammar; Benjamin Britten set it in The Turn of the Screw.", src: "Wikipedia, “Latin mnemonics” (citing Lily’s grammar and Britten)", url: "https://en.wikipedia.org/wiki/Latin_mnemonics" }
+  ] }
+];
+function MemoryAids() {
+  const [open, setOpen] = useState(() => new Set(["prep"]));
+  const toggle = id => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] leading-snug text-ink">What generations of schoolboys learnt by heart: lists to chant and a few rhymes. Each says where it comes from. Say a list aloud a few times on three or four days, and it stays.</p>
+      {MEMORY.map(g => (
+        <section key={g.id} className="rounded-lg border border-rule bg-leaf px-4 py-3">
+          <button type="button" aria-expanded={open.has(g.id)} onClick={() => toggle(g.id)} className="flex w-full items-baseline justify-between text-left">
+            <span className="latin text-[1.05rem] font-bold text-ink">{g.title}</span><span className="text-rubric" aria-hidden="true">{open.has(g.id) ? "▴" : "▾"}</span>
+          </button>
+          {open.has(g.id) && (
+            <div className="mt-2 flex flex-col gap-3">
+              {g.items.map((it, i) => (
+                <div key={i} className="border-l-2 border-rubric pl-3">
+                  <p className="smallcaps text-[13px] font-semibold text-rubric">{it.k}</p>
+                  {it.la && <p lang={it.en ? "en" : "la"} className={`${it.en ? "" : "latin "}text-[1.05rem] leading-snug text-ink`}>{it.la}</p>}
+                  {it.verse && <p lang="la" className="latin whitespace-pre-line text-[1.05rem] italic leading-snug text-ink">{it.verse.join("\n")}</p>}
+                  {it.note && <p className="mt-0.5 text-[14px] leading-snug text-soft">{it.note}</p>}
+                  <p className="mt-0.5 text-[12px] text-soft">Source: {it.url ? <a href={it.url} target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">{it.src}</a> : it.src}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}

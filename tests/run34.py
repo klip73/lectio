@@ -39,6 +39,19 @@ try:
         print("Home order (pray):", [x.split("\n")[0] for x in pg.locator(".grid.gap-3 > button, .grid.gap-3 > div").all_inner_texts()])
         pg.reload(); pg.wait_for_timeout(1500)
         print("after reload:", pg.evaluate("[document.documentElement.style.getPropertyValue('--lv-zoom'), document.documentElement.getAttribute('data-lh')]"))
+        # votive Masses
+        pg.click("nav[aria-label='Section'] button:has-text('Liturgy')"); pg.wait_for_timeout(800)
+        pg.click("[aria-label='Liturgy section'] button:has-text('Mass')"); pg.wait_for_selector("#votive", timeout=20000)
+        print("votive options:", pg.locator("#votive option").all_inner_texts()[:8])
+        pg.select_option("#votive", "joseph"); pg.wait_for_timeout(1500)
+        print("votive note:", pg.locator("#votive").locator("xpath=../..").inner_text()[:400].replace("\n", " | "))
+        print("votive introit:", [x[:90] for x in pg.locator("section[id^='office-']").all_inner_texts()[:2]])
+        # memory aids
+        pg.click("nav[aria-label='Section'] button:has-text('Guide')"); pg.wait_for_timeout(500)
+        pg.click("[aria-label='Guide section'] button:has-text('Memory aids')"); pg.wait_for_timeout(300)
+        print("memory aids:", pg.locator("section.rounded-lg button span.latin").all_inner_texts())
+        # library EPUB
+        pg.click("nav[aria-label='Section'] button:has-text('Library')"); pg.wait_for_timeout(1500)
         b.close()
 finally:
     srv.terminate()

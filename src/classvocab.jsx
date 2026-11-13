@@ -251,6 +251,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   const [quiz, setQuiz] = useState(null);   // { n, only: [lemmas] | null }
   const [show, setShow] = useState(false);
   const [reading, setReading] = useState(false);
+  const relAll = useRel((cls.words || []).map(w => w[0]));
   const nCh = BOOK[b] ? BOOK[b][2].length : 1;
   async function rebuild(next) {
     setBusy(true);
@@ -287,7 +288,7 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   const pastDue = pastW.filter(l => !vc[l] || vc[l].due <= now).length;
   if (quiz) {
     const pool = quiz.past ? (quiz.only || pastW.slice(0, quiz.n)).map(l => [l, 1, "", "", -1]) : quiz.only ? words.filter(w => quiz.only.includes(w[0])) : words;
-    if (quiz.write) return <WriteQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade} ai={ai}
+    if (quiz.write) return <WriteQuiz key={quiz.k} rel={relAll} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade} ai={ai}
       onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), write: true, past: quiz.past } : null)} />;
     return <ClassQuiz key={quiz.k} own={cls.own} words={pool} lex={lex} V={V} n={Math.min(quiz.n, pool.length)} onGrade={onGrade}
       onDone={again => setQuiz(again && again.length ? { n: again.length, only: again, k: Date.now(), past: quiz.past } : null)} />;
@@ -499,7 +500,7 @@ function plainDerivative(english, root) {
   const words = wNorm(english).split(/[^a-z]+/).filter(w => w.length >= 4 && !EN_STOP.has(w));
   return words.find(w => w.replace(/j/g, "i").replace(/v/g, "u").replace(/y/g, "i").startsWith(head)) || null;
 }
-function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
+function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
   const [items] = useState(() => {
     const r = rng(String(Date.now()));
     return shuffle(words, r).map(w => {
@@ -515,7 +516,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       const glossDeriv = plainDerivative(shortGloss(inf.full), root);
       const extra = stems.length && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }
         : x < 0.58 && ep && !glossDeriv ? { kind: "deriv", root }
-        : ai && ep && x < 0.7 ? { kind: "syn", which: r() < 0.5 ? "synonym" : "antonym" } : null;
+        : ep && x < 0.7 && (ai || (rel[w[0]] && (rel[w[0]].s || rel[w[0]].a))) ? { kind: "syn", which: ai ? (r() < 0.5 ? "synonym" : "antonym") : rel[w[0]].a && (!rel[w[0]].s || r() < 0.4) ? "antonym" : "synonym" } : null;
       return { key: w[0], inf, ep, gen, prompt: ep ? ep.first : inf.head, extra, syn: extra && extra.kind === "syn" ? extra.which : null };
     }).filter(Boolean).slice(0, n);
   });
@@ -560,6 +561,14 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       setRes({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
       return;
     }
+    /* the related-words data (srs.jsx) knows English words from the same root: accept those at once */
+    const rr = rel[it.key];
+    const known = rr ? [...((rr.c && rr.c.en) || []), ...(rr.d || [])] : [];
+    if (it.extra && it.extra.kind === "deriv" && extraAns.trim() && known.some(k => wNorm(k) === wNorm(extraAns).trim())) {
+      const synRes = { status: "done", kind: "derivative", ok: true, note: "an English word from the same root", ex: known.filter(k => wNorm(k) !== wNorm(extraAns).trim()).slice(0, 3) };
+      setRes({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
+      return;
+    }
     if (it.extra && it.extra.kind === "deriv" && extraAns.trim()) {
       const stemGuess = (stemsOf(it.ep, it.key, it.inf.head) || [{ want: it.ep.first }])[0].want;
       const heur = wNorm(extraAns).replace(/[^a-z]/g, "").startsWith(wNorm(stemGuess).replace(/[^a-z]/g, "").slice(0, Math.min(4, stemGuess.length)));
@@ -573,6 +582,15 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       } catch (e) { synRes = { status: "done", kind: "derivative", ok: heur, note: heur ? "it shares the Latin root" : "it doesn’t share the Latin root", ex: [] }; }
       parts = [...parts, { want: "derivative", ok: synRes.ok }];
       setRes({ parts, auto, synRes });
+      return;
+    }
+    const relSyn = it.syn && rr ? (it.syn === "synonym" ? rr.s : rr.a) || [] : [];
+    if (it.syn && syn.trim() && relSyn.some(k => wNorm(k) === wNorm(syn).trim())) {
+      setRes({ parts, auto, synRes: { status: "done", ok: true, note: `a fair ${it.syn}`, ex: relSyn.filter(k => wNorm(k) !== wNorm(syn).trim()).slice(0, 2) } });
+      return;
+    }
+    if (it.syn && syn.trim() && !ai) {
+      setRes({ parts, auto, synRes: { status: "done", ok: null, note: `not in the app’s list; ${it.syn}s it knows`, ex: relSyn.slice(0, 3) } });
       return;
     }
     if (it.syn && syn.trim()) {
@@ -637,7 +655,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
           )}
           <p className="text-[15px] text-ink">{it.inf.full}</p>
           {res.synRes && (res.synRes.status === "loading" ? <p className="text-[14px] text-soft">Checking your {res.synRes.kind || it.syn}…</p>
-            : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : "text-warn"}`}>{res.synRes.ok ? "✓" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
+            : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : res.synRes.ok === null ? "text-soft" : "text-warn"}`}>{res.synRes.ok ? "✓" : res.synRes.ok === null ? "?" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
           {mOk ? (
             <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-ok">Your meaning matches.</span><Btn variant="primary" onClick={() => next(true)}>Next →</Btn><button type="button" className="text-[13px] text-soft underline" onClick={() => next(false)}>Actually, I had the meaning wrong</button></div>
           ) : (

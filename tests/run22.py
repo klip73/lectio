@@ -29,7 +29,7 @@ try:
         print("  several articles:", [x for x in pg.locator("[aria-label='My class sections'] li").all_inner_texts() if "aa." in x])
         pg.locator("[aria-label='My class sections'] li", has_text="aa.").locator("button").click(); pg.wait_for_timeout(1500)
         print("2 with Summa:", pg.locator("[aria-label='Words in these sections'] strong.num").first.inner_text(), "words |", pg.locator("[aria-label='My class sections'] li").all_inner_texts())
-        pg.click("text=Show the word list"); rows = pg.locator(".class-list tbody tr")
+        pg.click("button:has-text('Word list')"); rows = pg.locator(".class-list tbody tr")
         print("  list:", rows.count(), "rows | top:", [rows.nth(i).inner_text().replace("\t", " | ") for i in range(4)])
         # only the Summa section: are the words from sed contra / respondeo only?
         pg.locator("[aria-label='My class sections'] li").first.locator("button").click(); pg.wait_for_timeout(1500)
@@ -65,7 +65,7 @@ try:
         pg.click("button:has-text('Add these words')"); pg.wait_for_timeout(1500)
         cl = json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-class')"))
         print("7 own words:", [(o["head"][:20], o["gloss"], o["lemma"]) for o in cl["own"]], "| list starts:", [w[0] for w in cl["words"][:6]])
-        if pg.locator(".class-list").count() == 0: pg.click("text=Show the word list")
+        if pg.locator(".class-list").count() == 0: pg.click("button:has-text('Word list')")
         print("  table top:", [pg.locator(".class-list tbody tr").nth(i).inner_text().replace("\t", " | ") for i in range(5)])
         pg.click("button:has-text('Quiz me (20)')"); pg.wait_for_selector("[aria-label='Quiz question']", timeout=10000)
         seen = set()

@@ -1013,6 +1013,7 @@ function WordPanelBody({ lex, word, entry, onClose, where, onTable }) {
           </div>
         );
       })()}
+      <RelatedBox lemma={(items.find(d => !d.guess) || items[0] || {}).lemma} />
       <LewisShort lemmas={[...new Set(items.filter(d => !d.guess || items.length === 1).map(d => d.lemma))].slice(0, 3)} />
       <ReportParse word={word} where={where} items={items} />
     </div>
@@ -1085,6 +1086,17 @@ async function wktLookup(word) {
     if (shard[k]) return shard[k];
   }
   return [];
+}
+/* Related words under a word's meaning, folded: synonyms, antonyms, the same root in English and the Romance languages. */
+function RelatedBox({ lemma }) {
+  const [open, setOpen] = useState(false);
+  if (!lemma) return null;
+  return (
+    <div className="mt-2">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(o => !o)} className="text-[13px] font-medium text-rubric underline underline-offset-2">{open ? "Hide related words" : "Related words: synonyms, opposites, English, Italian, Spanish…"}</button>
+      {open && <div className="mt-1"><RelatedWords lemma={lemma} onWord={w => { try { window.dispatchEvent(new CustomEvent("lv-dict", { detail: w })); } catch (e) {} }} /></div>}
+    </div>
+  );
 }
 function LsGuessPanel({ word, onClose }) {
   const [g, setG] = useState(null);
@@ -1351,6 +1363,7 @@ function alignCurated(la, src) {
 /*@include export.jsx*/
 /*@include display.jsx*/
 /*@include meter.jsx*/
+/*@include memory.jsx*/
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/

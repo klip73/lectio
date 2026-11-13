@@ -23,3 +23,5 @@ Also run `node ../tools/forms/check.mjs ../data`: the form generator against eve
 - `run24.py`: the backup reminder (shown with progress and no recent backup; save and snooze hide it).
 - `run31.py`: AI keys from the header; My calendar (local feast, transfer, calendar marks); the Library reader (Boethius by book, verse, English, find, text size); the Latin Library shelf; Roman numerals glossed.
 - `run32.py`: the Dictionary (any form → its word, headword suggestions, the three dictionaries, all forms, English → Latin) and the Latin Library in the Library search.
+- `run33.py`: Class quiz for a Summa question (II-II q.31): word list orders (text, hardest/easiest, by kind of word…), related words, Anki/CSV export, Read the text (whole article, English, quiz words marked); flashcards with Again/Hard/Good/Easy and their intervals; Quick sort; Due now.
+- `run34.py`: Meter (hymn scansion, foot marks, why a syllable is long, practice, accentual view); the Aa display panel (size, spacing, theme, kept on reload) and "what brings you here" ordering Home; votive Masses in the Mass tab; Memory aids in the Guide.
