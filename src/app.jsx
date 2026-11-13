@@ -1349,6 +1349,7 @@ function alignCurated(la, src) {
 
 /*@include srs.jsx*/
 /*@include export.jsx*/
+/*@include display.jsx*/
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/
@@ -1499,6 +1500,13 @@ function App() {
   const [day, setDay] = useState(readDay);
   useEffect(() => { touchRecent(areaOf(mode, prefs.deck)); }, [mode, prefs.deck]);
   const [focusMode, setFocusMode] = useState(false);
+  const [dispOpen, setDispOpen] = useState(false);
+  /* what the student uses the app for (display.jsx): orders Home, sets the starting level of the word model */
+  function chooseFocus(k) {
+    setPrefs(p => ({ ...p, focus: k, vocabAll: k === "learn" ? true : p.vocabAll }));
+    const cur = progRef.current;
+    if (cur && FOCUS_THETA[k] != null && (cur.vtheta == null || !Object.keys(cur.vcards || {}).length)) { const n = { ...cur, vtheta: FOCUS_THETA[k] }; progRef.current = n; setProg(n); persist(n); }
+  }
   const [examKey, setExamKey] = useState(0);
   const practiceRef = useRef(null);
   const [accMap, setAccMap] = useState(null);
@@ -1999,12 +2007,22 @@ function App() {
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
         <div className="flex items-center gap-1.5"><button type="button" onClick={() => { setDictOpen(o => !o); setDictWord(""); }} aria-expanded={dictOpen} title="Dictionary: look up any Latin word" aria-label="Dictionary"
-          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dictOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span className="sm:hidden">Dict.</span><span className="hidden sm:inline">Dictionary</span></button><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><FontSwitch /><ThemeSwitch /></div>
+          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dictOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span className="sm:hidden">Dict.</span><span className="hidden sm:inline">Dictionary</span></button><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><button type="button" onClick={() => setDispOpen(o => !o)} aria-expanded={dispOpen} title="Display: text size, font, spacing, light or dark; what you use the app for" aria-label="Display settings"
+          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dispOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span aria-hidden="true" className="latin">Aa</span></button></div>
       </header>
       {dictOpen && (
         <section ref={dictRef} className="reveal scroll-mt-16 rounded-lg border border-rubric bg-leaf px-5 py-4" aria-label="Dictionary">
           <span className="smallcaps mb-2 block text-[14px] font-semibold text-rubric">Dictionary</span>
           <DictionaryTool start={dictWord} onClose={() => setDictOpen(false)} onTap={addTapped} onTable={(li, w) => { setDictOpen(false); openTable(li, w); }} />
+        </section>
+      )}
+      {dispOpen && (
+        <section className="reveal scroll-mt-16 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Display settings">
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <span className="smallcaps text-[14px] font-semibold text-rubric">Display &amp; your focus</span>
+            <button type="button" className="text-[13px] text-soft underline" onClick={() => setDispOpen(false)}>Close</button>
+          </div>
+          <DisplayPanel focus={prefs.focus} onFocus={chooseFocus} />
         </section>
       )}
       {aiOpen && (
@@ -2027,14 +2045,14 @@ function App() {
       </nav>
 
       {group === "home" && <>
-      {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      {firstVisit && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <HomeScreen fresh={firstVisit} go={goHome} office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} day={day} dueCount={dueAll}
-        cls={readClass()} posLabel={`${BOOK_NAME[pos.b] || ""} ${pos.c}:${pos.v}`} examLeft={examLeft} />
+        cls={readClass()} posLabel={`${BOOK_NAME[pos.b] || ""} ${pos.c}:${pos.v}`} examLeft={examLeft} focus={prefs.focus} />
       </>}
 
       {group === "study" && <>
-      {firstVisit && landedOn === "study" && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      {firstVisit && landedOn === "study" && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 

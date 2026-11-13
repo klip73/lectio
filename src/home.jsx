@@ -44,7 +44,7 @@ function continueItems(libIdx, posLabel) {
   return out;
 }
 
-function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, examLeft, fresh }) {
+function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, examLeft, fresh, focus }) {
   const [fb, setFb] = useState(false);
   const [libIdx, setLibIdx] = useState(null);
   useEffect(() => { const l = readLocal(LIB_KEY) || {}; if (l._open && l._open !== "summa") libGet("index").then(setLibIdx).catch(() => {}); }, []);
@@ -72,17 +72,24 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
           ))}
         </section>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
+      {(() => {
+        /* the tiles, in the order that suits what the student uses the app for (display.jsx FOCI) */
+        const tiles = {
+    class: (<React.Fragment key="class">
         <button type="button" className={tile} onClick={() => go("class")}>
           <span className={head}>Class quiz</span>
           <span className={note}>{cls.sections.length || (cls.own || []).length
             ? <>This week: {cls.sections.map(sectionLabel).join("; ") || "your own list"}{cls.words.length ? ` · ${cls.words.length} words` : ""}</>
             : "Add the chapters or Summa articles you’re reading, then write out the dictionary entries."}</span>
         </button>
+    </React.Fragment>),
+    study: (<React.Fragment key="study">
         <button type="button" className={tile} onClick={() => go("study")}>
           <span className={head}>Exam preparation</span>
           <span className={note}>Today’s session: {doneToday === 4 ? "done ✓" : `${doneToday} of 4 steps`}{dueCount ? ` · ${dueCount} reviews due` : ""}{examLeft ? ` · ${examLeft}` : ""}</span>
         </button>
+    </React.Fragment>),
+    office: (<React.Fragment key="office">
         <div className={`${tile} hover:border-rule`}>
           <button type="button" className="flex flex-col gap-1 text-left" onClick={() => go("office")}>
             <span className={head}>Today’s Office</span>
@@ -96,11 +103,21 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
             <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "sunday" }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Sunday prep</button>
           </div>
         </div>
+    </React.Fragment>),
+    library: (<React.Fragment key="library">
         <button type="button" className={tile} onClick={() => go("library")}>
           <span className={head}>Read &amp; look up</span>
           <span className={note}>Search the whole Summa, the Catena Aurea, the Fathers, the Roman Catechism and Ritual, both Codes of canon law and the Vulgate, with every word tappable.</span>
         </button>
-      </div>
+    </React.Fragment>),
+        learn: (<button key="learn" type="button" className={tile} onClick={() => go("guide")}>
+            <span className={head}>Learn the grammar</span>
+            <span className={note}>The Guide: cases, verbs and constructions step by step, with memory aids from the old grammars; Forms has the tables for any word.</span>
+          </button>)
+        };
+        const order = { exam: ["study", "class", "office", "library"], class: ["class", "study", "office", "library"], learn: ["learn", "class", "study", "office", "library"], pray: ["office", "library", "class", "study"], read: ["library", "office", "class", "study"] }[focus] || ["class", "study", "office", "library"];
+        return <div className="grid gap-3 sm:grid-cols-2">{order.map(k => tiles[k])}</div>;
+      })()}
       <button type="button" onClick={() => go("about")} className="self-start text-[14px] text-rubric underline underline-offset-2">How this app works: word help, AI marking, your data, sources, and the open-source code →</button>
       {fb ? <FeedbackPanel where="Home" onClose={() => setFb(false)} />
         : <button type="button" onClick={() => setFb(true)} className="self-start text-[14px] text-rubric underline underline-offset-2">Suggest an improvement or report a problem →</button>}
