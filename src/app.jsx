@@ -703,10 +703,16 @@ function autoTags(lex, verses) {
 /* ---------- Spaced repetition + skill model ---------- */
 const DAY = 864e5;
 const INTERVALS = [10 * 6e4, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY]; // box 0..5
-const SCORE = { review: 0, partly: 0.5, got: 1 };
+const SCORE = { review: 0, partly: 0.5, got: 1, again: 0, hard: 0.5, good: 1, easy: 1 };
 
-function applyGrade(prog, coll, id, tags, score, over) {
+function applyGrade(prog, coll, id, tags, score, over, ans) {
   const now = Date.now();
+  if (coll === "vcards") {
+    /* words: Anki-style intervals and ease (srs.jsx) */
+    const prev = (prog.vcards || {})[id];
+    const a = ans || (score >= 1 ? "good" : score >= 0.5 ? "hard" : "again");
+    return { ...applySkill(prog, tags, score, over), vcards: { ...(prog.vcards || {}), [id]: srsNext(prev, a, now) }, updated: now };
+  }
   const prev = (prog[coll] || {})[id] || { box: 0, n: 0, ema: null };
   let box = prev.box;
   if (score === 1) box = Math.min(5, prev.n === 0 ? 2 : box + 1);
@@ -848,7 +854,7 @@ function loadLocalProgress() {
   return { ...EMPTY };
 }
 function encodeBackup(prog) {
-  return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, exam: prog.exam,
+  return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, vtheta: prog.vtheta, exam: prog.exam,
     /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
     lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
     cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
@@ -884,7 +890,8 @@ function decodeBackup(code) {
     }
     /* the local calendar too */
     if (Array.isArray(d.lc)) { try { const cur = readLC(), ids = new Set(cur.entries.map(x => x.id)); writeLC({ ...cur, entries: [...cur.entries, ...d.lc.filter(x => x && typeof x.title === "string" && x.rule && !ids.has(x.id)).slice(0, 200)] }); } catch (e) {} }
-    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
+    const vtheta = Number.isFinite(+d.vtheta) && d.vtheta != null ? Math.max(0, Math.min(6, +d.vtheta)) : undefined;
+    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, vtheta, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
   } catch (e) { return null; }
 }
 
@@ -1340,6 +1347,8 @@ function alignCurated(la, src) {
 /*@include library.jsx*/
 /*@include summareader.jsx*/
 
+/*@include srs.jsx*/
+/*@include export.jsx*/
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/
@@ -1705,6 +1714,7 @@ function App() {
   /* ----- grading (shared) ----- */
   function grade(key, coll, id, tags, over, abil) {
     const score = SCORE[key];
+    const prog = progRef.current;
     let base = prog;
     const u = undoRef.current;
     if (u && u.coll === coll && u.id === id) {
@@ -1714,9 +1724,9 @@ function App() {
     } else {
       undoRef.current = { coll, id, card: (prog[coll] || {})[id], skill: prog.skill, ability: prog.ability };
     }
-    let nextProg = applyGrade(base, coll, id, tags, score, over);
+    let nextProg = applyGrade(base, coll, id, tags, score, over, key);
     if (abil) nextProg = applyAbility(nextProg, abil.part, abil.d, abil.ai != null ? score * 0.25 + abil.ai * 0.75 : score, abil.k);
-    setProg(nextProg); persist(nextProg);
+    progRef.current = nextProg; setProg(nextProg); persist(nextProg);
     setSession(s => ({ ...s, [coll + ":" + id]: key }));
     if (!(u && u.coll === coll && u.id === id)) {
       const wasDue = base[coll] && base[coll][id] && base[coll][id].due <= Date.now();
@@ -1732,15 +1742,21 @@ function App() {
     const next = applySkill(progRef.current, [concept], ok ? 1 : 0);
     setProg(next); persist({ ...next, updated: Date.now() });
   }
-  function gradeVocab(lemma, key) {
+  /* b: the word's difficulty (srs.jsx wordDiff), when known: a first answer on a new word also moves the student's level */
+  function gradeVocab(lemma, key, b) {
+    const cur = progRef.current || prog;
+    const first = !(cur.vcards || {})[lemma];
+    const theta = first && b != null && !String(lemma).includes(":") ? updateTheta(cur.vtheta, b, key !== "review" && key !== "again") : cur.vtheta;
     if (key === "know") {
       const now = Date.now();
-      const next = { ...prog, vcards: { ...(prog.vcards || {}), [lemma]: { box: 5, n: 1, last: now, due: now + INTERVALS[5], ema: 1 } }, updated: now };
-      setProg(next); persist(next); bump("vocab");
+      const next = { ...cur, vtheta: theta, vcards: { ...(cur.vcards || {}), [lemma]: { box: 5, n: 1, last: now, due: now + 35 * DAY, ema: 1, ease: 2.7, ivl: 35, lapses: 0 } }, updated: now };
+      progRef.current = next; setProg(next); persist(next); bump("vocab");
       return next;
     }
     undoRef.current = null;
-    return grade(key, "vcards", lemma, []);
+    const next = grade(key, "vcards", lemma, []);
+    if (theta !== cur.vtheta) { const n2 = { ...next, vtheta: theta }; progRef.current = n2; setProg(n2); persist(n2); return n2; }
+    return next;
   }
   function recordSitting(rec, i, sec, tags, key, over, ai) {
     const uid = rec.at + ":" + i;
@@ -1773,7 +1789,7 @@ function App() {
   const wordsKnown = Object.values(prog.vcards || {}).filter(c => c.box >= 2).length;
   const target = levelTarget(prog);
   const tally = Object.values(session);
-  const cnt = k => tally.filter(t => t === k).length;
+  const cnt = k => tally.filter(t => t === k || (k === "got" && t === "easy")).length;
 
   let pace = null;
   if (prog.exam) {

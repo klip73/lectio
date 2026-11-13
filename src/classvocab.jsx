@@ -35,7 +35,15 @@ function sectionLabel(s) {
 /* Roman numerals ("art. ix", "cap. iv") are numbers, not vocabulary. vix, dic, mi, di, vi are real words. */
 const ROMAN_RE = /^(?=[ivxlcdm]+$)m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/;
 const NOT_ROMAN = new Set(["vix", "lix", "dic", "mi", "di", "vi", "mixi"]);
+/* Abbreviated references inside the Summa ("in I de Doct. Christ.", "Cael. Hier.", "IX Ethic.", "ad Gal. ult.") are not vocabulary. */
+const REF_ABBR = new Set(("doct christ cael hier ethic polit metaph physic rhet topic serm hom epist ep retract confess trin civ div nom eccl hierarch orth fid etym dial cap art lib dist ult gal ephes rom cor matth ioan iohan luc marc hebr iac petr apoc ps psalm eccli prov sap gen exod lev deut reg paral isaiae ierem ezech dan osee mich thess tim tit philem coloss philipp qu obiect praedicam periherm anal").split(" "));
 const isRoman = w => { const k = String(w || "").toLowerCase(); return !!k && !NOT_ROMAN.has(k) && ROMAN_RE.test(k); };
+/* is the k-th word of the text directly followed by a full stop (an abbreviation like "Doct.")? */
+function abbrAt(text, w, k) {
+  const re = new RegExp(WORD_RE.source, "g"); let m, i = 0;
+  while ((m = re.exec(text))) { if (i === k) return text[m.index + m[0].length] === "."; i++; }
+  return false;
+}
 async function classWords(sections, lex, basic) {
   const found = {}, order = [];
   let total = 0, unknown = 0, missing = 0;
@@ -49,6 +57,7 @@ async function classWords(sections, lex, basic) {
       const [li, pos] = lex.ana[rd.ids[0]];
       const [lemma, gloss] = lex.lemmas[li];
       if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase())) || isRoman(w) || isRoman(lemma)) return;
+      if (REF_ABBR.has(n1(w)) && abbrAt(text, w, k)) return;
       const lk = n1(lemma);
       if (!found[lk]) {
         const a = Math.max(0, k - 7), z = Math.min(words.length, k + 8);
@@ -57,7 +66,7 @@ async function classWords(sections, lex, basic) {
         const re = new RegExp(WORD_RE.source, "g"); let m, i = 0;
         while ((m = re.exec(text))) { if (i === a) from = m.index; if (i === k) { at = m.index; atEnd = m.index + m[0].length; } if (i === z - 1) to = m.index + m[0].length; i++; }
         const ex = (a > 0 ? "… " : "") + text.slice(from, at) + "[[" + text.slice(at, atEnd) + "]]" + text.slice(atEnd, to) + (z < words.length ? " …" : "");
-        found[lk] = [lemma, 0, ref, ex, rd.kind === "context" ? rd.ids[0] : -1];
+        found[lk] = [lemma, 0, ref, ex, rd.kind === "context" ? rd.ids[0] : -1, order.length];
         order.push(lk);
       }
       found[lk][1]++;
@@ -241,14 +250,19 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
   const [stats, setStats] = useState(null);
   const [quiz, setQuiz] = useState(null);   // { n, only: [lemmas] | null }
   const [show, setShow] = useState(false);
+  const [reading, setReading] = useState(false);
   const nCh = BOOK[b] ? BOOK[b][2].length : 1;
   async function rebuild(next) {
     setBusy(true);
     try { const { cls: c, total, unknown, missing } = await rebuildClass(next, lex); setCls0(c); setStats({ total, unknown, missing }); }
     finally { setBusy(false); }
   }
-  /* a list restored from a backup arrives without its words: rebuild them once */
-  useEffect(() => { if (cls.stale && lex) { const { stale, ...c } = cls; rebuild(c); } }, [lex]);
+  /* a list restored from a backup arrives without its words: rebuild them once; lists made before Nov 2026 lack the text order */
+  useEffect(() => {
+    if (!lex) return;
+    if (cls.stale) { const { stale, ...c } = cls; rebuild(c); }
+    else if (cls.sections.length && (cls.words || []).some(w => w[2] !== "Your list" && w[5] == null)) rebuild(cls);
+  }, [lex]);
   const [incoming, setIncoming] = useState(() => window.__LV_CLASS_IN || "");
   const [ownText, setOwnText] = useState("");
   function addOwn() {
@@ -396,28 +410,12 @@ function ClassVocab({ lex, V, prog, onGrade, onLearn, onPast, ai }) {
             {words.length > 20 && <Btn onClick={() => setQuiz({ n: words.length, only: null, k: Date.now() })}>Quiz me on all {words.length}</Btn>}
             {words.length - knownN > 0 && knownN > 0 && <Btn onClick={() => { const left = words.filter(w => !(vc[w[0]] && vc[w[0]].box >= 2)).map(w => w[0]); setQuiz({ n: left.length, only: left, k: Date.now() }); }}>Quiz the {words.length - knownN} not yet known</Btn>}
           </div>
-          <button type="button" className="self-start text-[14px] font-medium text-rubric underline underline-offset-2" aria-expanded={show} onClick={() => setShow(s => !s)}>{show ? "Hide the word list" : "Show the word list"}</button>
-          {show && (
-            <div className="class-list">
-              <div className="mb-2 flex justify-end print:hidden"><Btn onClick={() => window.print()}>Print</Btn></div>
-              <table className="w-full text-left text-[14px]">
-                <thead className="text-soft"><tr className="border-b border-rule"><th className="py-1 pr-2 font-medium">Word</th><th className="py-1 pr-2 font-medium">Meaning</th><th className="num py-1 font-medium">×</th></tr></thead>
-                <tbody>
-                  {words.map(w => {
-                    const inf = classInfo(w[0], lex, V, cls.own) || { head: w[0], gloss: "" }, gloss = inf.full, head = inf.head;
-                    const k = vc[w[0]];
-                    return (
-                      <tr key={w[0]} className="border-b border-rule align-top">
-                        <td lang="la" className="latin py-1 pr-2 font-bold text-ink">{head || w[0]}{k && k.box >= 2 && <span className="ml-1 font-sans text-[12px] font-normal text-ok">✓</span>}</td>
-                        <td className="py-1 pr-2 text-ink">{shortGloss(gloss)}</td>
-                        <td className="num py-1 text-soft">{w[1]}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2 border-t border-rule pt-3">
+            <Btn aria-expanded={show} onClick={() => { setShow(s => !s); setReading(false); }}>{show ? "Hide the word list" : "Word list"}</Btn>
+            {cls.sections.length > 0 && <Btn aria-expanded={reading} onClick={() => { setReading(r => !r); setShow(false); }}>{reading ? "Close the text" : "Read the text"}</Btn>}
+          </div>
+          {show && <ClassWordList words={words} cls={cls} lex={lex} V={V} prog={prog} onQuiz={only => setQuiz({ n: only.length, only, k: Date.now(), write: true })} />}
+          {reading && <ClassText sections={cls.sections} words={words} lex={lex} V={V} prog={prog} onGrade={onGrade} />}
         </section>
       )}
     </div>
@@ -649,5 +647,217 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       )}
       <button type="button" className="self-start text-[13px] text-soft underline" onClick={() => setI(items.length)}>End the quiz</button>
     </section>
+  );
+}
+
+/* ---------- The class word list, in an order that helps learning ----------
+   Text order (as the words come in the reading), hardest first or easiest first (for this student: what he's
+   likeliest to forget, from his reviews, else from his level and the word's difficulty: see srs.jsx), most frequent,
+   A–Z, or grouped by kind of word (verbs by conjugation, nouns by declension, adjectives by class, then the rest). */
+const IRREG_V = new Set(["sum", "possum", "prosum", "absum", "adsum", "desum", "intersum", "obsum", "praesum", "subsum", "supersum", "fero", "volo", "uolo", "nolo", "malo", "eo", "fio", "edo", "inquam", "aio", "memini", "odi", "coepi"]);
+function wordGroup(lemma, head, pos) {
+  const h = (head || lemma || "").toLowerCase().replace(/\([^)]*\)/g, "").replace(/j/g, "i");
+  const bits = h.split(",").map(x => x.trim()).filter(Boolean);
+  const p = pos || "";
+  if (/^V/.test(p)) {
+    const l = n1(lemma).replace(/[^a-z]/g, "");
+    if (IRREG_V.has(l) || /(fero|uolo|nolo|sum)$/.test(l) && bits.length > 1 && /(ferre|velle|uelle|nolle|esse)$/.test(bits[1] || "")) return [0, "Verbs: irregular"];
+    const inf = (bits[1] || "").replace(/ sum$/, "");
+    const dep = /(ari|eri|iri|i)$/.test(inf) && /or$/.test(bits[0] || "");
+    if (dep) return /ari$/.test(inf) ? [5, "Verbs: deponent, 1st conjugation"] : /eri$/.test(inf) && /eor$/.test(bits[0]) ? [5.2, "Verbs: deponent, 2nd conjugation"] : /iri$/.test(inf) ? [5.4, "Verbs: deponent, 4th conjugation"] : [5.3, "Verbs: deponent, 3rd conjugation"];
+    if (/are$/.test(inf)) return [1, "Verbs: 1st conjugation (-āre)"];
+    if (/ere$/.test(inf) && /eo$/.test(bits[0] || "")) return [2, "Verbs: 2nd conjugation (-ēre)"];
+    if (/ere$/.test(inf) && /io$/.test(bits[0] || "")) return [3.5, "Verbs: 3rd conjugation -iō"];
+    if (/ere$/.test(inf)) return [3, "Verbs: 3rd conjugation (-ere)"];
+    if (/ire$/.test(inf)) return [4, "Verbs: 4th conjugation (-īre)"];
+    return [5.9, "Verbs: other"];
+  }
+  if (/^N/.test(p) && p !== "Ne") {
+    const g = (bits[1] || "").replace(/^gen\.\s*/, "");
+    if (/ae$/.test(g)) return [10, "Nouns: 1st declension"];
+    if (/ei$/.test(g) && /es$/.test(bits[0] || "")) return [14, "Nouns: 5th declension"];
+    if (/i$/.test(g) && !/is$/.test(g)) return [11, "Nouns: 2nd declension"];
+    if (/us$/.test(g) || /u$/.test(g)) return [13, "Nouns: 4th declension"];
+    if (/is$/.test(g)) return [12, "Nouns: 3rd declension"];
+    return [15, "Nouns: indeclinable or other"];
+  }
+  if (/^A/.test(p) || p === "Ps") {
+    if (/(-a, -um|a, um|-ra, -rum|ra, rum)/.test(h) || /us$/.test(bits[0] || "") && /a$/.test(bits[1] || "")) return [20, "Adjectives: 1st and 2nd declension"];
+    return [21, "Adjectives: 3rd declension"];
+  }
+  if (/^D/.test(p)) return [30, "Adverbs"];
+  if (p === "R-") return [31, "Prepositions"];
+  if (p === "C-" || p === "G-") return [32, "Conjunctions"];
+  if (/^P/.test(p)) return [33, "Pronouns"];
+  if (/^M/.test(p)) return [34, "Numerals"];
+  return [40, "Other words"];
+}
+const CW_ORDERS = [["text", "Text order"], ["hard", "Hardest first"], ["easy", "Easiest first"], ["type", "By kind of word"], ["freq", "Most frequent"], ["az", "A–Z"]];
+const CW_KEY = "lectio-vulgata-cworder";
+function ClassWordList({ words, cls, lex, V, prog, onQuiz }) {
+  const [order, setOrder0] = useState(() => { const v = readLocal(CW_KEY); return CW_ORDERS.some(o => o[0] === v) ? v : "text"; });
+  const setOrder = v => { setOrder0(v); writeLocal(CW_KEY, v); };
+  const [openRel, setOpenRel] = useState(null);
+  const rel = useRel(words.map(w => w[0]));
+  const vc = prog.vcards || {};
+  const rows = useMemo(() => words.map((w, i) => {
+    const inf = classInfo(w[0], lex, V, cls.own) || { head: w[0], gloss: "", full: "" };
+    const li = V.byLemma[w[0]];
+    const pos = li !== undefined ? V.posOf[li] : "";
+    const [go, gl] = wordGroup(w[0], inf.head, pos);
+    const k = w[0].startsWith("own:") ? null : knowWord(prog, w[0], V, rel);
+    return { w, i, inf, pos, go, gl, k, hard: w[0].startsWith("own:") ? 0.5 : hardness(prog, w[0], V, rel), t: w[5] != null ? w[5] : i };
+  }), [words, rel, prog.vcards, prog.vtheta]);
+  const sorted = rows.slice().sort((a, b) =>
+    order === "text" ? a.t - b.t : order === "hard" ? b.hard - a.hard : order === "easy" ? a.hard - b.hard :
+    order === "type" ? (a.go - b.go) || a.inf.head.localeCompare(b.inf.head) : order === "freq" ? b.w[1] - a.w[1] : n1(a.inf.head).localeCompare(n1(b.inf.head)));
+  const label = r => r.k == null ? "" : r.k.measured ? `${Math.round(r.k.p * 100)}% recall now` : r.k.p > 0.85 ? "probably known (not yet tested)" : r.k.p > 0.5 ? "may be known (not yet tested)" : "probably new (not yet tested)";
+  const bar = r => {
+    if (!r.k) return null;
+    const pc = Math.round(r.k.p * 100), col = r.k.p >= 0.8 ? "var(--ok)" : r.k.p >= 0.5 ? "var(--mid)" : "var(--warn)";
+    return <span className="inline-block h-1.5 w-12 overflow-hidden rounded-full bg-[var(--rule)] align-middle" title={label(r)} aria-label={label(r)}>
+      <span className="block h-full rounded-full" style={{ width: pc + "%", background: col, opacity: r.k.measured ? 1 : 0.45 }} /></span>;
+  };
+  const hardest = rows.slice().sort((a, b) => b.hard - a.hard).slice(0, 15).map(r => r.w[0]);
+  let grp = null;
+  const exportRows = sorted.map(r => ({ la: r.inf.head.split(",")[0] || r.w[0], entry: r.inf.head, en: shortGloss(r.inf.full) || r.inf.gloss, pos: (POS_L[r.pos] || ""), n: r.w[1], ex: r.w[3], ref: r.w[2], group: order === "type" ? r.gl : null, known: r.k ? Math.round(r.k.p * 100) + "%" : "" }));
+  return (
+    <div className="class-list flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="cw-order" className="text-[14px] text-soft">Order</label>
+        <select id="cw-order" value={order} onChange={e => setOrder(e.target.value)} className="rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink">
+          {CW_ORDERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        {onQuiz && hardest.length > 0 && <Btn onClick={() => onQuiz(hardest)}>Write out the {hardest.length} hardest</Btn>}
+      </div>
+      <p className="text-[12px] leading-snug text-soft">{order === "hard" || order === "easy" ? "Hard and easy for you: words you’ve reviewed by how likely you are to recall them now (and how often you’ve missed them); words you haven’t tested yet by how common they are, whether they have an English look-alike, and your level. The bar: solid = measured, faint = estimate." : order === "type" ? "Grouped as a grammar would: verbs by conjugation, nouns by declension, adjectives by class, then the small words." : "The bar shows how well you know each word: solid = measured from your reviews, faint = an estimate."}</p>
+      <ExportMenu rows={exportRows} name={"class-words-" + new Date().toISOString().slice(0, 10)} title={"Class words: " + cls.sections.map(sectionLabel).join("; ")} tags="class" />
+      <table className="w-full text-left text-[14px]">
+        <thead className="text-soft"><tr className="border-b border-rule"><th className="py-1 pr-2 font-medium">Word</th><th className="py-1 pr-2 font-medium">Meaning</th><th className="py-1 pr-1 font-medium"><span className="sr-only">How well known</span></th><th className="num py-1 font-medium">×</th></tr></thead>
+        <tbody>
+          {sorted.map(r => {
+            const head = order === "type" && r.gl !== grp ? (grp = r.gl, <tr key={"g" + r.gl}><td colSpan={4} className="smallcaps pt-3 pb-1 text-[13px] font-semibold text-rubric">{r.gl}</td></tr>) : null;
+            const rr = rel[r.w[0]];
+            return (
+              <React.Fragment key={r.w[0]}>
+                {head}
+                <tr className="border-b border-rule align-top">
+                  <td lang="la" className="latin py-1 pr-2 font-bold text-ink">{r.inf.head || r.w[0]}</td>
+                  <td className="py-1 pr-2 text-ink">{shortGloss(r.inf.full)}
+                    {rr && <button type="button" className="ml-1 text-[12px] text-rubric underline underline-offset-2" aria-expanded={openRel === r.w[0]} onClick={() => setOpenRel(o => o === r.w[0] ? null : r.w[0])}>{openRel === r.w[0] ? "less" : "related"}</button>}
+                    {openRel === r.w[0] && <div className="mt-1"><RelatedWords lemma={r.w[0]} compact /></div>}
+                  </td>
+                  <td className="py-1.5 pr-1">{bar(r)}</td>
+                  <td className="num py-1 text-soft">{r.w[1]}</td>
+                </tr>
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ---------- Read the class's text: the sections in full, quiz words marked, every word tappable ----------
+   For a Summa article the student can show only the parts he's quizzed on, or the whole article (objections and
+   replies too), with the English beside it. Re-reading the words in their sentences is how they stick. */
+function ClassText({ sections, words, lex, V, prog, onGrade }) {
+  const [whole, setWhole] = useState(true);
+  const [en, setEn] = useState(false);
+  const [marks, setMarks] = useState(true);
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+  const [tap, setTap] = useState(null);   // { w, entry, key }
+  const quizSet = useMemo(() => new Set(words.map(w => n1(w[0]))), [words]);
+  useEffect(() => {
+    let on = true;
+    (async () => {
+      const out = [];
+      for (const s of sections) {
+        try {
+          if (s.t === "sm") {
+            const q = await loadSummaQ(s.p, s.q);
+            if (!q) continue;
+            const arts = Array.isArray(s.a) && s.a.length ? s.a : s.a && !Array.isArray(s.a) ? [s.a] : q.a.map((_, i) => i + 1);
+            for (const a of arts) {
+              const pars = (q.a[a - 1] || []).map((la, j) => ({ la, w: (q.w[a - 1] || [])[j] || [] }));
+              let role = null;
+              pars.forEach(x => { role = stPart(x.la, role); x.role = role; });
+              const e = q.e ? q.e[a - 1] : null;
+              const enBy = { obj: e ? e.o : [], sc: e ? e.c : [], resp: e ? e.b : [], ad: e ? e.r : [] };
+              const seen = {};
+              pars.forEach(x => { const k = seen[x.role] || 0; seen[x.role] = k + 1; x.en = enBy[x.role] && enBy[x.role].length === pars.filter(y => y.role === x.role).length ? enBy[x.role][k] : null; });
+              out.push({ title: `Summa ${SM_PART[s.p]} q. ${s.q}, a. ${a}`, sub: e && e.t ? e.t : "", la: (q.t && q.t[a - 1]) || "", pars, parts: s.parts || ST_PARTS.map(x => x[0]) });
+            }
+          } else {
+            const book = await loadBook(s.b);
+            const chs = s.t === "nt" ? Array.from({ length: (s.c2 || s.c1) - s.c1 + 1 }, (_, i) => s.c1 + i) : s.a ? [s.a] : book.ch.map((_, i) => i + 1);
+            for (const c of chs) out.push({ title: `${BOOK_NAME[s.b] || s.b} ${c}`, pars: (book.ch[c - 1] || []).map(v => ({ la: v[1], w: v[3] || [], n: v[0], en: v[2] || null, role: null })), parts: null });
+          }
+        } catch (e) { if (on) setErr("Part of the text couldn’t load: check your connection."); }
+      }
+      if (on) setData(out);
+    })();
+    return () => { on = false; };
+  }, [sections.map(sectionLabel).join("|")]);
+  if (!data) return <p className="text-[14px] text-soft">{err || "Loading the text…"}</p>;
+  const lemmaOf = entry => { const r = readings(entry); return r.ids.length ? lex.lemmas[lex.ana[r.ids[0]][0]][0] : null; };
+  const render = (par, pk) => {
+    const toks = par.la.split(/([A-Za-z]+)/);
+    let k = -1;
+    return toks.map((t, i) => {
+      if (i % 2 === 0) return t;
+      k++;
+      const entry = par.w[k] != null ? par.w[k] : -1, key = pk + "." + k;
+      const lem = lemmaOf(entry);
+      const quiz = marks && lem && quizSet.has(n1(lem));
+      return <span key={i} role="button" tabIndex={0} className={`lw${tap && tap.key === key ? " sel" : ""}${quiz ? " cq" : ""}`}
+        onClick={() => setTap(x => x && x.key === key ? null : { w: t, entry, key })}
+        onKeyDown={ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setTap({ w: t, entry, key }); } }}>{t}</span>;
+    });
+  };
+  const anyEn = data.some(d => d.pars.some(p => p.en));
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {data.some(d => d.parts && d.parts.length < 4) && <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={whole} onChange={e => setWhole(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />Whole article (objections and replies too)</label>}
+        {anyEn && <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={en} onChange={e => setEn(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />English</label>}
+        <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={marks} onChange={e => setMarks(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />Mark the quiz words</label>
+      </div>
+      <p className="text-[12px] text-soft">Underlined: words on your class list. Tap any word for its meaning and parsing. Parts you’re not quizzed on are shown lighter.</p>
+      {data.map((d, di) => (
+        <article key={di} className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-7">
+          <header>
+            <p className="smallcaps text-[13px] text-soft">{d.title}</p>
+            {d.sub && <p className="text-[14px] italic text-soft">{d.sub}</p>}
+          </header>
+          {d.pars.map((par, j) => {
+            const inQuiz = !d.parts || d.parts.includes(par.role);
+            if (!whole && !inQuiz) return null;
+            const first = par.role && (j === 0 || d.pars[j - 1].role !== par.role);
+            return (
+              <div key={j} className={inQuiz ? "" : "opacity-60"}>
+                {first && <h3 className="smallcaps mb-1 text-[13px] font-semibold text-rubric">{SM_ROLE_L[par.role]}{!inQuiz ? " · not on the quiz" : ""}</h3>}
+                <div className={en && par.en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}>
+                  <p lang="la" className="lt latin text-[1.05rem] leading-[1.8] text-ink">{par.n ? <sup className="mr-1 font-sans text-[11px] text-soft">{par.n}</sup> : null}{render(par, di + "." + j)}</p>
+                  {en && par.en && <p lang="en" className="text-[15px] leading-snug text-soft">{par.en}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </article>
+      ))}
+      {tap && (
+        <div className="fixed inset-x-0 bottom-0 z-20 max-h-[50vh] overflow-auto border-t border-rule bg-paper px-4 pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+          <div className="mx-auto max-w-[46rem]">
+            {readings(tap.entry).ids.length ? <>
+              <WordPanel lex={lex} word={tap.w} entry={tap.entry} onClose={() => setTap(null)} where="your class text" />
+              {(() => { const l = lemmaOf(tap.entry); return l ? <div className="mt-2 border-t border-rule pt-2"><RelatedWords lemma={l} compact /></div> : null; })()}
+            </> : <LsGuessPanel word={tap.w} onClose={() => setTap(null)} />}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
