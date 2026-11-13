@@ -1,4 +1,4 @@
-"""Sentence by sentence splits a long verse (a Matins lesson) into its sentences; verbs coloured by aspect."""
+"""Sentence by sentence splits a long verse (a Matins lesson) into its sentences; each grammar box has its own colour, matched in its words."""
 import subprocess, time, sys, os, json
 from playwright.sync_api import sync_playwright
 here = os.path.dirname(os.path.abspath(__file__))
@@ -17,11 +17,18 @@ try:
         pg.click("nav[aria-label='Practice mode'] button:has-text('Passages')"); pg.wait_for_selector("button:has-text('Read it sentence by sentence')", timeout=20000)
         pg.click("button:has-text('Read it sentence by sentence')"); d = pg.locator("[aria-label='Sentence by sentence']"); d.wait_for(timeout=10000)
         print("2 counter:", d.locator("span.num").first.inner_text())
-        d.locator("text=Colour verbs by aspect").click(); pg.wait_for_timeout(300)
-        sp = d.locator("p[lang=la] span[title]")
-        print("  coloured verbs:", [(sp.nth(j).inner_text(), sp.nth(j).get_attribute("title")) for j in range(min(sp.count(), 6))])
-        pg.screenshot(path=os.path.join(here, "sbs-aspect.png"))
-        pg.emulate_media(color_scheme="dark"); pg.wait_for_timeout(200); pg.screenshot(path=os.path.join(here, "sbs-aspect-dark.png"))
+        print("  aspect switch gone:", d.locator("text=Colour verbs by aspect").count() == 0)
+        for _ in range(8):
+            if d.locator("button[aria-pressed][style*='--gc']").count() >= 2: break
+            if not d.locator("button:has-text('I got it')").count(): break
+            d.locator("button:has-text('I got it')").click(); pg.wait_for_timeout(250)
+        ch = d.locator("button[aria-pressed][style*='--gc']")
+        print("  coloured boxes:", [(ch.nth(j).inner_text().split("\n")[0], ch.nth(j).get_attribute("style")) for j in range(ch.count())])
+        uw = d.locator("p[lang=la] span[style*='--gc']")
+        print("  underlined words:", [(uw.nth(j).inner_text(), uw.nth(j).get_attribute("style")) for j in range(uw.count())])
+        if ch.count(): ch.first.click(); pg.wait_for_timeout(200); print("  filled after tap:", d.locator("p[lang=la] span[class*='bg-[var(--gt)]']").count())
+        pg.screenshot(path=os.path.join(here, "sbs-colours.png"))
+        pg.emulate_media(color_scheme="dark"); pg.wait_for_timeout(200); pg.screenshot(path=os.path.join(here, "sbs-colours-dark.png"))
         b.close()
 finally:
     srv.terminate()

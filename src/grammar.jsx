@@ -265,7 +265,6 @@ function PhraseTips({ text, kinds }) {
 /* ---------- Sentence by sentence: one verse or sentence at a time, help chips that light up their words, the translation on
    request, and "I needed help / I got it" (remembered per passage, shown as the progress bar). ---------- */
 const SBS_KEY = "lectio-vulgata-sbs";
-const ASPECT_KEY = "lectio-vulgata-aspect";
 /* Break each verse (a Matins lesson can be one long "verse") into its sentences, keeping each word's parsing.
    A break comes after . ? ! before a capital, not after a number or a short reference (Matth. 5, cap. 3), and a
    fragment under four words joins the next. The English is split the same way when its sentences line up. */
@@ -299,23 +298,14 @@ function sentencesOf(verses) {
   });
   return out;
 }
-/* Aspect of a verb form: in progress or repeated (the present system) or complete (the perfect system). */
-const ASPECT = { p: "on", i: "on", f: "on", r: "done", l: "done", t: "done" };
-function aspectOf(t) {
-  if (!t || !isV(t)) return null;
-  const mo = t.m[3], te = t.m[2];
-  if (!"isnmp".includes(mo)) return null;   // gerunds, gerundives and supines have no aspect to show
-  return ASPECT[te] || null;
-}
-const ASPECT_STYLE = { on: { color: "var(--mid)", background: "var(--mid-tint)" }, done: { color: "var(--warn)", background: "var(--warn-tint)" } };
-const TENSE_NAME = { p: "present", i: "imperfect", f: "future", r: "perfect", l: "pluperfect", t: "future perfect" };
-const MOOD_NAME = { i: "", s: " subjunctive", m: " imperative", n: " infinitive", p: " participle" };
+/* Each grammar box gets its own colour, and its words in the sentence are underlined in that colour
+   (filled in when the box is tapped). Six colours (--g1 … --g6 in page.html, light and dark), then they repeat. */
+const GCOL = 6;
+const gStyle = n => ({ "--gc": `var(--g${n % GCOL + 1})`, "--gt": `var(--g${n % GCOL + 1}-tint)` });
 function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key0, onClose, onTable, onDone }) {
   const sents = useMemo(() => sentencesOf(verses0), [verses0]);
   const verses = sents.map(x => x.v);
   const storeKey = key0 + (sents.length !== verses0.length ? ":s" : "");
-  const [aspect, setAspect0] = useState(() => !!readLocal(ASPECT_KEY));
-  const setAspect = a => { setAspect0(a); writeLocal(ASPECT_KEY, a); };
   const saved = (readLocal(SBS_KEY) || {})[storeKey] || {};
   const [i, setI] = useState(() => Math.min(saved.i || 0, verses.length - 1));
   const [res, setRes] = useState(() => saved.r || {});     // row index -> "got" | "help"
@@ -334,12 +324,12 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
     return n.map(x => ({ ...x, w: weak(x.tag) })).sort((a, b) => b.w - a.w);
   }, [i]);
   const tips = useMemo(() => phraseTips(v[1], KINDS_OF_PART[part] || ["church"]).filter(t => t.title !== "Word order in hymns"), [i]);
-  const toks = useMemo(() => (lex ? gTokens(lex, [v]) : []), [i, lex]);
-  const asp = toks.map(aspectOf);
   const sInfo = sents[i] || {};
   const items = [...notes, ...tips];
   const active = items.find(x => x.id === chip);
   const lit = new Set(active && active.at ? active.at : []);
+  const colOf = {}, wordCol = {};   // box id -> colour number; word index -> colour of the first box that covers it
+  items.filter(x => x.at && x.at.length).forEach((x, n) => { colOf[x.id] = n; x.at.forEach(j => { if (!(j in wordCol)) wordCol[j] = n; }); });
   const words = v[1].split(/([A-Za-z]+)/);
   let k = -1;
   function mark(r) {
@@ -375,39 +365,33 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
             {words.map((t, j) => {
               if (j % 2 === 0) return t;
               k++;
-              const my = k, entry = v[3] ? v[3][my] : null, ap = aspect && !lit.has(my) ? asp[my] : null;
-              const tk = toks[my];
+              const my = k, entry = v[3] ? v[3][my] : null;
+              const on = lit.has(my), cn = on ? colOf[active.id] : wordCol[my];
               return <span key={j} role="button" tabIndex={0} onClick={() => setWord(word && word.k === my ? null : { w: t, entry, k: my })}
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWord({ w: t, entry, k: my }); } }}
-                className={`cursor-pointer rounded px-0.5 underline decoration-dotted decoration-[var(--rule)] underline-offset-[6px] ${lit.has(my) ? "bg-rubrictint text-rubric" : ""} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""} ${ap ? "font-semibold" : ""}`}
-                style={ap ? ASPECT_STYLE[ap] : undefined} title={ap && tk ? `${TENSE_NAME[tk.m[2]]}${MOOD_NAME[tk.m[3]]}: ${ap === "on" ? "in progress or repeated" : "complete"}` : undefined}>{t}</span>;
+                className={`cursor-pointer rounded px-0.5 underline underline-offset-[6px] ${cn === undefined ? "decoration-dotted decoration-[var(--rule)]" : "decoration-solid decoration-2 decoration-[var(--gc)]"} ${on ? "bg-[var(--gt)] text-[var(--gc)]" : ""} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""}`}
+                style={cn === undefined ? undefined : gStyle(cn)}>{t}</span>;
             })}
           </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-            <label className="flex items-center gap-1.5 text-ink"><input type="checkbox" checked={aspect} onChange={e => setAspect(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />Colour verbs by aspect</label>
-            {aspect && <span className="flex flex-wrap gap-2" aria-label="Aspect colours">
-              <span className="rounded px-1.5 font-semibold" style={ASPECT_STYLE.on}>in progress / repeated</span>
-              <span className="rounded px-1.5 font-semibold" style={ASPECT_STYLE.done}>complete</span>
-            </span>}
-          </div>
-          {aspect && <p className="-mt-2 text-[13px] leading-snug text-soft">Present, imperfect and future (the present system) show an action going on or repeated: “was doing, used to do, will be doing”. Perfect, pluperfect and future perfect show it complete: “did, has done, had done, will have done”. Participles and infinitives too. A&amp;G §§ 463–485.</p>}
           {items.length > 0 && <>
             <span className="smallcaps text-[13px] font-semibold text-soft">Help</span>
             <div className="flex flex-wrap gap-2">
               {items.map(x => (
                 <button key={x.id} type="button" aria-pressed={chip === x.id} onClick={() => setChip(chip === x.id ? null : x.id)}
-                  className={`flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[14px] ${chip === x.id ? "border-rubric bg-rubrictint text-ink" : "border-rule bg-leaf text-ink"}`}>
-                  <span className={`h-2 w-2 flex-none rounded-full ${x.w >= 2 ? "bg-[var(--warn)]" : x.w ? "bg-[var(--mid)]" : x.at ? "bg-rubric" : "bg-[var(--rule)]"}`} />
+                  style={x.id in colOf ? gStyle(colOf[x.id]) : undefined}
+                  className={`flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[14px] text-ink ${x.id in colOf ? (chip === x.id ? "border-2 border-[var(--gc)] bg-[var(--gt)]" : "border-[var(--gc)] bg-[var(--gt)]") : chip === x.id ? "border-rubric bg-rubrictint" : "border-rule bg-leaf"}`}>
+                  <span className={`h-2.5 w-2.5 flex-none rounded-full ${x.id in colOf ? "bg-[var(--gc)]" : "bg-[var(--rule)]"}`} />
                   <span className="font-semibold">{x.title}</span>
+                  {x.w >= 2 && <span className="text-[12px] font-semibold text-rubric" title="You’ve missed this in your own translations">!</span>}
                   {x.ex && x.ex[0] && x.at && <span lang="la" className="latin truncate text-soft">{x.ex[0].length > 18 ? x.ex[0].slice(0, 16) + "…" : x.ex[0]}</span>}
                 </button>
               ))}
             </div>
           </>}
           {active && (
-            <div className="reveal rounded-lg border border-rule bg-leaf px-4 py-3">
+            <div className={`reveal rounded-lg border bg-leaf px-4 py-3 ${active.id in colOf ? "border-l-4 border-[var(--gc)]" : "border-rule"}`} style={active.id in colOf ? gStyle(colOf[active.id]) : undefined}>
               <p className="text-[15px] font-semibold text-ink">{active.title} {active.ag && <span className="num ml-1 text-[13px] font-normal text-soft">{active.ag}</span>}</p>
-              {active.ex && active.ex[0] && <p lang="la" className="latin text-[15px] text-rubric">{active.ex.join(" · ")}</p>}
+              {active.ex && active.ex[0] && <p lang="la" className={`latin text-[15px] ${active.id in colOf ? "text-[var(--gc)]" : "text-rubric"}`}>{active.ex.join(" · ")}</p>}
               <p className="mt-1 text-[15px] leading-snug text-ink">{active.note}</p>
               {active.w >= 2 && <p className="mt-1 text-[13px] text-rubric">You’ve missed this in your own translations: take it slowly.</p>}
             </div>

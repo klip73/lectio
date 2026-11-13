@@ -25,6 +25,8 @@ try { var lf = JSON.parse(localStorage.getItem("lectio-vulgata-font") || "null")
     --mid-tint: #e8e9f2;
     --warn: #8a6113;
     --warn-tint: #f6ecd6;
+    --g1: #2f62a8; --g1-tint: #e3ecf8; --g2: #3f7a3a; --g2-tint: #e5f0e1; --g3: #7a3f98; --g3-tint: #f0e6f6;
+    --g4: #94640e; --g4-tint: #f7edd6; --g5: #1f7a78; --g5-tint: #dff1f0; --g6: #a8325e; --g6-tint: #f8e4ec;
     --font-latin: "Merriweather", Georgia, "Times New Roman", serif;
     --font-ui: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   }
@@ -35,6 +37,8 @@ try { var lf = JSON.parse(localStorage.getItem("lectio-vulgata-font") || "null")
       --paper: #1b1916; --leaf: #23201c; --ink: #ebe4d6; --ink-soft: #a99f91; --rule: #3a342c;
       --rubric: #e2806f; --rubric-tint: #3b2420; --ok: #93c48a; --ok-tint: #22301f;
       --mid: #a9addb; --mid-tint: #282b3f; --warn: #dcb565; --warn-tint: #352b16;
+      --g1: #8fb3ea; --g1-tint: #1e2a3d; --g2: #93c48a; --g2-tint: #22301f; --g3: #c69be0; --g3-tint: #2f2238;
+      --g4: #e0b862; --g4-tint: #362b15; --g5: #7fcfcb; --g5-tint: #183331; --g6: #ec97b6; --g6-tint: #3a1f2a;
     }
   }
   :root[data-theme="dark"] {
@@ -42,6 +46,8 @@ try { var lf = JSON.parse(localStorage.getItem("lectio-vulgata-font") || "null")
     --paper: #1b1916; --leaf: #23201c; --ink: #ebe4d6; --ink-soft: #a99f91; --rule: #3a342c;
     --rubric: #e2806f; --rubric-tint: #3b2420; --ok: #93c48a; --ok-tint: #22301f;
     --mid: #a9addb; --mid-tint: #282b3f; --warn: #dcb565; --warn-tint: #352b16;
+    --g1: #8fb3ea; --g1-tint: #1e2a3d; --g2: #93c48a; --g2-tint: #22301f; --g3: #c69be0; --g3-tint: #2f2238;
+    --g4: #e0b862; --g4-tint: #362b15; --g5: #7fcfcb; --g5-tint: #183331; --g6: #ec97b6; --g6-tint: #3a1f2a;
   }
   html, body { background: var(--paper); color: var(--ink); }
   body { font-family: var(--font-ui); font-size: 16px; }
