@@ -251,6 +251,11 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
       <div className="h-1 overflow-hidden rounded-full bg-[var(--rule)]" aria-hidden="true"><div className="h-full rounded-full bg-[var(--rubric)]" style={{ width: `${((ci + 1) / work.chapters.length) * 100}%` }} /></div>
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-soft">
         <span className="num">{ci + 1} of {work.chapters.length} · about {Math.max(1, Math.round(words / 90))} min</span>
+        <TextExport getBook={async () => {
+          const clean = t => String(t || "").replace(/[\^{}]/g, "");
+          const title = /^ll-/.test(work.id) ? llTitle(work) : work.title;
+          return { title, author: work.author, file: title, chapters: work.chapters.map(c => ({ title: clean(c.title), paras: c.paras.map((p, i) => ({ la: clean(p), en: c.en ? clean(c.en[i]) : null })).concat((c.enb || []).map(t => ({ la: "", en: clean(t) })).filter(x => x.en)) })) };
+        }} printTitle={work.title} printHtml={() => `<h1>${escHtml(ch.title)}</h1><p class="small">${escHtml(work.title)} · ${escHtml(work.author || "")}</p>` + ch.paras.map((p, i) => `<p>${escHtml(String(p).replace(/[\^{}]/g, ""))}</p>${side && ch.en[i] ? `<p class="en">${escHtml(ch.en[i])}</p>` : ""}`).join("")} />
         <span className="flex items-center gap-1" role="group" aria-label="Text size">
           <button type="button" className="rounded border border-rule bg-leaf px-2 py-0.5 text-ink disabled:opacity-40" disabled={(pos._fs ?? 1) <= 0} onClick={() => setPos({ ...pos, _fs: Math.max(0, (pos._fs ?? 1) - 1) })} aria-label="Smaller text">A−</button>
           <button type="button" className="rounded border border-rule bg-leaf px-2 py-0.5 text-ink disabled:opacity-40" disabled={(pos._fs ?? 1) >= LIB_FS.length - 1} onClick={() => setPos({ ...pos, _fs: Math.min(LIB_FS.length - 1, (pos._fs ?? 1) + 1) })} aria-label="Larger text">A+</button>

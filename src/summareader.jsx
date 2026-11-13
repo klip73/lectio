@@ -109,6 +109,9 @@ function SummaReader({ onTap, onTable, onBack }) {
         <Btn onClick={() => step(1)} aria-label="Next article">›</Btn>
         <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={en} onChange={ev => setEn(ev.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" />English</label>
         <Btn onClick={addToClass}>Add to my class quiz</Btn>
+        <TextExport getBook={async () => ({ title: `Summa Theologiae ${SM_PART[p]} q. ${qn}`, author: "St Thomas Aquinas", file: `Summa-${SM_PART[p]}-q${qn}`,
+          chapters: q.a.map((pars, ai) => { const ee = q.e ? q.e[ai] : null; return { title: `a. ${ai + 1}: ${qrow[2][ai] || ""}`, paras: pars.map(t => ({ la: t })).concat(en && ee ? [ee.o, ee.c, ee.b, ee.r].flat().filter(Boolean).map(t => ({ la: "", en: t })) : []) }; }) })}
+          printTitle={`Summa ${SM_PART[p]} q. ${qn} a. ${a}`} printHtml={() => `<h1>Summa ${SM_PART[p]}, q. ${qn}, a. ${a}</h1><p class="small">${escHtml(qrow[2][a - 1] || "")}</p>` + la.map(t => `<p>${escHtml(t)}</p>`).join("") + (en && e ? [e.o, e.c, e.b, e.r].flat().filter(Boolean).map(t => `<p class="en">${escHtml(t)}</p>`).join("") : "")} />
         {added && <span className="text-[13px] text-ok" aria-live="polite">{added}</span>}
       </div>
       {q && <PhraseTips text={la.join(" ")} kinds={["thomas"]} />}

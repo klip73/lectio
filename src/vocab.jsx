@@ -223,6 +223,8 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
         </div>
       )}
       <QuickSort cards={cards} prog={prog} V={V} onGrade={onGrade} />
+      <ExportMenu rows={cards.filter(c => !c.mk).map(c => ({ la: c.front, entry: c.pp ? c.back : (V.byLemma[c.key] !== undefined && lex.lemmas[V.byLemma[c.key]][2]) || c.front, en: c.pp ? (c.extra || "") : c.back, pos: c.sub, ex: c.ex, ref: c.ref, known: vc[c.key] ? (vc[c.key].box >= 2 ? "known" : "learning") : "" }))}
+        name={"lectio-" + deck} title={"Lectio Vulgata: " + ((DECKS.find(d => d[0] === deck) || [0, deck])[1])} tags={deck} />
       <p className="text-[13px] text-soft">Each deck is ordered by how often its words appear in that text, so the first few hundred cover most of what you’ll meet. A word you know in one deck counts as known in all of them. The four answers work as in Anki: under each is when the word comes back; a word you find easy comes back later and later, one you miss comes back in ten minutes.</p>
     </>
   );
