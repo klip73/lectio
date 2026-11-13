@@ -207,15 +207,72 @@ function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }
   );
 }
 /* Office or Mass of one day. */
-function DayText({ date, hour, onTap, onTable, view }) {
+/* ----- Votive Masses (tools/office/build_votive.py): data/office/votive.json ----- */
+let votivePromise = null;
+const loadVotive = () => (votivePromise = votivePromise || getJSON(`${REMOTE_V ? APP_SITE : ""}data/office/votive.json?v=${OFFICE_VER}`).catch(e => { votivePromise = null; throw e; }));
+/* the season a date falls in, for the votive Masses' seasonal texts */
+function votiveSeason(iso) {
+  const d = new Date(iso + "T12:00:00Z"), y = d.getUTCFullYear();
+  const e = lcEaster(y).getTime(), t = d.getTime(), D = 864e5;
+  if (t >= e && t <= e + 55 * D) return "pasc";
+  if (t >= e - 63 * D && t < e) return "sept";
+  const md = iso.slice(5);
+  if (md >= "12-25" || md <= "02-01") return "nat";
+  const xmas = new Date(Date.UTC(y, 11, 25)), adv = new Date(xmas.getTime() - ((xmas.getUTCDay() || 7) + 21) * D);
+  if (t >= adv.getTime() && md < "12-25") return "adv";
+  return "pa";
+}
+async function votiveDay(id, iso) {
+  const V = await loadVotive();
+  const r = V.list.find(x => x.id === id);
+  if (!r) return null;
+  const key = r.v.all || r.v[votiveSeason(iso)] || r.v.pa;
+  return { t: r.la, k: "Missa votiva", sections: (V.m[key] || []).map(k => V.p[k] || [[], []]), votive: r };
+}
+/* Mass of the day, or a votive Mass, with what the 1960 rubrics allow on this day. */
+function VotivePicker({ value, onChange, day, date }) {
+  const [list, setList] = useState(null);
+  useEffect(() => { loadVotive().then(v => setList(v.list)).catch(() => setList([])); }, []);
+  if (!list || !list.length) return null;
+  const dow = new Date(date + "T12:00:00").getDay();
+  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dow];
+  const cls = lcCls(day && day.k);
+  const r = value && list.find(x => x.id === value);
+  const firstFri = dow === 5 && +date.slice(8) <= 7;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="votive" className="text-[14px] text-soft">Mass</label>
+        <select id="votive" value={value || ""} onChange={e => onChange(e.target.value || null)} className="min-w-0 max-w-full rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink">
+          <option value="">Of the day</option>
+          <optgroup label="Votive Masses">
+            {list.map(x => <option key={x.id} value={x.id}>{x.en}{x.wd ? ` (${x.wd})` : ""}{(x.wd === wd || (x.wd === "First Friday" && firstFri)) ? " · today’s" : ""}</option>)}
+          </optgroup>
+        </select>
+      </div>
+      {value && r && (() => {
+        /* the class of this votive Mass and the days it may be said (Rubricae generales Missalis 1960) */
+        const vcls = ["propaganda", "coronatio"].includes(r.id) ? 2 : r.id === "cor" && firstFri ? 3 : 4;
+        const ok = r.id === "defuncti" ? cls === 4 : cls >= vcls;
+        const rule = vcls === 2 ? "a votive Mass of the 2nd class, allowed on days of the 2nd, 3rd and 4th class (n. 341)" : vcls === 3 ? "on the first Friday, a votive Mass of the 3rd class, allowed on 3rd- and 4th-class days (nn. 384–385)" : r.id === "defuncti" ? "the daily Mass for the dead, allowed on 4th-class days" : "a votive Mass of the 4th class, allowed only on 4th-class days (n. 387)";
+        return <p className="text-[13px] leading-snug text-soft">
+          This is {rule}. {ok ? <span className="text-ok">Today ({["", "1st", "2nd", "3rd", "4th"][cls]} class) it may be said.</span> : <span className="text-warn">Today is a {["", "1st", "2nd", "3rd", "4th"][cls]}-class day, so it may not; shown here for reading.</span>}{" "}
+          {vcls === 4 && r.id !== "defuncti" ? <>As a 4th-class votive Mass it has no Creed, and no Gloria except the Mass of the Angels and Our Lady’s on Saturday (n. 389). </> : vcls === 3 ? <>Gloria, no Creed (n. 386). </> : vcls === 2 ? <>Gloria (unless in violet), no Creed (n. 343). </> : null}
+          {r.feast ? <>The texts are the feast’s (n. 314); the feast’s Sequence is left out.</> : r.id === "bvm" ? <>The Missal changes Our Lady’s Saturday Mass with the seasons (Rorate cæli in Advent, Vultum tuum at Christmastide); Divinum Officium gives Salve sancta Parens with the season’s Alleluia or Tract.</> : <>With the season’s Alleluia or Tract.</>}
+        </p>;
+      })()}
+    </div>
+  );
+}
+function DayText({ date, hour, onTap, onTable, view, votive }) {
   const [day, setDay] = useState(null);
   const [err, setErr] = useState("");
   useEffect(() => {
     let alive = true; setDay(null); setErr("");
-    officeDay(date, hour).then(d => alive && setDay(d)).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "This didn’t load. Check your connection and try again."));
+    (votive && hour === "x" ? votiveDay(votive, date) : officeDay(date, hour)).then(d => alive && setDay(d)).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "This didn’t load. Check your connection and try again."));
     return () => { alive = false; };
-  }, [date, hour]);
-  if (err) return <p className="text-[14px] text-warn">{err}</p>;
+  }, [date, hour, votive]);
+  if (err) return <p className="text-[14px] text-warn">{votive ? "The votive Masses didn’t load: check your connection (they are in the phone app and the online page, not the offline copy)." : err}</p>;
   if (!day) return <p className="text-[15px] text-soft">Loading…</p>;
   if (day.missing) return null;
   const secs = day.sections.map((s, i) => ({ s, i, name: sectionName(s[0]) }));
@@ -432,6 +489,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
   const [mview, setMview] = useState(pref0.mview === "full" ? "full" : "lessons");
   const [xview, setXview] = useState(pref0.xview === "full" ? "full" : "propers");
+  const [votive, setVotive] = useState(null);   // a votive Mass chosen instead of the Mass of the day (not remembered: each day starts with its own Mass)
   const [date, setDate] = useState(() => isoOf(new Date()));
   const [day, setDay] = useState(null);
   const [err, setErr] = useState("");
@@ -535,10 +593,11 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
           )}
           {day && !day.missing && part === "mass" && (
             <>
+              <VotivePicker value={votive} onChange={setVotive} day={day} date={date} />
               <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-0.5 text-[14px]" role="group" aria-label="How much to show">
-                {[["propers", "Propers of the day"], ["full", "Whole Mass, with rubrics"]].map(([k, l]) => <button key={k} type="button" aria-pressed={xview === k} onClick={() => setXview(k)} className={`rounded px-2.5 py-1 ${xview === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
+                {[["propers", votive ? "Propers" : "Propers of the day"], ["full", "Whole Mass, with rubrics"]].map(([k, l]) => <button key={k} type="button" aria-pressed={xview === k} onClick={() => setXview(k)} className={`rounded px-2.5 py-1 ${xview === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
               </div>
-               <DayText key={"x" + lcTick} date={date} hour="x" onTap={onTap} onTable={onTable} view={xview} />
+               <DayText key={"x" + lcTick + (votive || "")} date={date} hour="x" onTap={onTap} onTable={onTable} view={xview} votive={votive} />
             </>
           )}
           {day && !day.missing && (
