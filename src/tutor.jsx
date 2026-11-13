@@ -179,7 +179,7 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Btn onClick={openAiSetup}>Turn on AI marking</Btn>
-        <span className="text-[13px] text-soft">Free with your own Gemini key, about a minute to set up. Until then only the key-word check is shown.</span>
+        <span className="text-[13px] text-soft">Free with your own Gemini or Groq key (the AI button at the top), about a minute to set up. Until then only the key-word check is shown.</span>
       </div>
     );
   }

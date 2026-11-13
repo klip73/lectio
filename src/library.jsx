@@ -86,7 +86,7 @@ function LatinLibraryShelf({ pos, onOpen }) {
                 <span className="text-[15px] font-semibold text-ink">{a}</span><span className="num text-[12px] text-soft">{list.length} works {open ? "▴" : "▾"}</span></button> : null}
               {open && <div className={`flex flex-col ${list.length > 1 && !nq ? "mt-1 pl-3" : ""}`}>{list.map(w => (
                 <button key={w.id} type="button" onClick={() => onOpen(w.id)} className="flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-left hover:bg-paper">
-                  <span><span lang="la" className="latin text-[14px] text-ink">{w.title}</span>{(list.length === 1 || nq) && <span className="text-[13px] text-soft"> · {w.author}</span>}</span>
+                  <span><span lang="la" className="latin text-[14px] text-ink">{llTitle(w)}</span>{(list.length === 1 || nq) && <span className="text-[13px] text-soft"> · {w.author}</span>}</span>
                   <span className="num flex-none text-[12px] text-soft">{w.chapters.length > 1 ? w.chapters.length + " parts · " : ""}{k(w.words)} words{pos[w.id] != null ? " · reading" : ""}</span>
                 </button>))}</div>}
             </li>
@@ -95,6 +95,21 @@ function LatinLibraryShelf({ pos, onOpen }) {
       </ul>
     </div>
   );
+}
+/* Latin Library titles as built: "Ammianus, Ammianus" (no title in the file) reads as Opera; capitalise "de Re Coquinaria". */
+function llTitle(w) {
+  let t = (w.title || "").trim();
+  const a = (w.author || "").trim();
+  const al = a.toLowerCase();
+  if (a && t.toLowerCase().startsWith(al + ", ")) {
+    // the title was made from the file name ("Livy, Liv Pr", "Bede, Bedepraef"): drop the author's name, spell out the preface
+    let r = t.slice(a.length + 2).trim().split(/\s+/);
+    if (r.length && (al.startsWith(r[0].toLowerCase()) || r[0].toLowerCase().startsWith(al.slice(0, 4)))) { const w0 = r[0].toLowerCase(); r = r.slice(1); if (/praef$/.test(w0)) r.unshift("Praefatio"); }
+    r = r.map(x => /^(pr|praef)$/i.test(x) ? "Praefatio" : x);
+    t = r.join(" ") || "Opera";
+  }
+  if (a && t.toLowerCase() === al) t = "Opera";
+  return t ? t[0].toUpperCase() + t.slice(1) : "Opera";
 }
 function LibraryMode({ onTap, onTable }) {
   const [idx, setIdx] = useState(null);
@@ -137,7 +152,11 @@ function LibraryMode({ onTap, onTable }) {
           <span className="mt-1 block text-[13px] leading-snug text-soft">All four parts, every question and article, Latin beside the Dominican English. Tap any word for its parsing; add any article to your class quiz in one tap.</span>
         </button>}
         {(idx.groups || [["exam", ""]]).map(([g, gl]) => {
-          const ws = idx.works.filter(w => (w.group || "exam") === g && (!OFFLINE || APP || w.offline));
+          const ws0 = idx.works.filter(w => (w.group || "exam") === g && (!OFFLINE || APP || w.offline));
+          // Volumes of one work (rd-zigliara-1, -2, -3) in their own order, where the first of them stands.
+          const base = w => w.id.replace(/-\d+$/, ""), first = {};
+          ws0.forEach((w, n) => { if (first[base(w)] == null) first[base(w)] = n; });
+          const ws = ws0.map((w, n) => [w, n]).sort((a, b) => first[base(a[0])] - first[base(b[0])] || (base(a[0]) === base(b[0]) ? a[0].id.localeCompare(b[0].id, undefined, { numeric: true }) : a[1] - b[1])).map(x => x[0]);
           if (!ws.length) return null;
           const shelf = g === "opera"
             ? <div className="grid gap-1.5 sm:grid-cols-2">{ws.map(w => <button key={w.id} type="button" onClick={() => setPos({ ...pos, _open: w.id })} className="rounded-md border border-rule bg-leaf px-3 py-2 text-left hover:border-soft"><span lang="la" className="latin block text-[14px] font-semibold text-ink">{w.title}</span><span className="block text-[12px] text-soft">{w.author !== "St Thomas Aquinas" ? w.author + " · " : ""}{w.note}{pos[w.id] != null ? ` · reading part ${pos[w.id] + 1}` : ""}</span></button>)}</div>
@@ -150,7 +169,7 @@ function LibraryMode({ onTap, onTable }) {
                   <span lang="la" className="latin block text-[1.02rem] font-bold text-ink">{w.title}</span>
                   <span className="block text-[13px] text-rubric">{w.author}</span>
                   {w.note && <span className="mt-1 block text-[13px] leading-snug text-soft">{w.note}</span>}
-                  <span className="num mt-1 block text-[12px] text-soft">{w.chapters.length} {w.group === "ot" ? "chapters" : "parts"} · {w.words >= 1000 ? Math.round(w.words / 1000) + "k" : w.words} words{at != null ? ` · reading ${w.group === "ot" ? "chapter" : "part"} ${at + 1}` : ""}</span>
+                  <span className="num mt-1 block text-[12px] text-soft">{w.chapters.length > 1 ? `${w.chapters.length} ${w.group === "ot" ? "chapters" : "parts"} · ` : ""}{w.words >= 1000 ? Math.round(w.words / 1000) + "k" : w.words} words{at != null ? ` · reading ${w.group === "ot" ? "chapter" : "part"} ${at + 1}` : ""}</span>
                 </button>
               );
             })}</div>;
@@ -178,16 +197,20 @@ function LibraryMode({ onTap, onTable }) {
 const LIB_FS = [0.95, 1.08, 1.2, 1.35];
 function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
   const ci = Math.min(pos[work.id] || 0, work.chapters.length - 1);
-  const ch = work.chapters[ci];
+  /* The Latin Library files sometimes give a heading its own part ("I. Conditum paradoxum."): show it with the part it heads. */
+  const ch0 = work.chapters[ci], nx = work.chapters[ci + 1];
+  const merged = /^ll-/.test(work.id) && !!nx && ch0.paras.length <= 2 && !ch0.en && ch0.paras.join(" ").split(/\s+/).length <= 8;
+  const ch = merged ? nx : ch0;
+  const step = merged ? 2 : 1;
   const enOn = pos._en !== false;
   const fs = LIB_FS[pos._fs != null ? pos._fs : 1] || 1.08;
   const hlN = pos._hl ? normForm(pos._hl.replace(/\.$/, "")) : "";
   const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? normForm(p).startsWith(hlN + ".") : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
   const go = (i, hl) => { if (i < 0 || i >= work.chapters.length) return; setPos({ ...readLocal(LIB_KEY), [work.id]: i, _hl: hl || "" }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
   useEffect(() => {
-    const k = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === "ArrowRight") go(ci + 1); if (e.key === "ArrowLeft") go(ci - 1); };
+    const k = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === "ArrowRight") go(Math.min(ci + step, work.chapters.length - 1)); if (e.key === "ArrowLeft") go(ci - 1); };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
-  }, [ci, work.id]);
+  }, [ci, step, work.id]);
   /* the chooser: "Liber I · Prosa III" is grouped under Liber I */
   const groups = useMemo(() => {
     const g = [];
@@ -211,7 +234,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
     <div className="flex flex-col gap-3">
       <div ref={topRef} className="scroll-mt-16 flex flex-wrap items-center gap-2">
         <button type="button" className="text-[14px] text-rubric underline underline-offset-2" onClick={() => setPos({ ...pos, _open: null })}>‹ Library</button>
-        <span lang="la" className="latin text-[15px] font-bold text-ink">{work.title}</span>
+        <span lang="la" className="latin text-[15px] font-bold text-ink">{/^ll-/.test(work.id) ? llTitle(work) : work.title}</span>
         <span className="text-[13px] text-soft">{work.author}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -223,7 +246,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
             : gr.items.map(([i, t]) => <option key={i} value={i}>{t.length > 70 ? t.slice(0, 68) + "…" : t}</option>))
             : work.chapters.map((c, i) => <option key={i} value={i}>{c.title.length > 70 ? c.title.slice(0, 68) + "…" : c.title}</option>)}
         </select>
-        <Btn onClick={() => go(ci + 1)} disabled={ci === work.chapters.length - 1} aria-label="Next chapter">›</Btn>
+        <Btn onClick={() => go(Math.min(ci + step, work.chapters.length - 1))} disabled={ci + step > work.chapters.length - 1} aria-label="Next chapter">›</Btn>
       </div>
       <div className="h-1 overflow-hidden rounded-full bg-[var(--rule)]" aria-hidden="true"><div className="h-full rounded-full bg-[var(--rubric)]" style={{ width: `${((ci + 1) / work.chapters.length) * 100}%` }} /></div>
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-soft">
@@ -246,7 +269,8 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
       )}
       {kinds.length ? <PhraseTips text={ch.paras.join(" ")} kinds={kinds} /> : null}
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
-        <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
+        <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{merged ? ch0.paras.join(" ") || ch0.title : ch.title}</h2>
+        {merged && <p lang="la" className="latin mb-3 text-[0.98rem] font-semibold text-ink">{ch.title}</p>}
         {meta.caveat && <p className="mb-3 text-[13px] text-soft">{meta.caveat}</p>}
         {(ch.en || ch.enb) && (
           <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={enOn} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />{meta.en || "English (Douay-Rheims)"}</label>
@@ -363,7 +387,7 @@ function LibrarySearch({ idx, onOpen }) {
       return { t: `Summa ${SM_PART[h[1]]}, q. ${h[2]}, a. ${h[3]}`, s: qr ? (qr[2][h[3] - 1] || qr[1]) : "" };
     }
     const w = idx.works.find(x => x.id === h[1]) || (llIdx && llIdx.works.find(x => x.id === h[1]));
-    return { t: w ? (/^ll-/.test(h[1]) ? `${w.author}, ${w.title}` : w.title) : h[1], s: w ? w.chapters[h[2]] : "" };
+    return { t: w ? (/^ll-/.test(h[1]) ? `${w.author}, ${llTitle(w)}` : w.title) : h[1], s: w ? w.chapters[h[2]] : "" };
   };
   function open(h) {
     if (h[0] === "S") {

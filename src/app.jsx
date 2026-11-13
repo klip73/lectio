@@ -779,7 +779,7 @@ function duePassages(prog) {
 }
 
 /* ---------- Key-word check (a rough hint, not a grade) ---------- */
-const STOP = new Set("a an and the of to in on at is be are was were been am art it its that this these those for with by as from but or nor not no so then now if he him his she her they them their we us our i me my you your ye thee thou thy thine who whom which what all any every there unto upon shall will do doth did hath has have had into out up one also even when may might let".split(" "));
+const STOP = new Set("a an and the of to in on at is be are was were been am art it its that this these those for with by as from but or nor not no so then now if he him his she her they them their we us our i me my you your ye thee thou thy thine who whom which what all any every there unto upon shall will do doth did hath has have had into out up one also even when may might let shalt wilt dost hast hadst wast wert didst canst can couldst could shouldst should wouldst would mayest mightest must thyself yourself yourselves himself themselves ourselves".split(" "));
 const SYN = [
   ["love","charity","loveth","loved"], ["everlasting","eternal"], ["hell","hades","underworld"],
   ["labour","labor","toil","work"], ["refresh","rest","restore"], ["wept","weep","cried","cry"],
@@ -959,8 +959,18 @@ function AccentText({ text }) {
   return text.replace(/[A-Za-z]+/g, w => accentWord(w, aids.acc));
 }
 
-function WordPanel({ lex, word, entry, onClose, where, onTable }) {
-  if (!lex || word == null) return null;
+/* The word box: on a phone it can open below the screen under a long passage, so bring it into view. */
+function WordPanel(props) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current; if (!el || props.word == null) return;
+    const t = setTimeout(() => { try { const r = el.getBoundingClientRect(); if (r.top > window.innerHeight - 60 || r.bottom > window.innerHeight) el.scrollIntoView({ block: r.height > window.innerHeight * 0.7 ? "start" : "nearest", behavior: "smooth" }); } catch (e) {} }, 30);
+    return () => clearTimeout(t);
+  }, [props.word, props.entry]);
+  if (!props.lex || props.word == null) return null;
+  return <div ref={ref} className="scroll-mt-16 scroll-mb-4"><WordPanelBody {...props} /></div>;
+}
+function WordPanelBody({ lex, word, entry, onClose, where, onTable }) {
   const r = readings(entry);
   const items = r.ids.map(id => describe(lex, id));
   const head = {
@@ -1415,7 +1425,7 @@ function AiChip({ open, onClick, tick }) {
   const on = onClaude || hasAiKey();
   const label = onClaude ? "AI marking: Claude" : on ? "AI marking: on (your keys)" : "AI marking: add a free Gemini or Groq key";
   return <button type="button" onClick={onClick} aria-expanded={open} title={label} aria-label={label}
-    className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${open ? "bg-ink text-paper" : "bg-leaf hover:text-ink " + (on ? "text-ok" : "text-soft")}`}>AI{on ? " ✓" : " keys"}</button>;
+    className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${open ? "bg-ink text-paper" : "bg-leaf hover:text-ink " + (on ? "text-ok" : "text-soft")}`}>AI{on ? " ✓" : ""}</button>;
 }
 function ThemeSwitch() {
   const [t, setT] = useState(() => { const v = readLocal(THEME_KEY); return v === "dark" || v === "light" ? v : "auto"; });
@@ -1453,6 +1463,7 @@ function App() {
   const [lastStudy, setLastStudy] = useState(() => (STUDY_MODES.includes(ui0.study) ? ui0.study : "read"));
   useEffect(() => { if (STUDY_MODES.includes(mode)) setLastStudy(mode); }, [mode]);
   const group = STUDY_MODES.includes(mode) || mode === "place" ? "study" : mode === "office" ? "liturgy" : mode;
+  const landedOn = useRef(group).current;   // the welcome shows where the app opened, not again on Study after Home
   const [placeParts, setPlaceParts] = useState(null);
   const placeRes = useRef(null);
   const [store, setStore] = useState("local");
@@ -1961,9 +1972,9 @@ function App() {
     <div className="flex flex-col gap-6" style={{ "--lz": lz }}>
       {/* Header */}
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule pb-3">
-        <div className="min-w-0 flex-1 basis-[13rem]">
-          <h1 className="latin text-[1.35rem] font-bold tracking-tight text-ink">Lectio Vulgata</h1>
-          <p className="text-[14px] text-soft">Latin for the exam, the Office and a lifetime of reading.</p>
+        <div className="min-w-0 flex-1 basis-[10rem] sm:basis-[13rem]">
+          <h1 className="latin whitespace-nowrap text-[1.35rem] font-bold tracking-tight text-ink">Lectio Vulgata</h1>
+          <p className="hidden text-[14px] text-soft sm:block">Latin for the exam, the Office and a lifetime of reading.</p>
         </div>
         {tally.length > 0 && <div className="num flex flex-wrap items-center gap-2 text-[14px] text-soft" aria-live="polite">
           <span className="smallcaps">This session</span>
@@ -2007,7 +2018,7 @@ function App() {
       </>}
 
       {group === "study" && <>
-      {firstVisit && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      {firstVisit && landedOn === "study" && <WelcomeCard onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
@@ -2087,7 +2098,7 @@ function App() {
       {/* Study has its own row of practice modes */}
       <div ref={practiceRef} className="flex scroll-mt-16 flex-col gap-2">
         {group === "study" && (
-          <nav className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" aria-label="Practice mode">
+          <nav className="flex flex-wrap items-center gap-1 pb-1" aria-label="Practice mode">
             {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>]].map(([m0, l]) => {
               /* "Class quiz" is the Vocabulary tab opened on My class list. */
               const m = m0 === "class" ? "vocab" : m0;

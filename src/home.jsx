@@ -30,6 +30,8 @@ function continueItems(libIdx, posLabel) {
       const o = readLocal(OFFICE_KEY) || {};
       const h = HOURS_L.find(x => x[0] === o.hour);
       label = o.part === "sunday" ? "Sunday preparation" : "Today’s " + (o.part === "mass" ? "Mass" : o.part === "calendar" ? "calendar" : h ? h[1] : "Office");
+      // The Today's Office tile below already opens the plain Office: no need to list it twice.
+      if (label === "Today’s Office") continue;
     } else if (area === "library") {
       const l = readLocal(LIB_KEY) || {};
       if (l._open === "summa") { const s = readLocal(SUMMA_POS_KEY) || {}; label = "Summa Theologiae"; sub = s.p ? `${SM_PART[s.p]} q. ${s.q || 1}, a. ${s.a || 1}` : ""; }

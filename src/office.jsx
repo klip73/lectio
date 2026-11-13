@@ -94,10 +94,31 @@ function sectionName(la) {
   const noct = la.find(l => /^\^Nocturnus/.test(l));
   return noct ? noct.replace(/\^/g, "") : "";
 }
+/* True on a phone-width screen, where two columns don't fit. */
+function useNarrow() {
+  const q = "(max-width: 639px)";
+  const [n, setN] = useState(() => { try { return window.matchMedia(q).matches; } catch (e) { return false; } });
+  useEffect(() => { try { const m = window.matchMedia(q); const f = () => setN(m.matches); m.addEventListener("change", f); return () => m.removeEventListener("change", f); } catch (e) {} }, []);
+  return n;
+}
 function OfficeSection({ sec, i, showEn, onWord, sel }) {
   const [en, setEn] = useState(false);
+  const narrow = useNarrow();
   const la = officeLines(sec[0]), eng = officeLines(sec[1]);
   const both = showEn || en;
+  // On a phone, put each English line under its Latin line when the two match line for line (hymns, psalms, versicles).
+  const paired = both && narrow && la.length > 1 && la.length === eng.length && la.every((l, k) => !!l.h === !!eng[k].h);
+  if (paired) return (
+    <section id={"office-" + i} className="scroll-mt-16 rounded-lg border border-rule bg-leaf px-4 py-3 sm:px-5">
+      {la.map((l, k) => l.h
+        ? <p key={k} className="smallcaps mt-1 text-[15px] font-semibold text-rubric">{l.h}</p>
+        : <div key={k} className="mb-1">
+            <p lang="la" className="lt latin text-[1.08rem] leading-[1.6] text-ink"><OfficeText line={l.t} latin={true} onWord={onWord} sel={sel} /></p>
+            <p lang="en" className="text-[14px] leading-snug text-soft"><OfficeText line={eng[k].t} latin={false} onWord={onWord} sel={sel} /></p>
+          </div>)}
+      {!showEn && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => setEn(false)}>Hide English</button>}
+    </section>
+  );
   const block = (ls, latin) => ls.map((l, k) => l.h
     ? <p key={k} className="smallcaps mt-1 text-[15px] font-semibold text-rubric">{l.h}</p>
     : <p key={k} className={latin ? "latin text-[1.08rem] leading-[1.75] text-ink" : "text-[15px] leading-snug text-soft"}><OfficeText line={l.t} latin={latin} onWord={onWord} sel={sel} /></p>);
@@ -172,7 +193,7 @@ function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }
   const anyEn = sections.some(x => x.s[1] && x.s[1].length);
   return (
     <>
-      {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> English beside the Latin</label>}
+      {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> English with the Latin</label>}
       {chips.length > 1 && (
         <nav className="flex flex-wrap gap-1.5" aria-label="Sections">
           {chips.map(c => <button key={c.i} type="button" onClick={() => { const el = document.getElementById("office-" + c.i); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }}
@@ -463,7 +484,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const title = day && !day.missing ? (part === "mass" && day.ht && day.ht.x ? day.ht.x.split(" ~ ")[0] : part === "office" && day.ht && day.ht[hour] ? day.ht[hour].split(" ~ ")[0] : day.t) : "";
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-0.5 self-start overflow-x-auto rounded-lg border border-rule bg-paper p-1 [scrollbar-width:none] max-w-full" role="group" aria-label="Liturgy section">
+      <div className="flex max-w-full flex-wrap gap-0.5 self-start rounded-lg border border-rule bg-paper p-1" role="group" aria-label="Liturgy section">
         <button type="button" className={tabCls(part === "office")} aria-pressed={part === "office"} onClick={() => setPart("office")}>Office</button>
         <button type="button" className={tabCls(part === "mass")} aria-pressed={part === "mass"} onClick={() => setPart("mass")}>Mass</button>
         <button type="button" className={tabCls(part === "sunday")} aria-pressed={part === "sunday"} onClick={() => setPart("sunday")}>Sunday</button>
