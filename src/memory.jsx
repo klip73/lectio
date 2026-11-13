@@ -24,7 +24,7 @@ const MEMORY = [
     { k: "The list", en: true, la: "favour, help, please, trust (and their opposites); believe, persuade, command, obey, serve, resist, envy, threaten, pardon, spare", note: "So crēdō tibi, faveō, noceō, placeō, cōnfīdō, persuādeō, imperō, pāreō, serviō, resistō, invideō, minor, ignōscō, parcō all take the dative. A&G gives the list in this order: it has been learnt as a chant for a century.", src: "Allen & Greenough § 367", url: "https://dcc.dickinson.edu/grammar/latin" }
   ] },
   { id: "abl5", title: "Five deponents with the ablative", items: [
-    { k: "Learn as one line", la: "ūtor, fruor, fungor, potior, vēscor", note: "“use, enjoy, perform, get possession of, feed on”, with their compounds, take the ablative: ūtor gladiō, I use a sword. (potior also takes the genitive: potīrī rērum, to be master of affairs.)", src: "Allen & Greenough § 410", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "Learn as one line", la: "ūtor, fruor, fungor, potior, vēscor", note: "“use, enjoy, perform, get possession of, feed on”, with their compounds, take the ablative: ūtor gladiō, I use a sword. (potior also takes the genitive: potīrī rērum, to be master of affairs.) Many teachers give the five as the acronym PUFFV, said “puffy”: potior, ūtor, fruor, fungor, vēscor (so the Lingua Latina blog).", src: "Allen & Greenough § 410; lingvalatina.com, Latin Mnemonics", url: "https://dcc.dickinson.edu/grammar/latin" }
   ] },
   { id: "gender", title: "Gender by meaning", items: [
     { k: "The rule", en: true, la: "Masculine: names of men, rivers, winds, months, mountains, peoples. Feminine: women, cities, countries, islands, trees. Neuter: indeclinable words and infinitives used as nouns.", note: "Kennedy’s Memorial Lines on Gender put this into rhyme (below, in full); the same rule in prose is in Allen & Greenough’s chapter on gender.", src: "Kennedy, Revised Latin Primer (1888), Appendix IV; Allen & Greenough, Gender", url: "https://dcc.dickinson.edu/grammar/latin" }
@@ -39,6 +39,12 @@ const MEMORY = [
     { k: "Ablative", en: true, la: "by, with, from, in, on, at", note: "The ablative’s “basic meanings”, as a modern Oxford grammar sums them up.", src: "Morwood, A Latin Grammar (Oxford, 1999), glossary", url: "" },
     { k: "Quantity", la: "Vōcālis ante vōcālem corripitur", note: "“A vowel before a vowel is shortened”: deus, via, fīlius. The rule of the old Latin grammars; see the Meter tab in Study.", src: "Allen & Greenough, Prosody (§§ 602 ff.)", url: "https://dcc.dickinson.edu/grammar/latin" }
   ] },
+  { id: "acro", title: "Acronyms and couplets", items: [
+    { k: "DIRT: nouns with a locative", en: true, la: "Domus (domī, at home) · Īnsulae, small islands (Naxī, on Naxos) · Rūs (rūrī, in the country) · Towns (Rōmae, in Rome) · and the whole word DIRT for humus (humī, on the ground)", note: "The place where, without a preposition. (With most other nouns Latin uses in + ablative.)", src: "lingvalatina.com, Latin Mnemonics", url: "https://lingvalatina.com" },
+    { k: "UNUS NAUTA: genitive -īus, dative -ī", en: true, la: "ūnus, nūllus, ūllus, sōlus, neuter, alter, uter, tōtus, alius", note: "The initials spell UNUS NAUTA. These adjectives decline like bonus except in the genitive and dative singular: ūnīus, ūnī; tōtīus, tōtī; alterīus, alterī (but alius: alterīus is used for its genitive).", src: "lingvalatina.com, Latin Mnemonics; Allen & Greenough § 113", url: "https://lingvalatina.com" },
+    { k: "suus or eius?", verse: ["Use ‘eius’ when you point away-us,", "but ‘suus’ for the subject’s use!"], note: "suus (his own, her own, their own) refers back to the subject of its clause; eius (his, her: of someone else) points away from it. Petrus librum suum legit, Peter reads his (own) book; Petrus librum eius legit, Peter reads his (another man’s) book.", src: "lingvalatina.com, Latin Mnemonics", url: "https://lingvalatina.com" },
+    { k: "Ablative prepositions, short", verse: ["Put the ablative with dē,", "cum and cōram, ab and ē,", "sine, tenus, prō and prae."], note: "A shorter rhyme than Kennedy’s; some teachers add a fourth line, “In and sub go either way.”", src: "a reader’s comment on lingvalatina.com, Latin Mnemonics (2017)", url: "https://lingvalatina.com" }
+  ] },
   { id: "fun", title: "For fun", items: [
     { k: "Mālō", verse: ["Mālō: I would rather be", "Mālō: in an apple tree", "Mālō: than a naughty boy", "Mālō: in adversity"], note: "Four meanings of malo: “I prefer” (mālō), “in an apple tree” (mālus), “than a bad boy” (malus, ablative of comparison), “in adversity” (malum). The verse came from an old Latin grammar; Benjamin Britten set it in The Turn of the Screw.", src: "Wikipedia, “Latin mnemonics” (citing Lily’s grammar and Britten)", url: "https://en.wikipedia.org/wiki/Latin_mnemonics" }
   ] }
@@ -48,7 +54,7 @@ function MemoryAids() {
   const toggle = id => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[15px] leading-snug text-ink">What generations of schoolboys learnt by heart: lists to chant and a few rhymes. Each says where it comes from. Say a list aloud a few times on three or four days, and it stays.</p>
+      <p className="text-[15px] leading-snug text-ink">What generations of schoolboys learnt by heart: lists to chant, acronyms and rhymes. Each says where it comes from. Say a list aloud a few times on three or four days, and it stays.</p>
       {MEMORY.map(g => (
         <section key={g.id} className="rounded-lg border border-rule bg-leaf px-4 py-3">
           <button type="button" aria-expanded={open.has(g.id)} onClick={() => toggle(g.id)} className="flex w-full items-baseline justify-between text-left">
@@ -69,6 +75,43 @@ function MemoryAids() {
           )}
         </section>
       ))}
+    </div>
+  );
+}
+
+/* ---------- Latin on the web: links worth knowing (most from the Lingua Latina blog's resources page, checked Nov 2026) ---------- */
+const WEB_LINKS = [
+  ["Reading and listening", [
+    ["Ephemeris", "http://www.alcuinus.net/ephemeris/index.php", "World news written in Latin."],
+    ["Nuntii Latini (Radio Bremen)", "https://www.radiobremen.de/bremenzwei/rubriken/latein/latein-startseite100.html", "Weekly news read aloud in Latin, with the text."],
+    ["Nuntii Latini (Vatican News)", "https://www.vaticannews.va/de/vatikan/news/2018-10/nuntii-latini.html", "The Vatican’s Latin news."],
+    ["Bibliotheca Augustana", "http://www.hs-augsburg.de/~harsch/augusta.html", "Latin texts of every period, many not in the Latin Library."],
+    ["Loebolus", "https://ryanfb.github.io/loebolus/", "Every public-domain Loeb volume, Latin and Greek with English, as PDFs."],
+    ["Vivarium Novum: school readers", "https://vivariumnovum.it/risorse-didattiche/pratica-didattica/libri-scolastici", "Free readers in Latin from the Academia Vivarium Novum."]
+  ]],
+  ["Dictionaries and tools", [
+    ["Forcellini, Totius Latinitatis Lexicon", "https://www.lexica.linguax.com/forc.php", "The great Latin–Latin dictionary (1771): meanings explained in Latin. Also linked from every word’s dictionary box."],
+    ["Glossa", "http://athirdway.com/glossa", "Lewis & Short and other dictionaries in one search."],
+    ["Diogenes", "http://www.dur.ac.uk/p.j.heslin/Software/Diogenes/", "Free program for searching Latin and Greek texts and dictionaries on your own computer."],
+    ["PHI Latin concordance", "https://latin.packhum.org/concordance", "Every place a word occurs in classical Latin."],
+    ["David Morgan’s Lexicon", "http://www.culturaclasica.com/lingualatina/lexicon_latinum_morgan.pdf", "Latin words for modern things (PDF)."],
+    ["Quomodo dicitur?", "http://quomododicitur.com/", "Podcast and help for speaking Latin."],
+    ["John Piazza’s list", "http://johnpiazza.net/links/", "A long list of links for spoken Latin."]
+  ]]
+];
+function WebLinks() {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-[15px] leading-snug text-ink">Good places for Latin beyond this app. Links open in a new tab.</p>
+      {WEB_LINKS.map(([h, ls]) => (
+        <section key={h} className="rounded-lg border border-rule bg-leaf px-4 py-3">
+          <h3 className="smallcaps mb-1 text-[13px] font-semibold text-rubric">{h}</h3>
+          <ul className="flex flex-col gap-2">
+            {ls.map(([t, u, d]) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer" className="text-[15px] font-medium text-rubric underline underline-offset-2">{t} ↗</a><span className="block text-[14px] leading-snug text-soft">{d}</span></li>)}
+          </ul>
+        </section>
+      ))}
+      <p className="text-[12px] text-soft">Many of these come from the resources page of the Lingua Latina blog (lingvalatina.com).</p>
     </div>
   );
 }

@@ -1166,6 +1166,7 @@ function LewisShort({ lemmas, openFirst }) {
   const links = (
     <span className="flex flex-wrap gap-x-3 text-[13px]">
       <a className="text-rubric underline underline-offset-2" href={`https://logeion.uchicago.edu/${encodeURIComponent(first)}`} target="_blank" rel="noopener noreferrer">Logeion ↗</a>
+      <a className="text-rubric underline underline-offset-2" title="Forcellini, Totius Latinitatis Lexicon: Latin explained in Latin" href={`https://www.lexica.linguax.com/forc.php?searchedLG=${encodeURIComponent(String(first).replace(/[^A-Za-zÀ-ÿ]/g, ""))}`} target="_blank" rel="noopener noreferrer">Forcellini (Latin–Latin) ↗</a>
       <a className="text-rubric underline underline-offset-2" href={`https://en.wiktionary.org/wiki/${encodeURIComponent(first)}#Latin`} target="_blank" rel="noopener noreferrer">Wiktionary ↗</a>
       <button type="button" className="text-rubric underline underline-offset-2" onClick={() => { try { window.dispatchEvent(new CustomEvent("lv-dict", { detail: first })); } catch (e) {} }}>Open in the Dictionary</button>
     </span>
