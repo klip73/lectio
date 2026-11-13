@@ -672,7 +672,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
             : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : res.synRes.ok === null ? "text-soft" : "text-warn"}`}>{res.synRes.ok ? "✓" : res.synRes.ok === null ? "?" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
           {res.ai && res.ai.status === "loading" && <p className="text-[14px] text-soft">The AI is checking your answers…</p>}
           {res.ai && res.ai.status === "done" && (<>
-            {res.ai.formsNote && res.ai.formsOk != null && <p className={`text-[14px] ${res.ai.formsOk ? "text-ok" : "text-warn"}`}>{res.ai.formsOk ? "✓" : "✗"} {what}: {res.ai.formsNote}</p>}
+            {it.ep && res.ai.formsNote && res.ai.formsOk != null && <p className={`text-[14px] ${res.ai.formsOk ? "text-ok" : "text-warn"}`}>{res.ai.formsOk ? "✓" : "✗"} {what}: {res.ai.formsNote}</p>}
             {res.ai.meanNote && res.ai.meanOk != null && <p className={`text-[14px] ${res.ai.meanOk ? "text-ok" : "text-warn"}`}>{res.ai.meanOk ? "✓" : "✗"} meaning: {res.ai.meanNote}</p>}
             {res.ai.gloss && <p className="text-[14px] text-soft">Note on the app’s meaning: {res.ai.gloss}</p>}
           </>)}
