@@ -4,7 +4,7 @@ const libCache = {};
 /* The larger additions (St Thomas's other works ct-*, the manuals and readers rd-*, the whole Latin Library ll-*) are read by the online page from the
    phone app's site, to keep the page within its size limit. */
 function libGet(name) {
-  const remote = REMOTE_V && /^(ct|rd|ll)-|^pontificale$/.test(name);
+  const remote = REMOTE_V && /^(ct|rd|ll|va)-|^pontificale$/.test(name);
   if (!libCache[name]) libCache[name] = getJSON(`${remote ? APP_SITE : ""}data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
   return libCache[name];
 }
@@ -20,12 +20,16 @@ function CanonLookup({ onOpen }) {
   const [n, setN] = useState("");
   useEffect(() => { getJSON("data/canon1983.json").then(setD).catch(() => {}); }, []);
   const c = d && n ? d.canons[String(parseInt(n, 10))] : null;
+  /* the 1983 text is on the Vatican documents shelf (va-cic1983): canon -> part */
+  const [c83, setC83] = useState(null);
+  useEffect(() => { if (n && !c83) libGet("va-cic1983").then(w => { const m = {}; w.chapters.forEach((ch, i) => ch.paras.forEach(p => { const x = /^Can\. (\d+)/.exec(p); if (x && m[x[1]] == null) m[x[1]] = i; })); setC83(m); }).catch(() => {}); }, [n]);
+  const at83 = c && c83 ? c83[String(parseInt(n, 10))] : null;
   const ext = "inline-flex items-center rounded-md border border-rule bg-paper px-3 py-1.5 text-[14px] text-ink hover:border-soft";
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-4 py-3">
         <span lang="la" className="latin text-[1.02rem] font-bold text-ink">Codex Iuris Canonici (1983)</span>
-        <span className="text-[13px] leading-snug text-soft">Look up a canon: it opens on the Vatican’s site in Latin and English (the text is under copyright, so it isn’t copied here).</span>
+        <span className="text-[13px] leading-snug text-soft">Look up a canon: read the Latin here (the whole Code is on the Vatican documents shelf below), or open it on the Vatican’s site in Latin and English.</span>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="canon-n" className="text-[14px] text-ink">Can.</label>
           <input id="canon-n" inputMode="numeric" value={n} onChange={e => setN(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="1752" className="w-24 rounded-md border border-rule bg-paper px-2 py-1.5 text-[15px] text-ink" />
@@ -34,6 +38,7 @@ function CanonLookup({ onOpen }) {
         </div>
         {c && (
           <div className="flex flex-wrap gap-2">
+            {at83 != null && onOpen && <Btn onClick={() => onOpen("va-cic1983", at83, `Can. ${parseInt(n, 10)}`)}>Open can. {parseInt(n, 10)}</Btn>}
             <a className={ext} href={d.urls[c[1]]} target="_blank" rel="noopener noreferrer">Latin ↗</a>
             <a className={ext} href={d.urls[c[2]]} target="_blank" rel="noopener noreferrer">English ↗</a>
             <span className="self-center text-[12px] text-soft">On the Latin page, find “Can. {parseInt(n, 10)}”.</span>
@@ -93,6 +98,50 @@ function LatinLibraryShelf({ pos, onOpen }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+/* ---------- Vatican documents: every one with a Latin text (popes, councils, Vatican II, the Curia, the Catechism, the Codes, the liturgy) ---------- */
+function VaticanShelf({ pos, onOpen }) {
+  const [va, setVa] = useState(null), [err, setErr] = useState("");
+  const [sec, setSec] = useState(pos._vas || "popes"), [q, setQ] = useState("");
+  const [openA, setOpenA] = useState(null);
+  useEffect(() => { libGet("va-index").then(setVa).catch(() => setErr("The Vatican documents didn’t load. Check your connection.")); }, []);
+  if (err) return <p className="text-[14px] text-warn">{err}</p>;
+  if (!va) return <p className="text-[14px] text-soft">Loading the Vatican documents…</p>;
+  const nq = normForm(q.trim());
+  const ws = va.works.filter(w => nq ? normForm(`${w.title} ${w.author} ${w.kind || ""} ${(w.date || "").slice(0, 4)}`).includes(nq) : w.sec === sec);
+  const byA = {}, ay = {};
+  ws.forEach(w => { (byA[w.author] = byA[w.author] || []).push(w); ay[w.author] = Math.min(ay[w.author] ?? 9999, w.ay || 9999); });
+  const authors = Object.keys(byA).sort((a, b) => ay[a] - ay[b] || a.localeCompare(b));
+  Object.values(byA).forEach(l => l.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+  const k = n => n >= 1000 ? Math.round(n / 1000) + "k" : n;
+  const many = a => byA[a].length > 1 && !nq && sec !== "councils" && sec !== "vat2";
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Kind of document">
+        {va.sections.map(([id, l]) => <button key={id} type="button" aria-pressed={!nq && sec === id} onClick={() => { setSec(id); setQ(""); onOpen(null, { _vas: id }); }}
+          className={`rounded-md border px-2.5 py-1 text-[13px] ${!nq && sec === id ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-paper text-ink"}`}>{l} <span className="num text-soft">{va.works.filter(w => w.sec === id).length}</span></button>)}
+      </div>
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a document (Rerum novarum, Pius XII, encyclical, 1950…)" className="w-full rounded-md border border-rule bg-paper px-3 py-1.5 text-[15px] text-ink" />
+      <p className="text-[12px] text-soft">{ws.length} documents{ws.filter(w => w.en).length ? `, ${ws.filter(w => w.en).length} with the Holy See’s English` : ""}. Tap a word for its parsing.</p>
+      <ul className="flex flex-col divide-y divide-[var(--rule)] rounded-lg border border-rule bg-leaf">
+        {authors.map(a => {
+          const list = byA[a], open = openA === a || !many(a);
+          return (
+            <li key={a} className="px-3 py-1.5">
+              {many(a) ? <button type="button" onClick={() => setOpenA(openA === a ? null : a)} aria-expanded={open} className="flex w-full items-baseline justify-between gap-2 text-left">
+                <span className="text-[15px] font-semibold text-ink">{a}</span><span className="num text-[12px] text-soft">{list.length} documents {open ? "▴" : "▾"}</span></button> : null}
+              {open && <div className={`flex flex-col ${many(a) ? "mt-1 pl-3" : ""}`}>{list.map(w => (
+                <button key={w.id} type="button" onClick={() => onOpen(w.id)} className="flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-left hover:bg-paper">
+                  <span><span lang="la" className="latin text-[14px] text-ink">{w.title}</span><span className="text-[13px] text-soft">{!many(a) && w.author !== w.title ? ` · ${w.author}` : ""}{w.kind ? ` · ${w.kind}` : ""}{w.date && !/^0/.test(w.date) ? `, ${w.date.slice(0, 4)}` : ""}</span></span>
+                  <span className="num flex-none text-[12px] text-soft">{w.en ? "Latin & English · " : ""}{k(w.words)} words{pos[w.id] != null ? " · reading" : ""}</span>
+                </button>))}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[12px] text-soft">From the Magisterium archive (github.com/realitix/magisterium), which took most of these texts from vatican.va. The newer ones and their English are © Libreria Editrice Vaticana / Dicasterium pro Communicatione. Already on the shelves above: the Roman Catechism, the 1917 Code and the 1895 Pontificale.</p>
     </div>
   );
 }
@@ -184,13 +233,19 @@ function LibraryMode({ onTap, onTable }) {
             <div className="mt-3">{pos._llOpen && <LatinLibraryShelf pos={pos} onOpen={(id, extra) => setPos({ ...readLocal(LIB_KEY), ...(extra || {}), ...(id ? { _open: id } : {}) })} />}</div>
           </details>
         )}
+        {!(OFFLINE && !APP) && (
+          <details className="rounded-lg border border-rule bg-paper px-4 py-3" open={!!pos._vaOpen} onToggle={e => { if (!!e.currentTarget.open !== !!pos._vaOpen) setPos({ ...pos, _vaOpen: e.currentTarget.open }); }}>
+            <summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">Vatican documents <span className="font-normal normal-case text-soft">· {idx.vatican ? `${idx.vatican.works} documents with a Latin text, ${Math.round(idx.vatican.words / 1e5) / 10} million words` : "every one with a Latin text"}: encyclicals from Leo XIII to Leo XIV, the councils from Nicaea to Vatican II, the Catechism, the 1983 Code</span></summary>
+            <div className="mt-3">{pos._vaOpen && <VaticanShelf pos={pos} onOpen={(id, extra) => setPos({ ...readLocal(LIB_KEY), ...(extra || {}), ...(id ? { _open: id } : {}) })} />}</div>
+          </details>
+        )}
         {OFFLINE && !APP && <p className="text-[13px] text-soft">This offline copy carries the first eight works; the whole Library and the complete Summa are in the phone app and the online page.</p>}
-        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); St Thomas's other works and Cajetan from the Corpus Thomisticum (via github.com/antstratfordlol-bit/corpus-thomisticum); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium); Zigliara and Mazzella from scans collected in James Penfold’s Lexicon Scholasticum; Boethius from the Loeb edition (1918, Project Gutenberg); the whole Latin Library shelf from thelatinlibrary.com (public domain). Word help covers the words these texts share with the parsed exam texts.</p>
+        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); St Thomas's other works and Cajetan from the Corpus Thomisticum (via github.com/antstratfordlol-bit/corpus-thomisticum); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium); Zigliara and Mazzella from scans collected in James Penfold’s Lexicon Scholasticum; Boethius from the Loeb edition (1918, Project Gutenberg); the whole Latin Library shelf from thelatinlibrary.com (public domain); the Vatican documents from the Magisterium archive, after vatican.va (the newer ones © Libreria Editrice Vaticana). Word help covers the words these texts share with the parsed exam texts.</p>
       </div>
     );
   }
   if (!work) return <p className="text-[15px] text-soft">Loading…</p>;
-  return <WorkReader work={work} meta={idx.works.find(w => w.id === work.id) || { group: /^ll-/.test(work.id) ? "ll" : "exam" }} pos={pos} setPos={setPos} help={help} topRef={topRef} hlRef={hlRef} onTable={onTable} />;
+  return <WorkReader work={work} meta={idx.works.find(w => w.id === work.id) || { group: /^ll-/.test(work.id) ? "ll" : /^va-/.test(work.id) ? "va" : "exam", en: work.enLabel, caveat: work.caveat }} pos={pos} setPos={setPos} help={help} topRef={topRef} hlRef={hlRef} onTable={onTable} />;
 }
 /* One book: chapters grouped by book in the chooser, verse kept in lines, Latin beside the English where there is one,
    text size, find-in-this-book, arrow keys for the next and previous chapter. */
@@ -205,7 +260,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
   const enOn = pos._en !== false;
   const fs = LIB_FS[pos._fs != null ? pos._fs : 1] || 1.08;
   const hlN = pos._hl ? normForm(pos._hl.replace(/\.$/, "")) : "";
-  const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? normForm(p).startsWith(hlN + ".") : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
+  const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? (normForm(p).startsWith(hlN + ".") || normForm(p).startsWith(hlN + " ")) : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
   const go = (i, hl) => { if (i < 0 || i >= work.chapters.length) return; setPos({ ...readLocal(LIB_KEY), [work.id]: i, _hl: hl || "" }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
   useEffect(() => {
     const k = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === "ArrowRight") go(Math.min(ci + step, work.chapters.length - 1)); if (e.key === "ArrowLeft") go(ci - 1); };
@@ -228,7 +283,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
   const words = ch.paras.reduce((a, p) => a + p.split(/\s+/).length, 0);
   const verse = work.verse || ch.v;
   const g = meta.group || "exam";
-  const kinds = ["thomas", "opera", "manuals"].includes(g) ? ["thomas"] : g === "ot" ? ["bible"] : g === "hymns" ? ["hymn", "church"] : ["rites", "fathers", "canon", "medieval"].includes(g) ? ["church"] : [];
+  const kinds = ["thomas", "opera", "manuals"].includes(g) ? ["thomas"] : g === "ot" ? ["bible"] : g === "hymns" ? ["hymn", "church"] : ["rites", "fathers", "canon", "medieval", "va"].includes(g) ? ["church"] : [];
   const side = !!(ch.en && enOn);
   return (
     <div className="flex flex-col gap-3">
@@ -317,7 +372,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
    several words find the places that have all of them. */
 const searchCache = {};
 /* dir "search" (the Library's own works and the Summa) or "search-ll" (the Latin Library shelf; the online page reads it from the phone app's site) */
-const searchGet = (name, dir = "search") => { const k = dir + "/" + name; return (searchCache[k] = searchCache[k] || getJSON(`${dir === "search-ll" && REMOTE_V ? APP_SITE : ""}data/${dir}/${name}.json`).catch(e => { delete searchCache[k]; throw e; })); };
+const searchGet = (name, dir = "search") => { const k = dir + "/" + name; return (searchCache[k] = searchCache[k] || getJSON(`${(dir === "search-ll" || dir === "search-va") && REMOTE_V ? APP_SITE : ""}data/${dir}/${name}.json`).catch(e => { delete searchCache[k]; throw e; })); };
 async function searchDocs(q, dir = "search") {
   const terms = [...new Set(normForm(q).split(/[^a-z]+/).filter(t => t.length >= 2))].slice(0, 5);
   if (!terms.length) return { terms, hits: [] };
@@ -357,12 +412,17 @@ function LibrarySearch({ idx, onOpen }) {
   const [busy, setBusy] = useState(false);
   const [sidx, setSidx] = useState(null);
   const [withLL, setWithLL] = useState(false), [llIdx, setLlIdx] = useState(null);
+  const [withVA, setWithVA] = useState(false), [vaIdx, setVaIdx] = useState(null);
   async function run(e) {
     if (e) e.preventDefault();
     if (!q.trim()) return;
     setBusy(true); setSnips({}); setShown(10);
     try {
       const r = await searchDocs(q);
+      if (withVA) {
+        const [r3, vi] = await Promise.all([searchDocs(q, "search-va"), vaIdx ? Promise.resolve(vaIdx) : libGet("va-index")]);
+        setVaIdx(vi); r.hits = [...r.hits, ...r3.hits];
+      }
       if (withLL) {
         const [r2, li] = await Promise.all([searchDocs(q, "search-ll"), llIdx ? Promise.resolve(llIdx) : libGet("ll-index")]);
         setLlIdx(li); r.hits = [...r.hits, ...r2.hits];
@@ -391,8 +451,8 @@ function LibrarySearch({ idx, onOpen }) {
       const part = sidx && sidx.parts.find(x => x.id === h[1]), qr = part && part.qs.find(x => x[0] === h[2]);
       return { t: `Summa ${SM_PART[h[1]]}, q. ${h[2]}, a. ${h[3]}`, s: qr ? (qr[2][h[3] - 1] || qr[1]) : "" };
     }
-    const w = idx.works.find(x => x.id === h[1]) || (llIdx && llIdx.works.find(x => x.id === h[1]));
-    return { t: w ? (/^ll-/.test(h[1]) ? `${w.author}, ${llTitle(w)}` : w.title) : h[1], s: w ? w.chapters[h[2]] : "" };
+    const w = idx.works.find(x => x.id === h[1]) || (llIdx && llIdx.works.find(x => x.id === h[1])) || (vaIdx && vaIdx.works.find(x => x.id === h[1]));
+    return { t: w ? (/^ll-/.test(h[1]) ? `${w.author}, ${llTitle(w)}` : /^va-/.test(h[1]) ? `${w.title} (${w.author})` : w.title) : h[1], s: w ? w.chapters[h[2]] : "" };
   };
   function open(h) {
     if (h[0] === "S") {
@@ -409,6 +469,7 @@ function LibrarySearch({ idx, onOpen }) {
         <Btn variant="primary" type="submit" disabled={busy || !q.trim()}>{busy ? "…" : "Search"}</Btn>
       </form>
       <label className="flex items-center gap-2 text-[13px] text-soft"><input type="checkbox" checked={withLL} onChange={e => setWithLL(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> Also search the whole Latin Library (classical to Neo-Latin; slower)</label>
+      <label className="flex items-center gap-2 text-[13px] text-soft"><input type="checkbox" checked={withVA} onChange={e => setWithVA(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> Also search the Vatican documents (encyclicals, councils, the Catechism, the Codes)</label>
       {res && (
         <div className="flex flex-col gap-1.5" aria-live="polite">
           <p className="text-[13px] text-soft">{res.err ? "The search didn’t load. Check your connection and try again." : res.hits.length ? `${res.hits.length} place${res.hits.length === 1 ? "" : "s"} with ${res.terms.length > 1 ? "all of " : ""}“${res.terms.join(" ")}…” (words beginning so)` : `Nothing found for “${res.q}”. Try the beginning of the word (caritat for caritas, caritatis…).`}</p>

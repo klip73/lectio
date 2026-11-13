@@ -1,5 +1,5 @@
 """Last step of the Library build: put Boethius (Loeb, Latin and English; build_boethius.py) and the Latin Library shelf
-(build_latinlibrary.py) into data/library/index.json.
+(build_latinlibrary.py) into data/library/index.json, with the sizes of the Latin Library and Vatican documents shelves.
     python3 -I tools/library/add_classics.py data/library"""
 import json, os, re, sys
 D = sys.argv[1]
@@ -28,5 +28,8 @@ idx["groups"] = [[g, "Catechism, Ritual and Pontifical" if g == "rites" else l] 
 if os.path.exists(f"{D}/ll-index.json"):
     ll = json.load(open(f"{D}/ll-index.json"))
     idx["latinlibrary"] = {"works": len(ll["works"]), "words": sum(w["words"] for w in ll["works"])}
+if os.path.exists(f"{D}/va-index.json"):
+    va = json.load(open(f"{D}/va-index.json"))
+    idx["vatican"] = {"works": len(va["works"]), "words": sum(w["words"] for w in va["works"])}
 json.dump(idx, open(f"{D}/index.json", "w"), ensure_ascii=False, separators=(",", ":"))
 print("index:", len(idx["works"]), "works;", idx.get("latinlibrary"))

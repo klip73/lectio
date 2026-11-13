@@ -65,6 +65,7 @@ The Library search (data/search/) and the Summa's Gospel citations (data/summa/c
 | The whole Latin Library (765 works, `data/library/ll-*`) | github.com/cltk/lat_text_latin_library (thelatinlibrary.com) | Public Domain Mark 1.0 |
 | Boethius, Consolatio and Opuscula sacra, Latin and English | Loeb edition, Stewart & Rand 1918: Project Gutenberg #13316 (github.com/GITenberg/…_13316) | Public domain |
 | Pontificale Romanum (Benedict XIV, Leo XIII; 1895) | github.com/realitix/magisterium, A-pre-vatican-ii/liturgie/1895-pontifical-romain-leo-xiii | Public domain text |
+| Vatican documents with a Latin text (379 works, `data/library/va-*`): popes' letters from Leo X to Leo XIV, the ecumenical councils from Nicaea I to Vatican II, the Roman Curia (CDF/DDF, Divine Worship, Rites, Clergy), the 1997 Catechism (editio typica latina) and its Compendium, the 1983 Code and the Eastern Code, missals, pontificals and liturgical instructions; the Holy See's English where there is one | github.com/realitix/magisterium (texts taken mostly from vatican.va); built by tools/library/build_vatican.py | Older texts public domain; newer texts and translations © Libreria Editrice Vaticana / Dicasterium pro Communicatione, credited in the app |
 | Tridentine general rubrics, Divino afflatu rubrics and tables, Cum nostra (1955), Variationes (1960), monastic rubrics (1963) | Divinum Officium, web/www/horas/Help/Rubrics | As the existing rubrics |
 
 ## Added November 2026

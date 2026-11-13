@@ -123,6 +123,9 @@ The Office and Mass (only when extending the years, or when Divinum Officium cor
     python3 -I tools/library/build_readers.py <reading-additions.json> ../readers ../sources/tll /tmp/genforms.json   # manuals, readers
     python3 -I tools/library/add_works.py data /tmp/genforms.json ../opera/extra-opera.json ../readers/extra-readers.json
     python3 -I tools/library/build_search.py data     # Library and Summa search; the Summa's Gospel citations
+    python3 -I tools/library/build_vatican.py <magisterium>/magisterium data/library   # Vatican documents shelf (va-*)
+    python3 -I tools/library/add_classics.py data/library                         # shelf sizes into index.json
+    python3 -I tools/library/build_search_ll.py data va                            # its search (data/search-va)
     python3 -I tools/data/build_ls.py <lewis-short-json> data                  # Lewis & Short
     python3 -I tools/data/build_wkt.py <latin-forms.csv> data                  # Wiktionary word forms (after build_search)
     python3 -I tools/data/build_dicts.py data <latin-dict-1.csv> <latin-dict-2.csv>   # Wiktionary senses, Du Cange

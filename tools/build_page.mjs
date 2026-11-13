@@ -118,6 +118,7 @@ if (app) {
   cpSync(path.join(root, "data", "summa"), path.join(dir, "data", "summa"), { recursive: true });
   cpSync(path.join(root, "data", "search"), path.join(dir, "data", "search"), { recursive: true });
   if (existsSync(path.join(root, "data", "search-ll"))) cpSync(path.join(root, "data", "search-ll"), path.join(dir, "data", "search-ll"), { recursive: true });
+  if (existsSync(path.join(root, "data", "search-va"))) cpSync(path.join(root, "data", "search-va"), path.join(dir, "data", "search-va"), { recursive: true });
   cpSync(path.join(root, "data", "ls"), path.join(dir, "data", "ls"), { recursive: true });
   cpSync(path.join(root, "data", "wkt"), path.join(dir, "data", "wkt"), { recursive: true });
   cpSync(path.join(root, "data", "dict"), path.join(dir, "data", "dict"), { recursive: true });
