@@ -17,5 +17,15 @@ for l in lex["lemmas"]:
     k = l[0].lower()
     if k not in REAL and ROMAN.match(k):
         l[1] = f"the Roman numeral {value(k)} (a number, not a word to learn)"; n += 1
+# Glosses the build took from the wrong homograph (reported by students).
+GLOSS = {
+    "malum": "evil, misfortune, harm; (with long a, malum) apple",
+    "mala": "jaw, cheek (in a text, mala is usually 'evils': plural of malum, or of malus 'bad')",
+}
+g = 0
+for l in lex["lemmas"]:
+    if l[0] in GLOSS and l[1] != GLOSS[l[0]]:
+        l[1] = GLOSS[l[0]]; g += 1
+print("glosses corrected:", g)
 json.dump(lex, open(f"{D}/lexicon.json", "w"), ensure_ascii=False, separators=(",", ":"))
 print("Roman numerals glossed:", n)

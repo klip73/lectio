@@ -554,11 +554,25 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
     if (it.extra && it.extra.kind === "stem") parts = [...parts, { want: `${it.extra.which}: ${it.extra.want}-`, ok: stemOk(extraAns, it.extra.want) }];
     const auto = meaningOk(mean, it.inf.full);
     setMOk(auto ? true : null);
+    /* With AI on, the AI also marks the forms (it can accept a right variant the exact check missed, never fail a match)
+       and the meaning (any real sense of the word, not only the app's gloss), and says if the app's gloss looks wrong. */
+    const aiP = ai && (mean.trim() || form.trim()) ? getSample().then(sm => sm ? sm.json(`Latin vocabulary quiz for a seminarian (Church Latin: j/v and ae/e spellings and missing macrons are fine). Dictionary entry: ${it.inf.head}. The app's meaning: "${shortGloss(it.inf.full)}". Shown "${it.prompt}", the student wrote${it.ep ? ` the rest of the entry: "${form.trim().slice(0, 80)}" and` : ""} the meaning: "${mean.trim().slice(0, 80)}". Judge each. forms_ok: is that the right rest of the dictionary entry (${it.ep ? (it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "genitive and gender" : "the genitive or other endings") : "not asked: null"}; abbreviations like -ae are fine)? meaning_ok: is the student's meaning a correct meaning of this Latin word in any accepted sense (null if blank)? gloss_note: only if the app's meaning is wrong or misses the word's main sense, say so briefly, else "". Reply with only JSON: {"forms_ok":true|false|null,"forms_note":"max 12 words","meaning_ok":true|false|null,"meaning_note":"max 12 words","gloss_note":""}`, { modelTier: "quick" }) : null).catch(() => null) : null;
+    const finish = async r => {
+      if (!aiP) { setRes(r); return; }
+      setRes({ ...r, ai: { status: "loading" } });
+      const a = await aiP;
+      if (!a) { setRes({ ...r, ai: { status: "none" } }); return; }
+      const formsOk = a.forms_ok === true && r.parts.some(p => !p.ok && p.want !== "derivative");
+      const out = { ...r, parts: formsOk ? r.parts.map(p => p.want === "derivative" ? p : { ...p, ok: true }) : r.parts,
+        ai: { status: "done", formsOk: a.forms_ok, formsNote: String(a.forms_note || "").slice(0, 100), meanOk: a.meaning_ok, meanNote: String(a.meaning_note || "").slice(0, 100), gloss: String(a.gloss_note || "").slice(0, 160) } };
+      if (a.meaning_ok === true || a.meaning_ok === false) setMOk(a.meaning_ok);
+      setRes(out);
+    };
     let synRes = null;
     const meanDeriv = it.extra && it.extra.kind === "deriv" ? plainDerivative(mean, it.extra.root) : null;
     if (meanDeriv && !extraAns.trim()) {
       const synRes = { status: "done", kind: "derivative", ok: true, note: `your meaning “${meanDeriv}” is itself an English derivative`, ex: [] };
-      setRes({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
+      await finish({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
       return;
     }
     /* the related-words data (srs.jsx) knows English words from the same root: accept those at once */
@@ -566,7 +580,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
     const known = rr ? [...((rr.c && rr.c.en) || []), ...(rr.d || [])] : [];
     if (it.extra && it.extra.kind === "deriv" && extraAns.trim() && known.some(k => wNorm(k) === wNorm(extraAns).trim())) {
       const synRes = { status: "done", kind: "derivative", ok: true, note: "an English word from the same root", ex: known.filter(k => wNorm(k) !== wNorm(extraAns).trim()).slice(0, 3) };
-      setRes({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
+      await finish({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
       return;
     }
     if (it.extra && it.extra.kind === "deriv" && extraAns.trim()) {
@@ -581,16 +595,16 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
           : { status: "done", kind: "derivative", ok: heur, note: heur ? "it shares the Latin root (check the meaning fits)" : "it doesn’t share the Latin root", ex: [] };
       } catch (e) { synRes = { status: "done", kind: "derivative", ok: heur, note: heur ? "it shares the Latin root" : "it doesn’t share the Latin root", ex: [] }; }
       parts = [...parts, { want: "derivative", ok: synRes.ok }];
-      setRes({ parts, auto, synRes });
+      await finish({ parts, auto, synRes });
       return;
     }
     const relSyn = it.syn && rr ? (it.syn === "synonym" ? rr.s : rr.a) || [] : [];
     if (it.syn && syn.trim() && relSyn.some(k => wNorm(k) === wNorm(syn).trim())) {
-      setRes({ parts, auto, synRes: { status: "done", ok: true, note: `a fair ${it.syn}`, ex: relSyn.filter(k => wNorm(k) !== wNorm(syn).trim()).slice(0, 2) } });
+      await finish({ parts, auto, synRes: { status: "done", ok: true, note: `a fair ${it.syn}`, ex: relSyn.filter(k => wNorm(k) !== wNorm(syn).trim()).slice(0, 2) } });
       return;
     }
     if (it.syn && syn.trim() && !ai) {
-      setRes({ parts, auto, synRes: { status: "done", ok: null, note: `not in the app’s list; ${it.syn}s it knows`, ex: relSyn.slice(0, 3) } });
+      await finish({ parts, auto, synRes: { status: "done", ok: null, note: `not in the app’s list; ${it.syn}s it knows`, ex: relSyn.slice(0, 3) } });
       return;
     }
     if (it.syn && syn.trim()) {
@@ -602,7 +616,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
         synRes = raw ? { status: "done", ok: !!raw.ok, note: String(raw.note || "").slice(0, 120), ex: Array.isArray(raw.ex) ? raw.ex.slice(0, 2).map(String) : [] } : { status: "none" };
       } catch (e) { synRes = { status: "none" }; }
     }
-    setRes({ parts, auto, synRes });
+    await finish({ parts, auto, synRes });
   }
   function next(meaningRight) {
     const formsOk = res.parts.every(p => p.ok);
@@ -624,12 +638,12 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
       <div className="h-1.5 overflow-hidden rounded-full bg-[var(--rule)]" aria-hidden="true"><div className="h-full rounded-full bg-[var(--rubric)]" style={{ width: `${(i / items.length) * 100}%` }} /></div>
       <p lang="la" className="latin text-[1.8rem] font-bold leading-tight text-ink">{it.prompt}{it.ep ? "," : ""}</p>
       {it.ep && (
-        <label className="flex flex-col gap-1 text-[14px] text-ink">{what[0].toUpperCase() + what.slice(1)}
+        <label className="flex flex-col gap-1 text-[14px] text-ink">{what[0].toUpperCase() + what.slice(1)}{ai ? " (checked by the AI too)" : ""}
           <input ref={formRef} lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={form} readOnly={!!res} onChange={e => setForm(e.target.value)}
             className={`${inp} latin`} />
         </label>
       )}
-      <label className="flex flex-col gap-1 text-[14px] text-ink">Meaning
+      <label className="flex flex-col gap-1 text-[14px] text-ink">Meaning{ai ? " (checked by the AI)" : ""}
         <input autoComplete="off" value={mean} readOnly={!!res} onChange={e => setMean(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res && !it.syn) check(); }} className={inp} />
       </label>
       {it.extra && it.extra.kind === "stem" && (
@@ -656,7 +670,13 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
           <p className="text-[15px] text-ink">{it.inf.full}</p>
           {res.synRes && (res.synRes.status === "loading" ? <p className="text-[14px] text-soft">Checking your {res.synRes.kind || it.syn}…</p>
             : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : res.synRes.ok === null ? "text-soft" : "text-warn"}`}>{res.synRes.ok ? "✓" : res.synRes.ok === null ? "?" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
-          {mOk ? (
+          {res.ai && res.ai.status === "loading" && <p className="text-[14px] text-soft">The AI is checking your answers…</p>}
+          {res.ai && res.ai.status === "done" && (<>
+            {res.ai.formsNote && res.ai.formsOk != null && <p className={`text-[14px] ${res.ai.formsOk ? "text-ok" : "text-warn"}`}>{res.ai.formsOk ? "✓" : "✗"} {what}: {res.ai.formsNote}</p>}
+            {res.ai.meanNote && res.ai.meanOk != null && <p className={`text-[14px] ${res.ai.meanOk ? "text-ok" : "text-warn"}`}>{res.ai.meanOk ? "✓" : "✗"} meaning: {res.ai.meanNote}</p>}
+            {res.ai.gloss && <p className="text-[14px] text-soft">Note on the app’s meaning: {res.ai.gloss}</p>}
+          </>)}
+          {res.ai && res.ai.status === "loading" ? null : mOk ? (
             <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-ok">Your meaning matches.</span><Btn variant="primary" onClick={() => next(true)}>Next →</Btn><button type="button" className="text-[13px] text-soft underline" onClick={() => next(false)}>Actually, I had the meaning wrong</button></div>
           ) : (
             <div className="flex flex-wrap items-center gap-2"><span className="text-[14px] text-soft">Was your meaning right?</span><Btn variant="ok" onClick={() => next(true)}>Yes</Btn><Btn variant="warn" onClick={() => next(false)}>No</Btn></div>
