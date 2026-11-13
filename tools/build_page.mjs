@@ -121,6 +121,7 @@ if (app) {
   cpSync(path.join(root, "data", "ls"), path.join(dir, "data", "ls"), { recursive: true });
   cpSync(path.join(root, "data", "wkt"), path.join(dir, "data", "wkt"), { recursive: true });
   cpSync(path.join(root, "data", "dict"), path.join(dir, "data", "dict"), { recursive: true });
+  if (existsSync(path.join(root, "data", "rel"))) cpSync(path.join(root, "data", "rel"), path.join(dir, "data", "rel"), { recursive: true });
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);
