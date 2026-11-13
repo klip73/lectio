@@ -19,18 +19,18 @@ const TUTOR_OFF = ["not_granted", "sampling_disabled", "not_declared", "capabili
 function tutorErrorText(code, detail) {
   detail = typeof detail === "string" ? detail.replace(/\s+/g, " ").trim().slice(0, 220) : "";
   if (TUTOR_OFF.includes(code)) return "Mistake marking is turned off for this page, so only the key-word check is shown.";
-  if (code === "rate_limited") return window.claude && window.claude.use ? "You’ve reached your Claude usage limit for now. Try again later." : "Today’s free AI allowance is used up. It resets overnight." + (hasGroqKey() ? "" : " A free Groq key as a backup adds about a thousand a day (Skill map & backup → AI marking).");
+  if (code === "rate_limited") return window.claude && window.claude.use ? "You’ve reached your Claude usage limit for now. Try again later." : "Today’s free AI allowance is used up. It resets overnight." + (hasGroqKey() ? "" : " A free Groq key as a backup adds about a thousand a day (the “AI” button at the top).");
   if (code === "bad_key" && /free tier|billing|FREE_TIER/i.test(detail)) return "Google has switched off its free tier for this key’s project (“Free tier unavailable” in AI Studio). It’s an account flag on Google’s side, not the key. Fixes: verify your age in your Google Account, then make a key in a new project, or make one with a different Google account.";
-  if (code === "bad_key") return "Google didn’t accept your Gemini key for marking." + (detail ? ` Google says: “${detail}”` : "") + " Check it in Skill map & backup → AI marking.";
+  if (code === "bad_key") return "Google didn’t accept your Gemini key for marking." + (detail ? ` Google says: “${detail}”` : "") + " Check it in the “AI” button at the top.";
   if (code === "failed" && detail) return `The check didn’t finish. Google says: “${detail}”`;
   if (code === "no_key") return "Add a free Gemini key to have this marked.";
-  if (code === "busy") return "The AI is very busy right now (this happens at peak times and usually passes within minutes). Your key is fine: try again shortly." + (hasGroqKey() ? "" : " Adding a free Groq key as a backup avoids this (Skill map & backup → AI marking).");
+  if (code === "busy") return "The AI is very busy right now (this happens at peak times and usually passes within minutes). Your key is fine: try again shortly." + (hasGroqKey() ? "" : " Adding a free Groq key as a backup avoids this (the “AI” button at the top).");
   if (code === "offline") return "You’re offline. AI marking needs a connection.";
   if (code === "region") return "Google’s free AI isn’t offered in your region.";
   if (code === "session_expired") return "Sign in to Claude again, then try again.";
   if (code === "refused") return "Claude couldn’t check this translation. Try rewording it.";
   if (code === "prompt_too_large") return "This translation is too long to check in one go.";
-  return "The check didn’t finish." + (detail ? ` (${detail})` : code ? ` (${code})` : "") + " Try again, or use Test AI in Skill map & backup → AI marking.";
+  return "The check didn’t finish." + (detail ? ` (${detail})` : code ? ` (${code})` : "") + " Try again, or use Test AI in the “AI” button at the top.";
 }
 
 /* Compact parsing notes: only words whose form matters (verbs, nouns, adjectives, pronouns). */

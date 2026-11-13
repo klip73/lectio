@@ -39,7 +39,7 @@ function officeStreak(read, today) {
   return s;
 }
 /* One day's record (title, rank, commemorations), with the sections of one hour (or "x", the Mass) when asked. */
-async function officeDay(iso, hour) {
+async function officeDayBase(iso, hour) {
   const idx = await officeGet("index");
   const yr = +iso.slice(0, 4);
   if (!idx.years.includes(yr)) return { missing: true, years: idx.years };
@@ -55,6 +55,12 @@ async function officeDay(iso, hour) {
     return { ...d, hour, sections: (d.h[hour] || []).map(k => { const sc = common.s[k] || month.s[k]; return sc ? [sc[0].map(text), sc[1].map(text)] : [[], []]; }) };
   }
   return { ...d, hour, sections: (d.h[hour] || []).map(k => common[k] || month[k] || [[], []]) };
+}
+/* The day as kept here: the universal day, with the student's local calendar applied (localcal.jsx). */
+async function officeDay(iso, hour) {
+  const d = await officeDayBase(iso, hour);
+  if (!d || d.missing) return d;
+  try { return await lcApply(iso, hour, d); } catch (e) { return d; }
 }
 const normForm = w => w.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/æ/g, "ae").replace(/œ/g, "oe").replace(/j/g, "i").replace(/v/g, "u");
 /* Lines carry light markup from the generator: *Heading*, ^red^ (rubrics), {rubric}. A one-letter heading is a drop capital. */
@@ -238,7 +244,13 @@ function CalendarView({ date, onPick }) {
     officeGet("index").then(idx => {
       const yr = +month.slice(0, 4);
       if (!idx.years.includes(yr)) return alive && setDays({});
-      return officeGet("days-" + yr).then(d => alive && setDays(d));
+      return officeGet("days-" + yr).then(d => (OFFICE_V ? d : lcYear(yr).then(m => {
+        /* My calendar: the local feast in place of the universal day, marked */
+        if (!Object.keys(m).length) return d;
+        const o = { ...d };
+        Object.entries(m).forEach(([md, r]) => { if (r.e && o[md]) o[md] = { ...o[md], t: r.e.title, k: LC_CLASS[r.e.k], loc: true }; else if (o[md] && r.lost.length) o[md] = { ...o[md], lost: r.lost.map(x => x.e.title) }; });
+        return o;
+      }).catch(() => d))).then(d => alive && setDays(d));
     }).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "The calendar didn’t load. Check your connection and try again."));
     return () => { alive = false; };
   }, [month]);
@@ -268,7 +280,7 @@ function CalendarView({ date, onPick }) {
                 <button type="button" disabled={!d} onClick={() => onPick(iso)}
                   className={`grid w-full grid-cols-[3.2rem_1fr_auto] items-baseline gap-2 px-3 py-1.5 text-left hover:bg-paper ${iso === today ? "bg-rubrictint" : ""}`}>
                   <span className={`num text-[13px] ${wd === 0 ? "font-bold text-rubric" : "text-soft"}`}>{DOW[wd]} {i + 1}</span>
-                  <span lang="la" className={`latin min-w-0 truncate text-[14px] ${c && c <= 2 ? "font-bold text-ink" : "text-ink"}`}>{d ? d.t : "—"}</span>
+                  <span lang="la" className={`latin min-w-0 truncate text-[14px] ${c && c <= 2 ? "font-bold text-ink" : "text-ink"}`}>{d && d.loc && <span className="mr-1 rounded bg-rubrictint px-1 text-[11px] not-italic text-rubric">local</span>}{d ? d.t : "—"}</span>
                   <span className="num text-[11px] text-soft">{c ? ["", "I", "II", "III", "IV"][c] : ""}</span>
                 </button>
               </li>
@@ -395,7 +407,7 @@ function OfficeMode(props) {
 }
 function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const pref0 = readLocal(OFFICE_KEY) || {};
-  const [part, setPart0] = useState(["office", "mass", "sunday", "calendar", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
+  const [part, setPart0] = useState(["office", "mass", "sunday", "calendar", "mine", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
   const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
   const [mview, setMview] = useState(pref0.mview === "full" ? "full" : "lessons");
   const [xview, setXview] = useState(pref0.xview === "full" ? "full" : "propers");
@@ -403,6 +415,15 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const [day, setDay] = useState(null);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState("");
+  const [lcSeed, setLcSeed] = useState(null), [lcTick, setLcTick] = useState(0);
+  useEffect(() => { const f = () => setLcTick(t => t + 1); window.addEventListener("lv-localcal", f); return () => window.removeEventListener("lv-localcal", f); }, []);
+  /* "Different here?": a new local feast on this date, or the day's feast re-ranked */
+  function editHere() {
+    const md = date.slice(5), base = day && !day.missing ? day : null;
+    const feastDay = base && !/^(Feria|Sabbato|Dominica|Die |Diei )/.test(base.t || "") && !(base.local && base.local.e);
+    setLcSeed({ id: "lc" + Date.now().toString(36), preset: feastDay ? "rank" : "custom", title: feastDay ? base.t : "", replaces: feastDay ? base.t : "", src: feastDay ? date : "", srcTitle: feastDay ? base.t : "", k: feastDay ? Math.max(1, lcCls(base.k) - 1) : 3, rule: { type: "fixed", md }, ex: {} });
+    setPart("mine");
+  }
   const save = patch => writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), ...patch });
   const setPart = p => { setPart0(p); save({ part: p }); };
   const setHour = h => { setHour0(h); save({ hour: h }); };
@@ -411,7 +432,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
     let alive = true; setDay(null); setErr("");
     officeDay(date).then(d => alive && setDay(d)).catch(() => alive && setErr(OFFICE_V && REMOTE_V ? "This calendar comes from the phone app’s site and couldn’t load here. Open it in the phone app (klip73.github.io/lectio), or choose 1960." : "The calendar didn’t load. Check your connection and try again."));
     return () => { alive = false; };
-  }, [date]);
+  }, [date, lcTick]);
   // The app quietly keeps today's texts and the weeks ahead, so it opens with no signal.
   useEffect(() => {
     if (!APP) return;
@@ -447,10 +468,12 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
         <button type="button" className={tabCls(part === "mass")} aria-pressed={part === "mass"} onClick={() => setPart("mass")}>Mass</button>
         <button type="button" className={tabCls(part === "sunday")} aria-pressed={part === "sunday"} onClick={() => setPart("sunday")}>Sunday</button>
         <button type="button" className={tabCls(part === "calendar")} aria-pressed={part === "calendar"} onClick={() => setPart("calendar")}>Calendar</button>
+        {!OFFICE_V && <button type="button" className={tabCls(part === "mine")} aria-pressed={part === "mine"} onClick={() => setPart("mine")}>My calendar</button>}
         <button type="button" className={tabCls(part === "prayers")} aria-pressed={part === "prayers"} onClick={() => setPart("prayers")}>Prayers</button>
         <button type="button" className={tabCls(part === "rubrics")} aria-pressed={part === "rubrics"} onClick={() => setPart("rubrics")}>Rubrics</button>
       </div>
-      {part === "sunday" ? <SundayPrep onTap={onTap} onTable={onTable} onOpen={onOpen} /> : part === "rubrics" ? <RubricsView /> : part === "prayers" ? <PrayersView onTap={onTap} onTable={onTable} /> : part === "calendar" ? <CalendarView date={date} onPick={iso => { setDate(iso); setPart("office"); }} /> : (
+      {part === "sunday" ? <SundayPrep onTap={onTap} onTable={onTable} onOpen={onOpen} /> : part === "rubrics" ? <RubricsView /> : part === "prayers" ? <PrayersView onTap={onTap} onTable={onTable} /> : part === "calendar" ? <CalendarView date={date} onPick={iso => { setDate(iso); setPart("office"); }} />
+        : part === "mine" && !OFFICE_V ? <LocalCalendarView seed={lcSeed} onSeedDone={() => setLcSeed(null)} onPick={iso => { setDate(iso); setPart("office"); }} /> : (
         <>
           <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="The day">
             <div className="flex flex-wrap items-center gap-2">
@@ -464,6 +487,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
               <div className="mt-3">
                 <h2 lang="la" className="latin text-[1.2rem] font-bold leading-snug text-ink">{title}</h2>
                 <p className="text-[14px] text-soft">{RANK_EN[day.k] || day.k}{day.o ? ` · ${day.o.replace(/\s+/g, " ")}` : ""}</p>
+                <LocalDayNote day={day} onEdit={editHere} />
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Btn variant={isRead ? "ok" : "primary"} pressed={isRead} onClick={() => onRead(dayNum(date), !isRead)}>{isRead ? "✓ Read" : "Mark as read"}</Btn>
                   <span className="text-[13px] text-soft">{streak ? `${streak} day${streak === 1 ? "" : "s"} in a row · ` : ""}{read.length} day{read.length === 1 ? "" : "s"} read in all</span>
@@ -485,7 +509,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
                   {[["lessons", "Hymn, lessons, prayer"], ["full", "Full Matins"]].map(([k, l]) => <button key={k} type="button" aria-pressed={mview === k} onClick={() => setMview(k)} className={`rounded px-2.5 py-1 ${mview === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
                 </div>
               )}
-              <DayText date={date} hour={OFFLINE && !APP ? "m" : hour} onTap={onTap} onTable={onTable} view={hour === "m" || (OFFLINE && !APP) ? mview : "hour"} />
+              <DayText key={lcTick} date={date} hour={OFFLINE && !APP ? "m" : hour} onTap={onTap} onTable={onTable} view={hour === "m" || (OFFLINE && !APP) ? mview : "hour"} />
             </>
           )}
           {day && !day.missing && part === "mass" && (
@@ -493,7 +517,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
               <div className="flex gap-1 self-start rounded-lg border border-rule bg-paper p-0.5 text-[14px]" role="group" aria-label="How much to show">
                 {[["propers", "Propers of the day"], ["full", "Whole Mass, with rubrics"]].map(([k, l]) => <button key={k} type="button" aria-pressed={xview === k} onClick={() => setXview(k)} className={`rounded px-2.5 py-1 ${xview === k ? "bg-ink text-paper" : "text-ink"}`}>{l}</button>)}
               </div>
-              <DayText date={date} hour="x" onTap={onTap} onTable={onTable} view={xview} />
+               <DayText key={"x" + lcTick} date={date} hour="x" onTap={onTap} onTable={onTable} view={xview} />
             </>
           )}
           {day && !day.missing && (

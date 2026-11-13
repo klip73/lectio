@@ -1,10 +1,10 @@
 /* ---------- Library: classic Church texts in Latin (The Latin Library), read chapter by chapter with word help ---------- */
 const LIB_KEY = "lectio-vulgata-library";
 const libCache = {};
-/* The larger additions (St Thomas's other works ct-*, the manuals and readers rd-*) are read by the online page from the
+/* The larger additions (St Thomas's other works ct-*, the manuals and readers rd-*, the whole Latin Library ll-*) are read by the online page from the
    phone app's site, to keep the page within its size limit. */
 function libGet(name) {
-  const remote = REMOTE_V && /^(ct|rd)-/.test(name);
+  const remote = REMOTE_V && /^(ct|rd|ll)-|^pontificale$/.test(name);
   if (!libCache[name]) libCache[name] = getJSON(`${remote ? APP_SITE : ""}data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
   return libCache[name];
 }
@@ -51,6 +51,48 @@ function CanonLookup({ onOpen }) {
         </div>
         <a className="self-start text-[13px] text-rubric underline underline-offset-2" href="https://www.canonlaw.info/masterpage1917.htm" target="_blank" rel="noopener noreferrer">Dr Edward Peters on the 1917 Code ↗</a>
       </div>
+    </div>
+  );
+}
+
+/* ---------- The Latin Library: every text in it (classical, Christian, medieval, Neo-Latin), by period and author ---------- */
+function LatinLibraryShelf({ pos, onOpen }) {
+  const [ll, setLl] = useState(null), [err, setErr] = useState("");
+  const [per, setPer] = useState(pos._llp || "classical"), [q, setQ] = useState("");
+  const [openA, setOpenA] = useState(null);
+  useEffect(() => { libGet("ll-index").then(setLl).catch(() => setErr("The Latin Library shelf didn’t load. Check your connection.")); }, []);
+  if (err) return <p className="text-[14px] text-warn">{err}</p>;
+  if (!ll) return <p className="text-[14px] text-soft">Loading the Latin Library…</p>;
+  const nq = normForm(q.trim());
+  const ws = ll.works.filter(w => nq ? normForm(w.title + " " + w.author).includes(nq) : w.period === per);
+  const byA = {};
+  ws.forEach(w => { (byA[w.author] = byA[w.author] || []).push(w); });
+  const authors = Object.keys(byA).sort((a, b) => a.replace(/^(St\.?|Saint|S\.)\s+/, "").localeCompare(b.replace(/^(St\.?|Saint|S\.)\s+/, "")));
+  const k = n => n >= 1000 ? Math.round(n / 1000) + "k" : n;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Period">
+        {ll.periods.map(([id, l]) => <button key={id} type="button" aria-pressed={!nq && per === id} onClick={() => { setPer(id); setQ(""); onOpen(null, { _llp: id }); }}
+          className={`rounded-md border px-2.5 py-1 text-[13px] ${!nq && per === id ? "border-rubric bg-rubrictint font-semibold text-rubric" : "border-rule bg-paper text-ink"}`}>{l.split(" (")[0]} <span className="num text-soft">{ll.works.filter(w => w.period === id).length}</span></button>)}
+      </div>
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find an author or work (Cicero, Aeneis, Bernard, Erasmus…)" className="w-full rounded-md border border-rule bg-paper px-3 py-1.5 text-[15px] text-ink" />
+      <p className="text-[12px] text-soft">{nq ? `${ws.length} works` : ll.periods.find(x => x[0] === per)[1]} · {authors.length} authors. Word help works here too (tap a word); some rarer forms fall back to the dictionaries.</p>
+      <ul className="flex flex-col divide-y divide-[var(--rule)] rounded-lg border border-rule bg-leaf">
+        {authors.map(a => {
+          const list = byA[a], open = openA === a || !!nq || list.length === 1;
+          return (
+            <li key={a} className="px-3 py-1.5">
+              {list.length > 1 && !nq ? <button type="button" onClick={() => setOpenA(openA === a ? null : a)} aria-expanded={open} className="flex w-full items-baseline justify-between gap-2 text-left">
+                <span className="text-[15px] font-semibold text-ink">{a}</span><span className="num text-[12px] text-soft">{list.length} works {open ? "▴" : "▾"}</span></button> : null}
+              {open && <div className={`flex flex-col ${list.length > 1 && !nq ? "mt-1 pl-3" : ""}`}>{list.map(w => (
+                <button key={w.id} type="button" onClick={() => onOpen(w.id)} className="flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-left hover:bg-paper">
+                  <span><span lang="la" className="latin text-[14px] text-ink">{w.title}</span>{(list.length === 1 || nq) && <span className="text-[13px] text-soft"> · {w.author}</span>}</span>
+                  <span className="num flex-none text-[12px] text-soft">{w.chapters.length > 1 ? w.chapters.length + " parts · " : ""}{k(w.words)} words{pos[w.id] != null ? " · reading" : ""}</span>
+                </button>))}</div>}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -117,19 +159,54 @@ function LibraryMode({ onTap, onTable }) {
             ? <details key={g} className="rounded-lg border border-rule bg-paper px-4 py-3"><summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">{gl} <span className="font-normal normal-case text-soft">· {ws.length} {g === "ot" ? "books, with the Douay-Rheims" : "works, most with English"}</span></summary><div className="mt-3">{shelf}</div></details>
             : <section key={g} className="flex flex-col gap-2">{gl && <h3 className="smallcaps text-[15px] font-semibold text-rubric">{gl}</h3>}{shelf}</section>;
         })}
+        {!(OFFLINE && !APP) && (
+          <details className="rounded-lg border border-rule bg-paper px-4 py-3" open={!!pos._llOpen} onToggle={e => { if (!!e.currentTarget.open !== !!pos._llOpen) setPos({ ...pos, _llOpen: e.currentTarget.open }); }}>
+            <summary className="cursor-pointer smallcaps text-[15px] font-semibold text-rubric">The Latin Library: all of it <span className="font-normal normal-case text-soft">· {idx.latinlibrary ? `${idx.latinlibrary.works} works, ${Math.round(idx.latinlibrary.words / 1e6)} million words` : "classical to Neo-Latin"}: Cicero, Caesar, Vergil, Livy… the Fathers, the Middle Ages, the Renaissance</span></summary>
+            <div className="mt-3">{pos._llOpen && <LatinLibraryShelf pos={pos} onOpen={(id, extra) => setPos({ ...readLocal(LIB_KEY), ...(extra || {}), ...(id ? { _open: id } : {}) })} />}</div>
+          </details>
+        )}
         {OFFLINE && !APP && <p className="text-[13px] text-soft">This offline copy carries the first eight works; the whole Library and the complete Summa are in the phone app and the online page.</p>}
-        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); St Thomas's other works and Cajetan from the Corpus Thomisticum (via github.com/antstratfordlol-bit/corpus-thomisticum); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium); Zigliara, Mazzella and Boethius from scans collected in James Penfold’s Lexicon Scholasticum. Word help covers the words these texts share with the parsed exam texts.</p>
+        <p className="text-[12px] text-soft">Texts: The Latin Library (thelatinlibrary.com), via the Classical Language Toolkit; the Catena Aurea from the Corpus Thomisticum (Latin) with the Oxford translation (English); St Thomas's other works and Cajetan from the Corpus Thomisticum (via github.com/antstratfordlol-bit/corpus-thomisticum); the Rituale Romanum (1952); the Roman Catechism and the 1917 Code from the Magisterium archive (github.com/realitix/magisterium); Zigliara and Mazzella from scans collected in James Penfold’s Lexicon Scholasticum; Boethius from the Loeb edition (1918, Project Gutenberg); the whole Latin Library shelf from thelatinlibrary.com (public domain). Word help covers the words these texts share with the parsed exam texts.</p>
       </div>
     );
   }
   if (!work) return <p className="text-[15px] text-soft">Loading…</p>;
+  return <WorkReader work={work} meta={idx.works.find(w => w.id === work.id) || { group: /^ll-/.test(work.id) ? "ll" : "exam" }} pos={pos} setPos={setPos} help={help} topRef={topRef} hlRef={hlRef} onTable={onTable} />;
+}
+/* One book: chapters grouped by book in the chooser, verse kept in lines, Latin beside the English where there is one,
+   text size, find-in-this-book, arrow keys for the next and previous chapter. */
+const LIB_FS = [0.95, 1.08, 1.2, 1.35];
+function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
   const ci = Math.min(pos[work.id] || 0, work.chapters.length - 1);
   const ch = work.chapters[ci];
-  const meta = idx.works.find(w => w.id === work.id) || {};
   const enOn = pos._en !== false;
+  const fs = LIB_FS[pos._fs != null ? pos._fs : 1] || 1.08;
   const hlN = pos._hl ? normForm(pos._hl.replace(/\.$/, "")) : "";
   const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? normForm(p).startsWith(hlN + ".") : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
-  const go = i => { setPos({ ...pos, [work.id]: i, _hl: "" }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
+  const go = (i, hl) => { if (i < 0 || i >= work.chapters.length) return; setPos({ ...readLocal(LIB_KEY), [work.id]: i, _hl: hl || "" }); help.clear(); requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" })); };
+  useEffect(() => {
+    const k = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (e.key === "ArrowRight") go(ci + 1); if (e.key === "ArrowLeft") go(ci - 1); };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, [ci, work.id]);
+  /* the chooser: "Liber I · Prosa III" is grouped under Liber I */
+  const groups = useMemo(() => {
+    const g = [];
+    work.chapters.forEach((c, i) => { const [h, ...r] = c.title.split(" · "); const key = r.length ? h : ""; if (!g.length || g[g.length - 1].key !== key) g.push({ key, items: [] }); g[g.length - 1].items.push([i, r.length ? r.join(" · ") : c.title]); });
+    return g.filter(x => x.key).length >= 2 && g.length < work.chapters.length ? g : null;
+  }, [work.id]);
+  const [find, setFind] = useState(""), [hits, setHits] = useState(null);
+  function doFind() {
+    const n = normForm(find.trim()); if (n.length < 2) { setHits(null); return; }
+    const out = [];
+    work.chapters.forEach((c, i) => c.paras.forEach(p => { if (out.length < 80 && normForm(p).split(/[^a-z]+/).some(w => w.startsWith(n))) {
+      const at = normForm(p).indexOf(n); out.push({ i, t: c.title, snip: (at > 40 ? "…" : "") + p.slice(Math.max(0, at - 40), at + 80).replace(/\n/g, " ") + "…" }); } }));
+    setHits(out);
+  }
+  const words = ch.paras.reduce((a, p) => a + p.split(/\s+/).length, 0);
+  const verse = work.verse || ch.v;
+  const g = meta.group || "exam";
+  const kinds = ["thomas", "opera", "manuals"].includes(g) ? ["thomas"] : g === "ot" ? ["bible"] : g === "hymns" ? ["hymn", "church"] : ["rites", "fathers", "canon", "medieval"].includes(g) ? ["church"] : [];
+  const side = !!(ch.en && enOn);
   return (
     <div className="flex flex-col gap-3">
       <div ref={topRef} className="scroll-mt-16 flex flex-wrap items-center gap-2">
@@ -141,32 +218,50 @@ function LibraryMode({ onTap, onTable }) {
         <Btn onClick={() => go(ci - 1)} disabled={ci === 0} aria-label="Previous chapter">‹</Btn>
         <label htmlFor="lib-ch" className="sr-only">Chapter</label>
         <select id="lib-ch" value={ci} onChange={e => go(+e.target.value)} className="min-w-0 flex-1 basis-48 rounded-md border border-rule bg-leaf px-2 py-1.5 text-[14px] text-ink">
-          {work.chapters.map((c, i) => <option key={i} value={i}>{c.title.length > 70 ? c.title.slice(0, 68) + "…" : c.title}</option>)}
+          {groups ? groups.map((gr, k) => gr.key
+            ? <optgroup key={k} label={gr.key}>{gr.items.map(([i, t]) => <option key={i} value={i}>{t.length > 70 ? t.slice(0, 68) + "…" : t}</option>)}</optgroup>
+            : gr.items.map(([i, t]) => <option key={i} value={i}>{t.length > 70 ? t.slice(0, 68) + "…" : t}</option>))
+            : work.chapters.map((c, i) => <option key={i} value={i}>{c.title.length > 70 ? c.title.slice(0, 68) + "…" : c.title}</option>)}
         </select>
         <Btn onClick={() => go(ci + 1)} disabled={ci === work.chapters.length - 1} aria-label="Next chapter">›</Btn>
       </div>
-      {(() => {
-        const g = meta.group || "exam";
-        const kinds = ["thomas", "opera", "manuals"].includes(g) ? ["thomas"] : g === "ot" ? ["bible"] : g === "hymns" ? ["hymn", "church"] : ["rites", "fathers", "canon", "medieval"].includes(g) ? ["church"] : [];
-        return kinds.length ? <PhraseTips text={ch.paras.join(" ")} kinds={kinds} /> : null;
-      })()}
+      <div className="h-1 overflow-hidden rounded-full bg-[var(--rule)]" aria-hidden="true"><div className="h-full rounded-full bg-[var(--rubric)]" style={{ width: `${((ci + 1) / work.chapters.length) * 100}%` }} /></div>
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-soft">
+        <span className="num">{ci + 1} of {work.chapters.length} · about {Math.max(1, Math.round(words / 90))} min</span>
+        <span className="flex items-center gap-1" role="group" aria-label="Text size">
+          <button type="button" className="rounded border border-rule bg-leaf px-2 py-0.5 text-ink disabled:opacity-40" disabled={(pos._fs ?? 1) <= 0} onClick={() => setPos({ ...pos, _fs: Math.max(0, (pos._fs ?? 1) - 1) })} aria-label="Smaller text">A−</button>
+          <button type="button" className="rounded border border-rule bg-leaf px-2 py-0.5 text-ink disabled:opacity-40" disabled={(pos._fs ?? 1) >= LIB_FS.length - 1} onClick={() => setPos({ ...pos, _fs: Math.min(LIB_FS.length - 1, (pos._fs ?? 1) + 1) })} aria-label="Larger text">A+</button>
+        </span>
+        <form className="flex min-w-0 flex-1 basis-56 items-center gap-1" onSubmit={e => { e.preventDefault(); doFind(); }}>
+          <input value={find} onChange={e => { setFind(e.target.value); if (!e.target.value) setHits(null); }} placeholder="Find in this book (e.g. beatitudo)" aria-label="Find in this book" className="min-w-0 flex-1 rounded-md border border-rule bg-paper px-2 py-1 text-[14px] text-ink" />
+          <Btn type="submit">Find</Btn>
+        </form>
+      </div>
+      {hits && (
+        <section className="rounded-lg border border-rule bg-leaf px-4 py-3" aria-label="Found in this book">
+          <div className="flex items-baseline justify-between"><span className="text-[13px] text-soft">{hits.length ? `${hits.length}${hits.length === 80 ? "+" : ""} places` : "Not found in this book."}</span><button type="button" className="text-[13px] text-soft underline" onClick={() => setHits(null)}>Close</button></div>
+          <ul className="mt-1 max-h-64 overflow-y-auto text-[14px]">{hits.map((h, k) => <li key={k}><button type="button" className="w-full rounded px-1 py-0.5 text-left hover:bg-paper" onClick={() => { go(h.i, find.trim()); setHits(null); }}>
+            <span className="text-[12px] text-rubric">{h.t}</span> <span lang="la" className="latin text-ink">{h.snip}</span></button></li>)}</ul>
+        </section>
+      )}
+      {kinds.length ? <PhraseTips text={ch.paras.join(" ")} kinds={kinds} /> : null}
       <article className="rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
         <h2 lang="la" className="latin mb-3 text-[1.05rem] font-bold text-rubric">{ch.title}</h2>
         {meta.caveat && <p className="mb-3 text-[13px] text-soft">{meta.caveat}</p>}
         {(ch.en || ch.enb) && (
           <label className="mb-3 flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={enOn} onChange={e => setPos({ ...pos, _en: e.target.checked })} className="h-4 w-4 accent-[var(--rubric)]" />{meta.en || "English (Douay-Rheims)"}</label>
         )}
-        <div className="flex flex-col gap-3">
+        <div className={`flex flex-col ${verse ? "gap-5" : "gap-3"}`}>
           {ch.paras.map((p, i) => {
-            const en = ch.en && enOn ? ch.en[i] : null;
+            const en = side ? ch.en[i] : null;
             const rub = ch.r && ch.r.includes(i), head = ch.head && i === 0;
             return (
               <div key={i} ref={i === hlAt ? hlRef : null} className={`${en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}${i === hlAt ? " -mx-2 rounded-md bg-rubrictint px-2 py-1" : ""}${head ? " border-b border-rule pb-3" : ""}`}>
                 {head && <span className="smallcaps mb-1 block text-[12px] font-semibold text-rubric">The Gospel</span>}
-                <p lang="la" className={`lt latin leading-[1.8] ${rub ? "text-[0.98rem] italic text-rubric" : head ? "text-[1.08rem] font-semibold text-ink" : "text-[1.08rem] text-ink"}${work.verse ? " whitespace-pre-line" : ""}`}>
+                <p lang="la" style={{ fontSize: rub ? fs * 0.9 + "rem" : fs + "rem" }} className={`lt latin leading-[1.8] ${rub ? "italic text-rubric" : head ? "font-semibold text-ink" : "text-ink"}${verse ? " whitespace-pre-line" : ""}`}>
                   <OfficeText line={p} latin onWord={help.pick} sel={help.word} />
                 </p>
-                {en && <p lang="en" className="text-[15px] leading-snug text-soft">{en}</p>}
+                {en && <p lang="en" className={`text-[15px] leading-snug text-soft${verse ? " whitespace-pre-line italic" : ""}`}>{en}</p>}
               </div>
             );
           })}
@@ -174,13 +269,13 @@ function LibraryMode({ onTap, onTable }) {
         {ch.enb && enOn && ch.enb.length > 0 && (
           <div lang="en" className="mt-5 flex flex-col gap-2 border-t border-rule pt-4">
             <span className="smallcaps text-[13px] font-semibold text-rubric">{meta.en || "English"}</span>
-            {ch.enb.map((t, i) => <p key={i} className="text-[15px] leading-snug text-soft">{t}</p>)}
+            {ch.enb.map((t, i) => <p key={i} className={`text-[15px] leading-snug text-soft${verse ? " whitespace-pre-line" : ""}`}>{t}</p>)}
           </div>
         )}
       </article>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="num text-[13px] text-soft">Chapter {ci + 1} of {work.chapters.length}</span>
-        {ci < work.chapters.length - 1 && <Btn variant="primary" onClick={() => go(ci + 1)}>Next chapter →</Btn>}
+        {ci > 0 ? <Btn onClick={() => go(ci - 1)}>← {work.chapters[ci - 1].title.split(" · ").slice(-1)[0].slice(0, 30)}</Btn> : <span />}
+        {ci < work.chapters.length - 1 && <Btn variant="primary" onClick={() => go(ci + 1)}>{work.chapters[ci + 1].title.split(" · ").slice(-1)[0].slice(0, 30)} →</Btn>}
       </div>
       {help.panel(work.title, onTable)}
     </div>

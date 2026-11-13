@@ -32,6 +32,10 @@ function sectionLabel(s) {
   return `Summa I q. ${q}, ${art}${parts}`;
 }
 /* The words of the chosen sections: [lemma, count, ref, example with [[word]], analysis id], most frequent first. */
+/* Roman numerals ("art. ix", "cap. iv") are numbers, not vocabulary. vix, dic, mi, di, vi are real words. */
+const ROMAN_RE = /^(?=[ivxlcdm]+$)m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/;
+const NOT_ROMAN = new Set(["vix", "lix", "dic", "mi", "di", "vi", "mixi"]);
+const isRoman = w => { const k = String(w || "").toLowerCase(); return !!k && !NOT_ROMAN.has(k) && ROMAN_RE.test(k); };
 async function classWords(sections, lex, basic) {
   const found = {}, order = [];
   let total = 0, unknown = 0, missing = 0;
@@ -44,7 +48,7 @@ async function classWords(sections, lex, basic) {
       if (!(rd.kind === "context" || rd.kind === "lookup")) { unknown++; return; }
       const [li, pos] = lex.ana[rd.ids[0]];
       const [lemma, gloss] = lex.lemmas[li];
-      if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase()))) return;
+      if (!gloss || /^(Ne|F-)/.test(pos) || (!basic && BASIC.has(lemma.toLowerCase())) || isRoman(w) || isRoman(lemma)) return;
       const lk = n1(lemma);
       if (!found[lk]) {
         const a = Math.max(0, k - 7), z = Math.min(words.length, k + 8);
@@ -484,6 +488,19 @@ function meaningOk(ans, gloss) {
   const g = wNorm(gloss), ws = wNorm(ans).split(/[^a-z]+/).filter(w => w.length >= 3 && !EN_STOP.has(w));
   return ws.length > 0 && ws.some(w => g.includes(w.slice(0, Math.min(Math.max(4, w.length - 3), 6))));
 }
+/* Is an English word plainly from this Latin word (special from specialis, glory from gloria)? Then asking for a derivative is pointless.
+   Compares the start of the Latin stem (from the genitive / infinitive) with each English word. */
+function latinRoot(ep, lemma, head) {
+  const st = (stemsOf(ep, lemma, head) || [])[0];
+  return wNorm(st ? st.want : (ep ? ep.first : lemma)).replace(/[^a-z]/g, "").replace(/j/g, "i").replace(/v/g, "u");
+}
+function plainDerivative(english, root) {
+  if (!root || root.length < 4) return null;
+  const k = Math.min(5, root.length - (root.length > 5 ? 1 : 0));
+  const head = root.slice(0, k);
+  const words = wNorm(english).split(/[^a-z]+/).filter(w => w.length >= 4 && !EN_STOP.has(w));
+  return words.find(w => w.replace(/j/g, "i").replace(/v/g, "u").replace(/y/g, "i").startsWith(head)) || null;
+}
 function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
   const [items] = useState(() => {
     const r = rng(String(Date.now()));
@@ -495,8 +512,11 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
       const stems = [];  /* stems aren't asked: the principal parts already show them */
       /* about one word in three also asks for a stem, one in four for an English derivative, and (with AI) one in eight for a synonym or antonym */
       const x = r();
+      /* no derivative question when the meaning itself is one (specialis: special) */
+      const root = ep ? latinRoot(ep, w[0], inf.head) : "";
+      const glossDeriv = plainDerivative(shortGloss(inf.full), root);
       const extra = stems.length && x < 0.33 ? { kind: "stem", ...stems[Math.floor(r() * stems.length)] }
-        : x < 0.58 && ep ? { kind: "deriv" }
+        : x < 0.58 && ep && !glossDeriv ? { kind: "deriv", root }
         : ai && ep && x < 0.7 ? { kind: "syn", which: r() < 0.5 ? "synonym" : "antonym" } : null;
       return { key: w[0], inf, ep, gen, prompt: ep ? ep.first : inf.head, extra, syn: extra && extra.kind === "syn" ? extra.which : null };
     }).filter(Boolean).slice(0, n);
@@ -536,6 +556,12 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
     const auto = meaningOk(mean, it.inf.full);
     setMOk(auto ? true : null);
     let synRes = null;
+    const meanDeriv = it.extra && it.extra.kind === "deriv" ? plainDerivative(mean, it.extra.root) : null;
+    if (meanDeriv && !extraAns.trim()) {
+      const synRes = { status: "done", kind: "derivative", ok: true, note: `your meaning “${meanDeriv}” is itself an English derivative`, ex: [] };
+      setRes({ parts: [...parts, { want: "derivative", ok: true }], auto, synRes });
+      return;
+    }
     if (it.extra && it.extra.kind === "deriv" && extraAns.trim()) {
       const stemGuess = (stemsOf(it.ep, it.key, it.inf.head) || [{ want: it.ep.first }])[0].want;
       const heur = wNorm(extraAns).replace(/[^a-z]/g, "").startsWith(wNorm(stemGuess).replace(/[^a-z]/g, "").slice(0, Math.min(4, stemGuess.length)));
@@ -595,7 +621,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai }) {
           <input lang="la" autoComplete="off" autoCapitalize="off" spellCheck={false} value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} className={`${inp} latin`} />
         </label>
       )}
-      {it.extra && it.extra.kind === "deriv" && (
+      {it.extra && it.extra.kind === "deriv" && !(plainDerivative(mean, it.extra.root) && !extraAns.trim()) && (
         <label className="flex flex-col gap-1 text-[14px] text-ink">An English derivative{ai ? " (checked by the AI)" : ""}
           <input autoComplete="off" value={extraAns} readOnly={!!res} onChange={e => setExtraAns(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !res) check(); }} className={inp} />
         </label>

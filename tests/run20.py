@@ -105,7 +105,7 @@ try:
         print("  marked:", pg.locator("[aria-label='Placement question'] .smallcaps.font-semibold").last.inner_text(), "| prompt sent:", calls[n0:][0][1][:40] if calls[n0:] else None)
         print("  then grammar question:", pg.locator("[aria-label='Placement question'] p.font-medium").count())
         pg.click("text=Stop the check"); pg.wait_for_timeout(500)
-        if pg.locator("button:has-text('Remove key')").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        if pg.locator("#ai-key, button:has-text('Remove')").count() == 0: pg.click("header button[aria-label^='AI marking']")
         # A key Google accepts only as ?key=: the app switches over by itself
         state["queryOnly"] = True
         pg.click("nav[aria-label='Practice mode'] button:has-text('Passages')"); pg.wait_for_selector("#translation", timeout=15000)
@@ -113,7 +113,7 @@ try:
         pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Gemini", timeout=15000)
         print("7 query-only key: marked; auth now:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')")).get("auth"))
         state["queryOnly"] = False
-        if pg.locator("text=✓ Gemini key (").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        if pg.locator("[aria-label='AI marking keys']").count() == 0: pg.click("header button[aria-label^='AI marking']")
         # Groq as backup: Gemini busy → Groq marks at once
         pg.fill("#ai-key", "gsk_GOODGOODGOODGOODGOODGOODGOODGOOD12"); pg.click("button:has-text('Save key')"); pg.wait_for_selector("text=✓ Groq key (", timeout=5000)
         print("8 groq saved:", pg.locator("text=✓ Groq key (").inner_text(), "| models:", json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-ai')"))["groqModels"]["list"])
@@ -126,7 +126,7 @@ try:
         pg.fill("#translation", "Yet another rendering of this passage into English words"); pg.click("button:has-text('Check Translation')"); pg.wait_for_selector("text=Marked by Groq", timeout=20000)
         print("  passage marked by Groq:", True)
         state["busy"] = 0
-        if pg.locator("text=✓ Gemini key (").count() == 0: pg.click("button:has-text('Skill map & backup')")
+        if pg.locator("[aria-label='AI marking keys']").count() == 0: pg.click("header button[aria-label^='AI marking']")
         pg.locator("text=✓ Groq key (").locator("button:has-text('Remove')").click(); pg.wait_for_timeout(200)
         # Remove key → setup offered again
         pg.locator("text=✓ Gemini key (").locator("button:has-text('Remove')").click(); pg.wait_for_timeout(300)

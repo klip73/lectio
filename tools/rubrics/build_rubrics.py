@@ -11,6 +11,12 @@ DOCS = [
     ("missal", "Rubrics of the Missal", "Rubricae generales Missalis Romani (1960), in English: the kinds of Mass, its parts, and how it is celebrated.", "Missal1960 rubrics.html", "en"),
     ("tables", "Tables of liturgical days", "Which Sundays, ferias, vigils, octaves and feasts belong to each class (1960).", "Tables 1960.txt", "en"),
     ("instructum", "Rubricarum instructum", "John XXIII’s motu proprio of 25 July 1960 approving the new Code of Rubrics (Latin).", "Rubricarum Instructum.html", "la"),
+    ("variationes", "Variationes in Breviario et Missali (1960)", "The changes the 1960 Code made in the Breviary and Missal, title by title (Latin).", "Variationes1960.html", "la"),
+    ("cumnostra", "Cum nostra (1955)", "The 1955 decree simplifying the rubrics: the step between Divino afflatu and 1960 (English).", "1955.txt", "en", {"prose": True}),
+    ("divinoafflatu", "Rubricae ad normam Bullae Divino afflatu (1911)", "The rubrics of the Breviary as reformed by St Pius X (Additiones et variationes), in force until 1955–1960 (Latin).", "rubrics.txt", "la", {"prose": True, "heads": r"^~?\s*Titulus\s+[IVXL]+"}),
+    ("tabellae", "Tabellae occurrentiae et concurrentiae (1911)", "The tables of occurrence and concurrence under Divino afflatu, with their Notanda (Latin).", ["Tabellae.txt", "Notanda.txt"], "la", {"titles": ["Tabellae", "Notanda in praecedentes tabellas"]}),
+    ("tridentinum", "Rubricae generales Breviarii (1568–1911)", "The general rubrics of the Breviary of St Pius V (Tridentine), in thirty-seven titles (Latin).", [f"R{i:02d}.txt" for i in range(1, 38)], "la", {"prose": True, "first": True}),
+    ("monastic", "Rubricae generales Breviarii Monastici (1963)", "The general rubrics of the Benedictine Breviary after the 1960 Code (Latin).", "Monastic rubrics.html", "la"),
 ]
 def text_of(path):
     t = open(path, encoding="utf-8", errors="replace").read()
@@ -24,8 +30,32 @@ def text_of(path):
     t = re.sub(r"<[^>]+>", "", t)
     return html.unescape(t).replace(" ", " ")
 def build(doc):
-    did, title, note, fname, lang = doc
+    did, title, note, fname, lang = doc[:5]
+    opt = doc[5] if len(doc) > 5 else {}
+    if isinstance(fname, list):
+        # several files: each its own chapter, titled by its first line (or the given titles)
+        chapters = []
+        for k, f in enumerate(fname):
+            t = text_of(os.path.join(R, f)).strip()
+            first, _, rest = t.partition("\n")
+            tt = opt["titles"][k] if "titles" in opt else first.strip()
+            body = rest if "titles" not in opt else t
+            paras = [re.sub(r"\s+", " ", b).strip() for b in re.split(r"\n\s*\n", body) if b.strip()] if opt.get("prose") else [l.rstrip() for l in body.split("\n") if l.strip()]
+            chapters.append({"title": tt, "paras": paras})
+        return {"id": did, "title": title, "note": note, "lang": lang, "chapters": chapters}
     t = text_of(os.path.join(R, fname))
+    if opt.get("prose"):
+        chapters, cur = [], None
+        for b in re.split(r"\n\s*\n", t):
+            b = b.strip()
+            if not b: continue
+            one = re.sub(r"\s+", " ", b)
+            if (opt.get("heads") and re.match(opt["heads"], one) and len(one) < 120) or (b.isupper() and len(b) < 80) or (len(one) < 60 and "\n" not in b and not re.match(r"^\d+\.", one) and not one.endswith(".")):
+                one = one.lstrip("~ ")
+                cur = {"title": one if not one.isupper() else one.capitalize(), "paras": []}; chapters.append(cur); continue
+            if cur is None: cur = {"title": "", "paras": []}; chapters.append(cur)
+            cur["paras"].append(one)
+        return {"id": did, "title": title, "note": note, "lang": lang, "chapters": [c for c in chapters if c["paras"]]}
     chapters, cur = [], None
     blocks = [b for b in re.split(r"\n\s*\n", t)]
     for b in blocks:

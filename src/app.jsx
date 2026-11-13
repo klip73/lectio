@@ -850,6 +850,7 @@ function loadLocalProgress() {
 function encodeBackup(prog) {
   return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, exam: prog.exam,
     /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
+    lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
     cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
 }
 function decodeBackup(code) {
@@ -881,6 +882,8 @@ function decodeBackup(code) {
     if (d.cls && Array.isArray(d.cls.sections)) {
       try { writeClass({ sections: d.cls.sections.filter(x => x && typeof x === "object"), own: Array.isArray(d.cls.own) ? d.cls.own.filter(o => o && typeof o.head === "string") : [], basic: !!d.cls.basic, words: [], stale: true }); } catch (e) {}
     }
+    /* the local calendar too */
+    if (Array.isArray(d.lc)) { try { const cur = readLC(), ids = new Set(cur.entries.map(x => x.id)); writeLC({ ...cur, entries: [...cur.entries, ...d.lc.filter(x => x && typeof x.title === "string" && x.rule && !ids.has(x.id)).slice(0, 200)] }); } catch (e) {} }
     return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
   } catch (e) { return null; }
 }
@@ -1322,6 +1325,7 @@ function alignCurated(la, src) {
 /*@include guide.jsx*/
 /*@include placement.jsx*/
 /*@include office.jsx*/
+/*@include localcal.jsx*/
 /*@include library.jsx*/
 /*@include summareader.jsx*/
 
@@ -1403,6 +1407,14 @@ function DrillTools({ open, setOpen, children }) {
 }
 /* Light / dark / follow the device; the choice is applied before the page draws (page.html). */
 const THEME_KEY = "lectio-vulgata-theme";
+/* Header chip: AI marking on/off; opens the key panel from any section. */
+function AiChip({ open, onClick, tick }) {
+  const onClaude = !!(window.claude && window.claude.use);
+  const on = onClaude || hasAiKey();
+  const label = onClaude ? "AI marking: Claude" : on ? "AI marking: on (your keys)" : "AI marking: add a free Gemini or Groq key";
+  return <button type="button" onClick={onClick} aria-expanded={open} title={label} aria-label={label}
+    className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${open ? "bg-ink text-paper" : "bg-leaf hover:text-ink " + (on ? "text-ok" : "text-soft")}`}>AI{on ? " ✓" : " keys"}</button>;
+}
 function ThemeSwitch() {
   const [t, setT] = useState(() => { const v = readLocal(THEME_KEY); return v === "dark" || v === "light" ? v : "auto"; });
   function next() {
@@ -1508,10 +1520,12 @@ function App() {
   useEffect(() => { writeLocal(DRAFT_KEY, drafts); }, [drafts]);
   const [aiTick, setAiTick] = useState(0);
   useEffect(() => { let alive = true; getSample().then(sm => { if (alive) setTutorAvail(!!sm); }); return () => { alive = false; }; }, [aiTick]);
-  const aiRef = useRef(null);
+  const aiRef = useRef(null), aiPanelRef = useRef(null);
+  const [aiOpen, setAiOpen] = useState(false);
   useEffect(() => {
     const ch = () => setAiTick(t => t + 1);
-    const setup = () => { setShowStats(true); requestAnimationFrame(() => requestAnimationFrame(() => aiRef.current && aiRef.current.scrollIntoView({ block: "center" }))); };
+    /* "Turn on AI marking" anywhere opens the keys panel under the header (it used to live only in Study → Skill map & backup) */
+    const setup = () => { setAiOpen(true); requestAnimationFrame(() => requestAnimationFrame(() => aiPanelRef.current && aiPanelRef.current.scrollIntoView({ block: "start" }))); };
     window.addEventListener("lv-ai-changed", ch); window.addEventListener("lv-ai-setup", setup);
     return () => { window.removeEventListener("lv-ai-changed", ch); window.removeEventListener("lv-ai-setup", setup); };
   }, []);
@@ -1949,8 +1963,17 @@ function App() {
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
-        <div className="flex items-center gap-1.5"><FontSwitch /><ThemeSwitch /></div>
+        <div className="flex items-center gap-1.5"><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><FontSwitch /><ThemeSwitch /></div>
       </header>
+      {aiOpen && (
+        <section ref={aiPanelRef} className="reveal scroll-mt-16 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="AI marking keys">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <span className="smallcaps text-[14px] font-semibold text-rubric">AI marking: your Gemini / Groq keys</span>
+            <button type="button" className="text-[13px] text-soft underline" onClick={() => setAiOpen(false)}>Close</button>
+          </div>
+          <AiSetup />
+        </section>
+      )}
 
       {/* Sections, pinned to the top while scrolling */}
       <nav className="sticky top-0 z-10 -my-3 grid grid-cols-[auto_repeat(4,minmax(0,1fr))] gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
@@ -2017,7 +2040,8 @@ function App() {
             </div>
             <div ref={aiRef} className="scroll-mt-16 border-t border-rule pt-4">
               <span className="smallcaps mb-2 block text-[14px] font-semibold text-rubric">AI marking</span>
-              <AiSetup />
+              <p className="mb-2 text-[14px] text-soft">Your Gemini and Groq keys are set from the <b>AI</b> button at the top of every page.</p>
+              <Btn onClick={openAiSetup}>{hasAiKey() || (window.claude && window.claude.use) ? "AI marking: check or change keys" : "Turn on AI marking"}</Btn>
             </div>
             {tutorAvail !== false && window.claude && window.claude.use && (
               <div className="border-t border-rule pt-4">

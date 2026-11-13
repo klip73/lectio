@@ -21,3 +21,4 @@ Also run `node ../tools/forms/check.mjs ../data`: the form generator against eve
 - `run22.py`: My class list: NT chapters and Summa sed contra / respondeo, word list, quiz, flashcards.
 - `run23.py`: the Summa reader (II-II q.27 a.2: parts, English, word parsing, next article, add to class quiz).
 - `run24.py`: the backup reminder (shown with progress and no recent backup; save and snooze hide it).
+- `run31.py`: AI keys from the header; My calendar (local feast, transfer, calendar marks); the Library reader (Boethius by book, verse, English, find, text size); the Latin Library shelf; Roman numerals glossed.

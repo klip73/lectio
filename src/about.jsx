@@ -45,7 +45,7 @@ function AboutScreen({ onBack, onGo }) {
         {!(window.claude && window.claude.use)
           ? <div><a href={ARTIFACT_URL} target="_blank" rel="noopener noreferrer" className="inline-block rounded-md bg-[var(--rubric)] px-4 py-2 text-[15px] font-semibold text-paper">Open the Claude version ↗</a></div>
           : <p className="text-[14px] text-ok">You’re in the Claude version now.</p>}
-        <P>Prefer not to use Claude? The phone app (klip73.github.io/lectio) does everything except Claude’s marking; for marking there, add a free Gemini or Groq key (Study → Progress → Skill map &amp; backup → AI marking).</P>
+        <P>Prefer not to use Claude? The phone app (klip73.github.io/lectio) does everything except Claude’s marking; for marking there, add a free Gemini or Groq key (the “AI” button at the top of the page).</P>
       </section>
 
       <section className={sec}>
@@ -95,7 +95,7 @@ function AboutScreen({ onBack, onGo }) {
         <ul className="list-disc pl-5 text-[14px] leading-relaxed text-ink">
           <li>Vulgate (Clementine) and Douay-Rheims: bible_databases. Liturgy: the Divinum Officium project.</li>
           <li>Summa: the Corpus Thomisticum Latin with the Dominican Fathers' English. St Thomas's other works and the Catena Aurea: the Corpus Thomisticum collection.</li>
-          <li>Library: The Latin Library (via the Classical Language Toolkit); the Roman Catechism and the 1917 Code from the Magisterium archive; the Rituale Romanum (1952).</li>
+          <li>Library: The Latin Library, all of it (via the Classical Language Toolkit, public domain); the Roman Catechism, the 1917 Code and the Pontificale Romanum (1895) from the Magisterium archive; the Rituale Romanum (1952); Boethius from the Loeb edition (1918, Project Gutenberg).</li>
           <li>Parsing: PROIEL, Index Thomisticus, LLCT, UDante and Perseus treebanks. Dictionaries: Whitaker's Words; Lewis &amp; Short (Perseus); Wiktionary and Du Cange (via Lexicon Scholasticum).</li>
         </ul>
         <P>Every source, its version and its licence is listed in <A href={REPO + "/blob/main/SOURCES.md"}>SOURCES.md</A>. The texts are public domain or openly licensed; some parsing data is licensed for non-commercial use only, so the app must stay free.</P>

@@ -132,6 +132,14 @@ function FeedbackPanel({ where, onClose }) {
 /* ---------- What's new: shown once on Home after an update ---------- */
 const SEEN_KEY = "lectio-vulgata-seen";
 const WHATS_NEW = [
+  { d: "2026-11-13", items: [
+    "Liturgy → My calendar: add your own feasts (patron, titular, dedication, diocese, order) or raise, lower or move any feast. The 1960 table of precedence decides what is kept, commemorated or transferred, every year; you can override any year, and share the calendar by code.",
+    "Library: the whole Latin Library (765 works, about 11 million words: Cicero to Erasmus), the Pontificale Romanum (1895), and Boethius complete from the Loeb edition with the English beside the Latin, book by book, poem and prose.",
+    "The reader: chapters grouped by book, verse kept in lines, text size, find in this book, ← → keys.",
+    "Liturgy → Rubrics: the Tridentine general rubrics, Divino afflatu (1911) with its tables, Cum nostra (1955), the 1960 Variationes and the monastic rubrics (1963).",
+    "AI keys (Gemini, Groq) now open from the AI button at the top of every page.",
+    "Class quiz: no derivative question when the meaning is itself one (specialis: special); Roman numerals (art. ix) are no longer quizzed as words.",
+  ] },
   { d: "2026-11-12", items: [
     "Sentence by sentence now goes one sentence at a time, even in a long Matins lesson. Each grammar box has its own colour, and its words in the sentence are underlined in that colour (tap the box to fill them in).",
     "Class quiz: share your class list. One person adds the week’s sections and sends the link; everyone loads the same list (Class quiz → Share this list).",

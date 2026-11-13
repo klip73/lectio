@@ -14,7 +14,7 @@ try:
         pg.goto("http://127.0.0.1:8790/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
         pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
         # Library: shelves, search
-        pg.click("nav[aria-label='Section'] button:has-text('Library')"); pg.wait_for_selector("text=Catechism and the Roman Ritual", timeout=20000)
+        pg.click("nav[aria-label='Section'] button:has-text('Library')"); pg.wait_for_selector("text=Catechism, Ritual and Pontifical", timeout=20000)
         inp = pg.locator("input[type='search'], input[placeholder*='earch']").first
         inp.fill("caritas operatur"); inp.press("Enter"); pg.wait_for_timeout(4000)
         res = pg.locator("form[role='search'] ~ div li button")

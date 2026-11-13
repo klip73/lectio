@@ -57,3 +57,12 @@ St Thomas's other works and Cajetan's commentary on the Summa, Latin with Englis
 | Catechismus Romanus (1566), Latin machine-read from a scan (misreadings corrected against word frequencies of The Latin Library), with a machine English translation | github.com/realitix/magisterium | public domain Latin; the English is labelled as machine translation |
 
 The Library search (data/search/) and the Summa's Gospel citations (data/summa/cites.json, for Sunday preparation and the mock exam from today's liturgy) are built by tools/library/build_search.py.
+
+## Added November 2026
+
+| What | Where from | Licence / status |
+|---|---|---|
+| The whole Latin Library (765 works, `data/library/ll-*`) | github.com/cltk/lat_text_latin_library (thelatinlibrary.com) | Public Domain Mark 1.0 |
+| Boethius, Consolatio and Opuscula sacra, Latin and English | Loeb edition, Stewart & Rand 1918: Project Gutenberg #13316 (github.com/GITenberg/…_13316) | Public domain |
+| Pontificale Romanum (Benedict XIV, Leo XIII; 1895) | github.com/realitix/magisterium, A-pre-vatican-ii/liturgie/1895-pontifical-romain-leo-xiii | Public domain text |
+| Tridentine general rubrics, Divino afflatu rubrics and tables, Cum nostra (1955), Variationes (1960), monastic rubrics (1963) | Divinum Officium, web/www/horas/Help/Rubrics | As the existing rubrics |
