@@ -133,6 +133,8 @@ function FeedbackPanel({ where, onClose }) {
 const SEEN_KEY = "lectio-vulgata-seen";
 const WHATS_NEW = [
   { d: "2026-11-13", items: [
+    "Dictionary: the button at the top of every page. Type any Latin form (fecerunt, gratiae) for its dictionary word, parsing, Lewis & Short, Wiktionary and Du Cange, all its forms and add-to-deck; headwords are suggested as you type; English → Latin finds the Latin for an English word.",
+    "Library search can now include the whole Latin Library (tick “Also search the whole Latin Library”).",
     "Liturgy → My calendar: add your own feasts (patron, titular, dedication, diocese, order) or raise, lower or move any feast. The 1960 table of precedence decides what is kept, commemorated or transferred, every year; you can override any year, and share the calendar by code.",
     "Library: the whole Latin Library (765 works, about 11 million words: Cicero to Erasmus), the Pontificale Romanum (1895), and Boethius complete from the Loeb edition with the English beside the Latin, book by book, poem and prose.",
     "The reader: chapters grouped by book, verse kept in lines, text size, find in this book, ← → keys.",

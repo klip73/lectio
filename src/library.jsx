@@ -287,17 +287,18 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
    Each search word matches the forms that begin with it (caritat finds caritas, caritatis, caritatem…);
    several words find the places that have all of them. */
 const searchCache = {};
-const searchGet = name => (searchCache[name] = searchCache[name] || getJSON(`data/search/${name}.json`).catch(e => { delete searchCache[name]; throw e; }));
-async function searchDocs(q) {
+/* dir "search" (the Library's own works and the Summa) or "search-ll" (the Latin Library shelf; the online page reads it from the phone app's site) */
+const searchGet = (name, dir = "search") => { const k = dir + "/" + name; return (searchCache[k] = searchCache[k] || getJSON(`${dir === "search-ll" && REMOTE_V ? APP_SITE : ""}data/${dir}/${name}.json`).catch(e => { delete searchCache[k]; throw e; })); };
+async function searchDocs(q, dir = "search") {
   const terms = [...new Set(normForm(q).split(/[^a-z]+/).filter(t => t.length >= 2))].slice(0, 5);
   if (!terms.length) return { terms, hits: [] };
-  const meta = await searchGet("docs");
+  const meta = await searchGet("docs", dir);
   let acc = null;
   for (const t of terms) {
     const where = meta.where[t.slice(0, 2)];
     const set = new Set();
     if (where != null) {
-      const shard = await searchGet("s" + where);
+      const shard = await searchGet("s" + where, dir);
       for (const [w, ds] of Object.entries(shard)) {
         if (!w.startsWith(t)) continue;
         let d = 0; for (const x of ds) { d += x; set.add(d); }
@@ -326,11 +327,19 @@ function LibrarySearch({ idx, onOpen }) {
   const [snips, setSnips] = useState({});
   const [busy, setBusy] = useState(false);
   const [sidx, setSidx] = useState(null);
+  const [withLL, setWithLL] = useState(false), [llIdx, setLlIdx] = useState(null);
   async function run(e) {
     if (e) e.preventDefault();
     if (!q.trim()) return;
     setBusy(true); setSnips({}); setShown(10);
-    try { const r = await searchDocs(q); setRes({ q, ...r }); if (!sidx) loadSummaIndex().then(setSidx).catch(() => {}); }
+    try {
+      const r = await searchDocs(q);
+      if (withLL) {
+        const [r2, li] = await Promise.all([searchDocs(q, "search-ll"), llIdx ? Promise.resolve(llIdx) : libGet("ll-index")]);
+        setLlIdx(li); r.hits = [...r.hits, ...r2.hits];
+      }
+      setRes({ q, ...r }); if (!sidx) loadSummaIndex().then(setSidx).catch(() => {});
+    }
     catch (err) { setRes({ q, terms: [], hits: [], err: true }); }
     finally { setBusy(false); }
   }
@@ -353,8 +362,8 @@ function LibrarySearch({ idx, onOpen }) {
       const part = sidx && sidx.parts.find(x => x.id === h[1]), qr = part && part.qs.find(x => x[0] === h[2]);
       return { t: `Summa ${SM_PART[h[1]]}, q. ${h[2]}, a. ${h[3]}`, s: qr ? (qr[2][h[3] - 1] || qr[1]) : "" };
     }
-    const w = idx.works.find(x => x.id === h[1]);
-    return { t: w ? w.title : h[1], s: w ? w.chapters[h[2]] : "" };
+    const w = idx.works.find(x => x.id === h[1]) || (llIdx && llIdx.works.find(x => x.id === h[1]));
+    return { t: w ? (/^ll-/.test(h[1]) ? `${w.author}, ${w.title}` : w.title) : h[1], s: w ? w.chapters[h[2]] : "" };
   };
   function open(h) {
     if (h[0] === "S") {
@@ -370,6 +379,7 @@ function LibrarySearch({ idx, onOpen }) {
           className="min-w-0 flex-1 rounded-md border border-rule bg-paper px-3 py-2 text-[15px] text-ink" />
         <Btn variant="primary" type="submit" disabled={busy || !q.trim()}>{busy ? "…" : "Search"}</Btn>
       </form>
+      <label className="flex items-center gap-2 text-[13px] text-soft"><input type="checkbox" checked={withLL} onChange={e => setWithLL(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> Also search the whole Latin Library (classical to Neo-Latin; slower)</label>
       {res && (
         <div className="flex flex-col gap-1.5" aria-live="polite">
           <p className="text-[13px] text-soft">{res.err ? "The search didn’t load. Check your connection and try again." : res.hits.length ? `${res.hits.length} place${res.hits.length === 1 ? "" : "s"} with ${res.terms.length > 1 ? "all of " : ""}“${res.terms.join(" ")}…” (words beginning so)` : `Nothing found for “${res.q}”. Try the beginning of the word (caritat for caritas, caritatis…).`}</p>

@@ -1138,6 +1138,7 @@ function LewisShort({ lemmas, openFirst }) {
     <span className="flex flex-wrap gap-x-3 text-[13px]">
       <a className="text-rubric underline underline-offset-2" href={`https://logeion.uchicago.edu/${encodeURIComponent(first)}`} target="_blank" rel="noopener noreferrer">Logeion ↗</a>
       <a className="text-rubric underline underline-offset-2" href={`https://en.wiktionary.org/wiki/${encodeURIComponent(first)}#Latin`} target="_blank" rel="noopener noreferrer">Wiktionary ↗</a>
+      <button type="button" className="text-rubric underline underline-offset-2" onClick={() => { try { window.dispatchEvent(new CustomEvent("lv-dict", { detail: first })); } catch (e) {} }}>Open in the Dictionary</button>
     </span>
   );
   const name = DICT_SRC[src].name;
@@ -1336,6 +1337,7 @@ function alignCurated(la, src) {
 /*@include grammar.jsx*/
 /*@include about.jsx*/
 /*@include share.jsx*/
+/*@include dictionary.jsx*/
 /*@include sunday.jsx*/
 
 /* ---------- Links to a passage ---------- */
@@ -1522,6 +1524,12 @@ function App() {
   useEffect(() => { let alive = true; getSample().then(sm => { if (alive) setTutorAvail(!!sm); }); return () => { alive = false; }; }, [aiTick]);
   const aiRef = useRef(null), aiPanelRef = useRef(null);
   const [aiOpen, setAiOpen] = useState(false);
+  /* the Dictionary panel under the header; "lv-dict" (with a word) opens it from a word panel */
+  const [dictOpen, setDictOpen] = useState(false), [dictWord, setDictWord] = useState(""), dictRef = useRef(null);
+  useEffect(() => {
+    const f = e => { setDictWord((e && e.detail) || ""); setDictOpen(true); requestAnimationFrame(() => requestAnimationFrame(() => dictRef.current && dictRef.current.scrollIntoView({ block: "start" }))); };
+    window.addEventListener("lv-dict", f); return () => window.removeEventListener("lv-dict", f);
+  }, []);
   useEffect(() => {
     const ch = () => setAiTick(t => t + 1);
     /* "Turn on AI marking" anywhere opens the keys panel under the header (it used to live only in Study → Skill map & backup) */
@@ -1953,7 +1961,7 @@ function App() {
     <div className="flex flex-col gap-6" style={{ "--lz": lz }}>
       {/* Header */}
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule pb-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-[13rem]">
           <h1 className="latin text-[1.35rem] font-bold tracking-tight text-ink">Lectio Vulgata</h1>
           <p className="text-[14px] text-soft">Latin for the exam, the Office and a lifetime of reading.</p>
         </div>
@@ -1963,8 +1971,15 @@ function App() {
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
-        <div className="flex items-center gap-1.5"><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><FontSwitch /><ThemeSwitch /></div>
+        <div className="flex items-center gap-1.5"><button type="button" onClick={() => { setDictOpen(o => !o); setDictWord(""); }} aria-expanded={dictOpen} title="Dictionary: look up any Latin word" aria-label="Dictionary"
+          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dictOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span className="sm:hidden">Dict.</span><span className="hidden sm:inline">Dictionary</span></button><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><FontSwitch /><ThemeSwitch /></div>
       </header>
+      {dictOpen && (
+        <section ref={dictRef} className="reveal scroll-mt-16 rounded-lg border border-rubric bg-leaf px-5 py-4" aria-label="Dictionary">
+          <span className="smallcaps mb-2 block text-[14px] font-semibold text-rubric">Dictionary</span>
+          <DictionaryTool start={dictWord} onClose={() => setDictOpen(false)} onTap={addTapped} onTable={(li, w) => { setDictOpen(false); openTable(li, w); }} />
+        </section>
+      )}
       {aiOpen && (
         <section ref={aiPanelRef} className="reveal scroll-mt-16 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="AI marking keys">
           <div className="mb-2 flex items-baseline justify-between gap-2">

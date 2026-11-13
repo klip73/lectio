@@ -132,7 +132,7 @@ files = sorted(os.path.relpath(p, TLL) for p in glob.glob(os.path.join(TLL, "**"
 groups = {}
 for f in files:
     d = os.path.dirname(f)
-    if d.split("/")[0] in SKIP_DIRS or SKIP.match(f) or f in USED or os.path.basename(f) in ("README.txt",): continue
+    if d.split("/")[0] in SKIP_DIRS or SKIP.match(f) or f in USED or os.path.basename(f) in ("README.txt", "index.txt", "indices.txt", "classics.txt"): continue
     stem = os.path.basename(f)[:-4]
     m = re.match(r"^(.*?)[._-]?(\d+)([a-z]?)$", stem)
     numbered = bool(m) and (bool(m.group(1)) or bool(d))
@@ -161,7 +161,7 @@ for (d, base), fs in sorted(groups.items()):
     chs, verse = chapters_of([(lab, os.path.join(TLL, f)) for lab, (_, _, f) in zip(labels, fs)])
     if not chs: continue
     wid = "ll-" + re.sub(r"[^a-z0-9]+", "-", (d.replace("/", "-") + "-" + base if d else base).lower()).strip("-")
-    while wid in seen_ids: wid += "x"
+    while wid in seen_ids or wid == "ll-index": wid += "x"
     seen_ids.add(wid)
     words = sum(len(re.findall(r"[^\W\d_]+", p)) for c in chs for p in c["paras"])
     if words < 40: continue
