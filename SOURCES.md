@@ -66,3 +66,8 @@ The Library search (data/search/) and the Summa's Gospel citations (data/summa/c
 | Boethius, Consolatio and Opuscula sacra, Latin and English | Loeb edition, Stewart & Rand 1918: Project Gutenberg #13316 (github.com/GITenberg/…_13316) | Public domain |
 | Pontificale Romanum (Benedict XIV, Leo XIII; 1895) | github.com/realitix/magisterium, A-pre-vatican-ii/liturgie/1895-pontifical-romain-leo-xiii | Public domain text |
 | Tridentine general rubrics, Divino afflatu rubrics and tables, Cum nostra (1955), Variationes (1960), monastic rubrics (1963) | Divinum Officium, web/www/horas/Help/Rubrics | As the existing rubrics |
+
+## Added November 2026
+- **Related words** (`data/rel/`, `tools/data/build_related.py`): Open Multilingual Wordnet (github.com/omwn/omw-data): Princeton WordNet 3.0 (WordNet licence), Latin from Wiktionary (CC BY-SA), Italian MultiWordNet/IWN, Spanish MCR (CC BY 3.0), French WOLF (CeCILL-C), Portuguese OpenWN-PT (CC BY-SA), Romanian RoWN; antonyms from Open English WordNet (github.com/globalwordnet/english-wordnet, CC BY 4.0); Greek cognates from Lewis & Short's etymologies.
+- **Votive Masses** (`data/office/votive.json`, `tools/office/build_votive.py`): Divinum Officium's Missal texts and English, 1960 rubrics.
+- **Memory aids** (`src/memory.jsx`): Allen & Greenough's New Latin Grammar (1903) and Bennett's New Latin Grammar (1908), both public domain; Kennedy's Revised Latin Primer (1888); the verses as recorded in Wikipedia's "Latin mnemonics" and Cornell College's collection of Latin mnemonics, each credited where it is shown.
