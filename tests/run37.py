@@ -59,3 +59,34 @@ try:
 finally:
     srv.terminate()
 print("ERRORS:", errs)
+# --- the new options (Settings → Sentence study & hints) ---
+srv = subprocess.Popen([sys.executable, "-m", "http.server", "8798", "--bind", "127.0.0.1", "--directory", here], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1); errs = []
+try:
+    with sync_playwright() as p:
+        b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 900})
+        pg.add_init_script("window.__LV_APP_SITE = ''")
+        pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
+        pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
+        pg.goto("http://127.0.0.1:8798/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)
+        pg.click("[aria-label='Welcome'] button:has-text('Skip for now')")
+        pg.click("nav[aria-label='Practice mode'] button:has-text('Passages')"); pg.wait_for_selector("button:has-text('Read it sentence by sentence')", timeout=20000)
+        pg.locator("button[aria-label='Settings'], button[title='Settings']").first.click(); pg.wait_for_timeout(300)
+        pg.locator("button:has-text('Sentence study & hints')").click(); pg.wait_for_timeout(200)
+        grp = pg.locator("[role=group][aria-label='Sentence study & hints']")
+        print("7 settings section:", grp.count(), "| options:", grp.locator("label").all_inner_texts()[:5])
+        grp.locator("#st-peek").check(); grp.locator("#st-adv").uncheck(); grp.locator("#st-phr").uncheck(); pg.wait_for_timeout(200)
+        print("  saved:", pg.evaluate("localStorage.getItem('lectio-vulgata-study')"))
+        pg.keyboard.press("Escape"); pg.wait_for_timeout(300)
+        vb = pg.locator("button[aria-label^='Translation of']")
+        print("8 verse-number buttons:", vb.count())
+        if vb.count():
+            vb.first.click(); pg.wait_for_timeout(200); print("  peek:", pg.locator("article span[lang=en]").first.inner_text()[:60])
+        pg.screenshot(path=os.path.join(here, "peek.png"))
+        pg.click("button:has-text('Read it sentence by sentence')"); d = pg.locator("[aria-label='Sentence by sentence']"); d.wait_for(timeout=10000)
+        n0 = d.locator("span.num").first.inner_text(); d.locator("button:has-text('Check translation')").click(); d.locator("button:has-text('I got it')").click(); pg.wait_for_timeout(200)
+        print("9 stays after I got it:", n0 == d.locator("span.num").first.inner_text(), "| bar segment green:", d.locator("button[aria-label$='got it']").count())
+        b.close()
+finally:
+    srv.terminate()
+print("ERRORS:", errs)

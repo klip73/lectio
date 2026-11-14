@@ -268,10 +268,11 @@ function SetRow({ label, hint, children, id }) {
 function SetCheck({ id, checked, onChange, children }) {
   return <label htmlFor={id} className="flex items-start gap-2 text-[14px] text-ink"><input id={id} type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--rubric)]" /><span>{children}</span></label>;
 }
-const SET_SECTIONS = [["display", "Display"], ["latin", "Latin text"], ["ai", "AI"], ["cards", "Flashcards & study"], ["liturgy", "Liturgy"], ["layout", "Home & layout"], ["focus", "Your focus"], ["data", "Backup & data"]];
+const SET_SECTIONS = [["display", "Display"], ["latin", "Latin text"], ["study", "Sentence study & hints"], ["ai", "AI"], ["cards", "Flashcards & study"], ["liturgy", "Liturgy"], ["layout", "Home & layout"], ["focus", "Your focus"], ["data", "Backup & data"]];
 const SET_UI_KEY = "lectio-vulgata-settings-ui";
 function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset }) {
   const s = useSettings();
+  const [st, setSt] = useStudyPrefs();
   const [open, setOpen0] = useState(() => { const v = readLocal(SET_UI_KEY); return Array.isArray(v) ? v : ["display"]; });
   const setOpen = k => { const n = open.includes(k) ? open.filter(x => x !== k) : [...open, k]; setOpen0(n); writeLocal(SET_UI_KEY, n); };
   /* display (the older keys, kept for older versions) */
@@ -359,6 +360,7 @@ function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset 
           <SetSeg label="Underline words to learn" items={[["off", "Off"], ["new", "Not in my cards"], ["likely", "Probably unknown"]]} value={s.unknown} onPick={v => setSet({ unknown: v })} />
         </SetRow>
       </>)}
+      {sect("study", "Sentence study & hints", <StudyOptions st={st} setSt={setSt} />)}
       {sect("ai", "AI", <>
         <SetCheck id="set-ai" checked={s.ai} onChange={v => setSet({ ai: v })}><b>Use AI</b> to mark translations and quizzes. Off: nothing is sent to {onClaude ? "Claude" : "Gemini or Groq"}, the AI button and every AI check are hidden, and marking uses the app’s own key-word check (for an exam-like practice, or when a teacher asks).</SetCheck>
         {s.ai && <>

@@ -199,7 +199,7 @@ function GrammarNotes({ lex, verses, part, prog, onDrill, text, onHighlight, key
   const [open, setOpen0] = useState(() => { const v = readLocal("lectio-vulgata-gnotes"); return v == null ? true : !!v; });
   const setOpen = v => { setOpen0(v); writeLocal("lectio-vulgata-gnotes", v ? 1 : 0); };
   const notes = useMemo(() => grammarNotes(lex, verses), [lex, verses]);
-  const tips = useMemo(() => phraseTips(text != null ? text : (verses || []).map(v => v[1]).join(" "), KINDS_OF_PART[part] || ["church"]), [verses, part, text]);
+  const tips = useMemo(() => st.phr ? phraseTips(text != null ? text : (verses || []).map(v => v[1]).join(" "), KINDS_OF_PART[part] || ["church"]) : [], [verses, part, text, st.phr]);
   if (!notes.length && !tips.length) return null;
   /* adaptive order: what this student keeps missing first */
   const weak = t => {
@@ -316,26 +316,40 @@ const gStyle = n => ({ "--gc": `var(--g${n % GCOL + 1})`, "--gt": `var(--g${n % 
 /* Study settings shared by the sentence reader and the grammar notes: learning mode ("try it first": plain text, help on demand)
    and how help points colour their words. Key lectio-vulgata-study; other open views follow through the lv-study event. */
 const STUDY_KEY = "lectio-vulgata-study";
-const STUDY_DEF = { learn: true, hl: "underline" };   // hl: underline | fill | off
+const STUDY_DEF = { learn: true, hl: "underline", phr: true, advance: true, startSbs: false, peek: false };   // hl: underline | fill | off
 function useStudyPrefs() {
   const [p, setP] = useState(() => ({ ...STUDY_DEF, ...(readLocal(STUDY_KEY) || {}) }));
   useEffect(() => { const h = e => setP(e.detail); window.addEventListener("lv-study", h); return () => window.removeEventListener("lv-study", h); }, []);
   const set = ch => { const n = { ...p, ...ch }; writeLocal(STUDY_KEY, n); window.dispatchEvent(new CustomEvent("lv-study", { detail: n })); };
   return [p, set];
 }
+function studyPrefs() { return { ...STUDY_DEF, ...(readLocal(STUDY_KEY) || {}) }; }
+/* The options, drawn the same way in Settings → Sentence study & hints and behind the sentence reader's ⚙. */
+function StudyOptions({ st, setSt }) {
+  return <>
+    <SetRow label="Learning mode" hint={st.learn ? "Each sentence starts plain. Open hints one at a time, then all the highlighting, then check the translation." : "Each sentence opens with its help points, colours and a translation button."}>
+      <SetSeg label="Learning mode" items={[[true, "Try it first"], [false, "Show all help at once"]]} value={st.learn} onPick={v => setSt({ learn: v })} />
+    </SetRow>
+    <SetRow label="Highlighting" hint="How a help point marks its words in the sentence.">
+      <SetSeg label="Highlighting" items={[["underline", "Coloured underline"], ["fill", "Coloured fill"], ["off", "No colours"]]} value={st.hl} onPick={v => setSt({ hl: v })} />
+    </SetRow>
+    <SetRow label="Kinds of help">
+      <SetCheck id="st-phr" checked={st.phr} onChange={v => setSt({ phr: v })}>Phrase tips (scholastic, biblical, Church and hymn phrases) besides the grammar points</SetCheck>
+    </SetRow>
+    <SetRow label="Moving on">
+      <SetCheck id="st-adv" checked={st.advance} onChange={v => setSt({ advance: v })}>Go to the next sentence after “I got it” or “I needed help”</SetCheck>
+      <SetCheck id="st-sbs" checked={st.startSbs} onChange={v => setSt({ startSbs: v })}>Open every Study passage sentence by sentence</SetCheck>
+    </SetRow>
+    <SetRow label="Passage page" hint="Like a parallel text: a quick look at one line, while the passage’s full translation still waits for your own.">
+      <SetCheck id="st-peek" checked={st.peek} onChange={v => setSt({ peek: v })}>Tap a verse number to see that verse’s translation</SetCheck>
+    </SetRow>
+  </>;
+}
 function StudySettings({ st, setSt }) {
-  const opt = (on, label, f) => <button type="button" aria-pressed={on} onClick={f} className={`rounded-full border px-3 py-1 text-[14px] ${on ? "border-rubric bg-rubrictint font-semibold text-ink" : "border-rule bg-paper text-soft hover:border-soft"}`}>{label}</button>;
   return (
     <section className="reveal flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-4 py-3" aria-label="Study settings">
-      <div className="flex flex-col gap-1.5">
-        <span className="smallcaps text-[13px] font-semibold text-soft">Learning mode</span>
-        <div className="flex flex-wrap gap-2">{opt(st.learn, "Try it first", () => setSt({ learn: true }))}{opt(!st.learn, "Show all help at once", () => setSt({ learn: false }))}</div>
-        <p className="text-[13px] text-soft">{st.learn ? "Each sentence starts plain. Open hints one at a time, then all the highlighting when you want it." : "Each sentence opens with its help points and colours showing."}</p>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="smallcaps text-[13px] font-semibold text-soft">Highlighting</span>
-        <div className="flex flex-wrap gap-2">{opt(st.hl === "underline", "Coloured underline", () => setSt({ hl: "underline" }))}{opt(st.hl === "fill", "Coloured fill", () => setSt({ hl: "fill" }))}{opt(st.hl === "off", "No colours", () => setSt({ hl: "off" }))}</div>
-      </div>
+      <StudyOptions st={st} setSt={setSt} />
+      <p className="text-[12px] text-soft">Also in Settings (the gear in the header) → Sentence study & hints.</p>
     </section>
   );
 }
@@ -376,7 +390,7 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
     const weak = t => { if (!t || !prog) return 0; const sk = prog.skill && prog.skill[t]; return ((prog.mistakes || []).filter(m => m.concept === t).length >= 2 ? 2 : 0) + (sk && sk.s < 0.5 ? 1 : 0); };
     return n.map(x => ({ ...x, w: weak(x.tag) })).sort((a, b) => b.w - a.w);
   }, [i]);
-  const tips = useMemo(() => phraseTips(v[1], KINDS_OF_PART[part] || ["church"]).filter(t => t.title !== "Word order in hymns"), [i]);
+  const tips = useMemo(() => st.phr ? phraseTips(v[1], KINDS_OF_PART[part] || ["church"]).filter(t => t.title !== "Word order in hymns") : [], [i, st.phr]);
   const sInfo = sents[i] || {};
   const items = [...notes, ...tips];
   const learn = st.learn;
@@ -393,6 +407,7 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
   function mark(r) {
     const next = { ...res, [i]: r };
     setRes(next);
+    if (!st.advance && verses.some((_, j) => !next[j])) return;   // stay here; ‹ › move on
     if (i + 1 < verses.length) setI(i + 1);
     else { setDone(true); onDone && onDone(next); }
   }

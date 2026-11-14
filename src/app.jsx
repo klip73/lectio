@@ -1754,6 +1754,9 @@ function App() {
   const blockIdx = Math.max(0, blocks.findIndex(bl => bl.some(v => v[0] === pos.v)));
   const block = blocks[blockIdx] || null;
   const pkey = block ? passageKey(pos.b, pos.c, block[0][0]) : null;
+  const [study] = useStudyPrefs();
+  const [peek, setPeek] = useState(() => new Set());   // verse numbers tapped for their translation (Settings → Sentence study & hints)
+  useEffect(() => { setPeek(new Set()); if (pkey && mode === "read" && studyPrefs().startSbs) setSbs(true); }, [pkey]);
 
   const curPart = partOf(pos.b);
   const pinfo = PART_INFO[curPart];
@@ -2468,8 +2471,12 @@ function App() {
                 <p lang="la" className={`lt latin text-[1.22rem] leading-[1.85] text-ink sm:text-[1.32rem]${curPart === "hy" ? " whitespace-pre-line" : ""}`}>
                   {block.map((v, vi) => (
                     <span key={v[0]}>
-                      {rowTag(v) && <sup className="num mr-0.5 text-[0.6em] font-bold text-rubric">{rowTag(v)}</sup>}
+                      {rowTag(v) && (study.peek && v[2]
+                        ? <button type="button" aria-pressed={peek.has(vi)} aria-label={`Translation of ${rowTag(v)}`} title="Show this verse’s translation" onClick={() => { const n = new Set(peek); n.has(vi) ? n.delete(vi) : n.add(vi); setPeek(n); }}
+                            className={`num mr-1 inline-block min-w-[1.8em] rounded px-1.5 py-1 align-[0.3em] text-[0.62em] font-bold leading-none ${peek.has(vi) ? "bg-rubric text-paper" : "bg-rubrictint text-rubric"}`}>{rowTag(v)}</button>
+                        : <sup className="num mr-0.5 text-[0.6em] font-bold text-rubric">{rowTag(v)}</sup>)}
                       <LatinWords text={curPart === "hy" ? v[1].replace(/ \/ /g, "\n") : v[1]} ids={v[3]} prefix={vi + ":"} selected={word} onPick={k => setWord(word === k ? null : k)} marks={pMarks} />
+                      {peek.has(vi) && <span lang="en" className="reveal my-1 block rounded border-l-2 border-rubric bg-paper px-3 py-1 font-[family-name:var(--font-ui)] text-[0.78em] not-italic leading-snug text-ink">{v[2]}</span>}
                       {curPart === "hy" ? "\n\n" : " "}
                     </span>
                   ))}
