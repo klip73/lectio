@@ -1399,6 +1399,7 @@ function alignCurated(la, src) {
 /*@include display.jsx*/
 /*@include settings.jsx*/
 /*@include meter.jsx*/
+/*@include bracket.jsx*/
 /*@include memory.jsx*/
 /*@include links.jsx*/
 /*@include mnemo.jsx*/
@@ -1467,7 +1468,7 @@ function Readiness({ prog, onPick, onPlace, ai }) {
   );
 }
 
-const STUDY_MODES = ["drill", "read", "vocab", "forms", "meter", "exam"];
+const STUDY_MODES = ["drill", "read", "vocab", "forms", "meter", "bracket", "exam"];
 /* Before translating: find the skeleton, record yourself. Folded away until wanted; the choice is remembered. */
 function DrillTools({ open, setOpen, children }) {
   return (
@@ -1522,7 +1523,7 @@ function App() {
   /* The app opens on Home (Continue + one button per purpose); tests can ask to start where they left off. */
   /* where the app opens: Home by default, or the student's choice (Settings → Home & layout) */
   const [mode, setMode] = useState(() => {
-    const ok = ["read", "vocab", "exam", "forms", "meter", "guide", "office", "library", "course"];
+    const ok = ["read", "vocab", "exam", "forms", "meter", "bracket", "guide", "office", "library", "course"];
     if (window.__LV_START) return ok.includes(ui0.mode) ? ui0.mode : "drill";
     const st = getSet("start");
     if (st === "study") return STUDY_MODES.includes(ui0.study) ? ui0.study : "read";
@@ -2230,7 +2231,7 @@ function App() {
       <div ref={practiceRef} className="flex scroll-mt-16 flex-col gap-2">
         {group === "study" && (
           <nav className="flex flex-wrap items-center gap-1 pb-1" aria-label="Practice mode">
-            {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["meter", "Meter"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>]].map(([m0, l]) => {
+            {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["meter", "Meter"], ["bracket", "Bracket"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>]].map(([m0, l]) => {
               /* "Class quiz" is the Vocabulary tab opened on My class list. */
               const m = m0 === "class" ? "vocab" : m0;
               const on = m0 === "class" ? mode === "vocab" && prefs.deck === "class" : m0 === "vocab" ? mode === "vocab" && prefs.deck !== "class" : mode === m;
@@ -2261,6 +2262,8 @@ function App() {
         <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />
       ) : mode === "meter" ? (
         <MeterMode />
+      ) : mode === "bracket" ? (
+        <BracketMode />
       ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
       ) : mode === "vocab" ? (

@@ -303,7 +303,7 @@ function sentencesOf(verses) {
     let k = 0;
     la.forEach((t, j) => {
       const n = (t.match(WORD_RE) || []).length;
-      out.push({ v: [v[0], t, en.length === la.length ? en[j] : v[2], v[3] ? v[3].slice(k, k + n) : null], label: v[0], whole: en.length !== la.length, sub: j + 1, of: la.length });
+      out.push({ v: [v[0], t, en.length === la.length ? en[j] : v[2], v[3] ? v[3].slice(k, k + n) : null], label: v[0], whole: en.length !== la.length, sub: j + 1, of: la.length, off: k });
       k += n;
     });
   });
@@ -369,9 +369,10 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
   const [step, setStep] = useState(0);                      // learning mode: 0 plain, 1 hints listed, 2 everything highlighted
   const [allNotes, setAllNotes] = useState(false);
   const [used, setUsed] = useState(false);                  // any help opened on this sentence
+  const [brk, setBrk] = useState(false);                    // the bracketing trainer on this sentence
   const topRef = useRef(null);
   useEffect(() => { const all = readLocal(SBS_KEY) || {}; all[storeKey] = { i, r: res }; const ks = Object.keys(all); if (ks.length > 60) delete all[ks[0]]; writeLocal(SBS_KEY, all); }, [i, res]);
-  useEffect(() => { setChip(null); setShowEn(false); setWord(null); setStep(0); setAllNotes(false); setUsed(false); topRef.current && topRef.current.scrollIntoView({ block: "start" }); }, [i]);
+  useEffect(() => { setChip(null); setShowEn(false); setWord(null); setStep(0); setAllNotes(false); setUsed(false); setBrk(false); topRef.current && topRef.current.scrollIntoView({ block: "start" }); }, [i]);
   const go = j => { if (j < 0 || j >= verses.length) return; setDone(false); setI(j); };
   const goRef = useRef(go); goRef.current = go;
   const iRef = useRef(i); iRef.current = i;
@@ -483,10 +484,14 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
                 style={cn === undefined ? undefined : gStyle(cn)}>{t}</span>;
             })}
           </p>
+          {brk && <BracketView lex={lex} text={v[1]} ids={v[3]} compact at={(() => { const p = String(key0 || "").split("."); return { b: p[0], c: +p[1], v: v[0], off: sInfo.off || 0 }; })()} onNext={i + 1 < verses.length ? () => go(i + 1) : null} />}
           {learn && step === 0 && (
             <div className="flex flex-col gap-2 rounded-lg border border-dashed border-rule px-4 py-3">
               <p className="text-[14px] text-soft">Try it on your own first. Tap a word if you need its meaning.</p>
-              {items.length > 0 && <div><button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => { setStep(1); setUsed(true); }}>Show hints ({items.length})</button></div>}
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {items.length > 0 && <button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => { setStep(1); setUsed(true); }}>Show hints ({items.length})</button>}
+                <button type="button" aria-pressed={brk} className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => setBrk(!brk)}>{brk ? "Close the bracketing" : "Bracket it"}</button>
+              </div>
             </div>
           )}
           {showHelp && items.length > 0 && <>
@@ -510,6 +515,7 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
               {learn && step === 2 && <button type="button" className="text-soft underline underline-offset-2" onClick={() => { setStep(0); setChip(null); setAllNotes(false); }}>Hide the help</button>}
             </div>
           )}
+          {!(learn && step === 0) && <div><button type="button" aria-pressed={brk} className="text-[14px] font-medium text-rubric underline underline-offset-2" onClick={() => setBrk(!brk)}>{brk ? "Close the bracketing" : "Bracket this sentence"}</button></div>}
           {word && (
             lex && readings(word.entry).ids.length
               ? <WordPanel lex={lex} word={word.w} entry={word.entry} onClose={() => setWord(null)} where={title} onTable={onTable} />

@@ -18,6 +18,8 @@ var SET_DEFAULTS = {
   lpart: "last", lhour: "last", commem: "show", rubrics: true,
   /* home and layout */
   start: "home", tiles: [], hideTiles: [], showContinue: true, hideDict: false,
+  /* bracketing (bracket.jsx) */
+  brkFin: "solid", brkInf: "dotted", brkPtc: "wavy", brkGer: "dashed", brkMain: true, brkCl: "[]", brkPh: "()", brkPhr: false, brkCol: true,
   /* data */
   backupEvery: 14
 };
@@ -268,7 +270,7 @@ function SetRow({ label, hint, children, id }) {
 function SetCheck({ id, checked, onChange, children }) {
   return <label htmlFor={id} className="flex items-start gap-2 text-[14px] text-ink"><input id={id} type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--rubric)]" /><span>{children}</span></label>;
 }
-const SET_SECTIONS = [["display", "Display"], ["latin", "Latin text"], ["study", "Sentence study & hints"], ["ai", "AI"], ["cards", "Flashcards & study"], ["liturgy", "Liturgy"], ["layout", "Home & layout"], ["focus", "Your focus"], ["data", "Backup & data"]];
+const SET_SECTIONS = [["display", "Display"], ["latin", "Latin text"], ["study", "Sentence study & hints"], ["brk", "Bracketing"], ["ai", "AI"], ["cards", "Flashcards & study"], ["liturgy", "Liturgy"], ["layout", "Home & layout"], ["focus", "Your focus"], ["data", "Backup & data"]];
 const S_PICS_HINT = { answer: "Common concrete words (water, bread, sheep…) get a picture, and you can add your own emoji, photo or drawing to any word.", front: "Shown before you answer: easier, but it gives the meaning away on Latin → English cards.", off: "No pictures, even ones you added." };
 const SET_UI_KEY = "lectio-vulgata-settings-ui";
 function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset }) {
@@ -362,6 +364,7 @@ function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset 
         </SetRow>
       </>)}
       {sect("study", "Sentence study & hints", <StudyOptions st={st} setSt={setSt} />)}
+      {sect("brk", "Bracketing", <BracketOptions />)}
       {sect("ai", "AI", <>
         <SetCheck id="set-ai" checked={s.ai} onChange={v => setSet({ ai: v })}><b>Use AI</b> to mark translations and quizzes. Off: nothing is sent to {onClaude ? "Claude" : "Gemini or Groq"}, the AI button and every AI check are hidden, and marking uses the app’s own key-word check (for an exam-like practice, or when a teacher asks).</SetCheck>
         {s.ai && <>
