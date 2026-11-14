@@ -17,7 +17,7 @@ function applyDisplay(d) {
 const FOCI = [
   ["exam", "The FSSP Latin proficiency exam", "Exam preparation first: the five parts, mock sittings, your weak points."],
   ["class", "My Latin class’s weekly quizzes", "Class quiz first: this week’s words, the text they come from, write-it-out practice."],
-  ["learn", "Learning Latin (beginner or rusty)", "Grammar, forms and the commonest words first; nothing assumed."],
+  ["learn", "Learning Latin (beginner or rusty)", "Learn first: a story that teaches Latin from zero and a full grammar course; the commonest words in the decks."],
   ["pray", "Praying the Office or following the Mass", "Today’s Office and Mass first, with word help and the hymns."],
   ["read", "Reading: Scripture, St Thomas, the Fathers", "The Library and Dictionary first, for someone who already reads Latin."]
 ];

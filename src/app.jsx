@@ -856,6 +856,7 @@ function loadLocalProgress() {
 function encodeBackup(prog) {
   return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, vtheta: prog.vtheta, exam: prog.exam,
     /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
+    co: (() => { try { const c = readCourse(); return Object.keys(c.done).length || Object.keys(c.cw).length ? { done: c.done, cw: c.cw, at: c.at } : undefined; } catch (e) { return undefined; } })(),
     lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
     set: exportSettings(),   /* Settings travel too (settings.jsx) */
     cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
@@ -891,6 +892,9 @@ function decodeBackup(code) {
     }
     /* the settings (applied at once) */
     if (d.set) importSettings(d.set);
+    /* the Learn course's progress */
+    if (d.co && typeof d.co === "object") { try { const cur = readCourse(), ok = id => typeof id === "string" && !!courseUnit(id), pick = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([k]) => ok(k)));
+      writeCourse({ ...cur, done: { ...pick(d.co.done), ...cur.done }, cw: { ...pick(d.co.cw), ...cur.cw }, at: cur.at || (ok(d.co.at) ? d.co.at : null) }); } catch (e) {} }
     /* the local calendar too */
     if (Array.isArray(d.lc)) { try { const cur = readLC(), ids = new Set(cur.entries.map(x => x.id)); writeLC({ ...cur, entries: [...cur.entries, ...d.lc.filter(x => x && typeof x.title === "string" && x.rule && !ids.has(x.id)).slice(0, 200)] }); } catch (e) {} }
     const vtheta = Number.isFinite(+d.vtheta) && d.vtheta != null ? Math.max(0, Math.min(6, +d.vtheta)) : undefined;
@@ -1378,6 +1382,9 @@ function alignCurated(la, src) {
 /*@include forms.jsx*/
 /*@include guide-data.js*/
 /*@include guide.jsx*/
+/*@include course-natural.js*/
+/*@include course-grammar.js*/
+/*@include course.jsx*/
 /*@include placement.jsx*/
 /*@include office.jsx*/
 /*@include localcal.jsx*/
@@ -1510,7 +1517,7 @@ function App() {
   /* The app opens on Home (Continue + one button per purpose); tests can ask to start where they left off. */
   /* where the app opens: Home by default, or the student's choice (Settings → Home & layout) */
   const [mode, setMode] = useState(() => {
-    const ok = ["read", "vocab", "exam", "forms", "meter", "guide", "office", "library"];
+    const ok = ["read", "vocab", "exam", "forms", "meter", "guide", "office", "library", "course"];
     if (window.__LV_START) return ok.includes(ui0.mode) ? ui0.mode : "drill";
     const st = getSet("start");
     if (st === "study") return STUDY_MODES.includes(ui0.study) ? ui0.study : "read";
@@ -2110,23 +2117,23 @@ function App() {
       )}
 
       {/* Sections, pinned to the top while scrolling */}
-      <nav className="sticky top-0 z-10 -my-3 grid grid-cols-[auto_repeat(4,minmax(0,1fr))] gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
+      <nav className="sticky top-0 z-10 -my-3 grid grid-cols-[auto_repeat(5,minmax(0,1fr))] gap-1 rounded-lg border border-rule bg-paper p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" aria-label="Section">
         <button type="button" aria-pressed={group === "home"} aria-label="Home" className={`rounded-md px-3 py-1.5 text-center text-[15px] font-medium sm:px-3.5 ${group === "home" ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`} onClick={() => goHome("home")}><span aria-hidden="true" className="sm:hidden">⌂</span><span className="hidden sm:inline">Home</span></button>
-        {[["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
-          <button key={g} type="button" aria-pressed={group === g} className={`min-w-0 rounded-md px-1 py-1.5 text-center text-[15px] font-medium sm:px-3.5 ${group === g ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`}
+        {[["course", "Learn"], ["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["guide", "Guide"]].map(([g, l]) => (
+          <button key={g} type="button" aria-pressed={group === g} className={`min-w-0 truncate rounded-md px-0.5 py-1.5 text-center text-[14px] font-medium sm:px-3.5 sm:text-[15px] ${group === g ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`}
             onClick={() => { setMode(g === "study" ? (STUDY_MODES.includes(lastStudy) ? lastStudy : "read") : g === "liturgy" ? "office" : g); resetView(); window.scrollTo({ top: 0 }); }}>{l}</button>
         ))}
       </nav>
 
       {group === "home" && <>
-      {firstVisit && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      {firstVisit && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} onLearn={() => { setPrefs(p => ({ ...p, welcomed: true })); setMode("course"); window.scrollTo({ top: 0 }); }} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <HomeScreen fresh={firstVisit} go={goHome} office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} day={day} dueCount={dueAll}
         cls={readClass()} posLabel={`${BOOK_NAME[pos.b] || ""} ${pos.c}:${pos.v}`} examLeft={examLeft} focus={prefs.focus} />
       </>}
 
       {group === "study" && <>
-      {firstVisit && landedOn === "study" && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} />}
+      {firstVisit && landedOn === "study" && <WelcomeCard focus={prefs.focus} onFocus={chooseFocus} onClose={() => setPrefs(p => ({ ...p, welcomed: true }))} onPlace={() => startPlacement(PARTS.map(p => p.id))} onLearn={() => { setPrefs(p => ({ ...p, welcomed: true })); setMode("course"); window.scrollTo({ top: 0 }); }} />}
       <BackupReminder prog={prog} cloud={store === "cloud"} />
       <TodayCard office={officeToday} officeRead={(prog.oread || []).includes(dayNum(isoOf(new Date())))} onOffice={() => { setMode("office"); resetView(); showPractice(); }} day={day} dueCount={dueAll} focusName={focusPart ? PART_INFO[focusPart.id].short : ""} onStep={todayStep} examLeft={examLeft} placeFirst={!!(focusPart && untried)} />
 
@@ -2228,6 +2235,12 @@ function App() {
         <OfficeMode prog={prog} onRead={markRead} onTable={openTable} onTap={addTapped} onOpen={openLibrary} />
       ) : mode === "place" && placeParts ? (
         <PlacementCheck key={placeParts.join(",")} parts={placeParts} prog={prog} ai={tutorAvail === true} onAnswer={answerQuiz} onFinish={finishPlacement} onCancel={() => { setMode("read"); setPlaceParts(null); }} />
+      ) : mode === "course" ? (
+        <CourseMode onTap={addTapped} onTable={openTable} onLemma={openLemma} voice={voice}
+          onDeck={() => { setPrefs(p => ({ ...p, deck: "course" })); setMode("vocab"); resetView(); window.scrollTo({ top: 0 }); }}
+          onGuide={() => { writeLocal(GUIDE_KEY, { tab: "pron" }); setMode("guide"); window.scrollTo({ top: 0 }); }}
+          onOpenLib={id => openLibrary(id, 0)}
+          onPassage={() => { setMode("read"); goPassage({ b: "jn", c: 1, v: 1 }, "Opened from Learn."); window.scrollTo({ top: 0 }); }} />
       ) : mode === "guide" ? (
         <GuideMode onOpen={openRef} onDrill={drillConcept} onPart={pid => { switchPart(pid, true); showPractice(); }} onLemma={openLemma} voice={voice} />
       ) : mode === "meter" ? (

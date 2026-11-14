@@ -235,12 +235,12 @@ function importSettings(x) {
   } catch (e) {}
 }
 const THEMES = [["auto", "As device"], ["light", "Light"], ["sepia", "Sepia"], ["dark", "Dark"], ["contrast", "High contrast"]];
-const HOME_TILES = [["class", "Class quiz"], ["study", "Exam preparation"], ["office", "Today’s Office"], ["library", "Read & look up"], ["learn", "Learn the grammar"]];
-const FOCUS_ORDER = { exam: ["study", "class", "office", "library"], class: ["class", "study", "office", "library"], learn: ["learn", "class", "study", "office", "library"], pray: ["office", "library", "class", "study"], read: ["library", "office", "class", "study"] };
+const HOME_TILES = [["class", "Class quiz"], ["study", "Exam preparation"], ["office", "Today’s Office"], ["library", "Read & look up"], ["learn", "Learn Latin from the beginning"]];
+const FOCUS_ORDER = { exam: ["study", "class", "office", "library", "learn"], class: ["class", "study", "office", "library", "learn"], learn: ["learn", "office", "library", "class", "study"], pray: ["office", "library", "learn", "class", "study"], read: ["library", "office", "class", "study", "learn"] };
 /* All five tiles in order, each with whether it shows: the student's own order first, then the focus's; a tile the focus
-   leaves out (Learn the grammar, except for beginners) shows once the student switches it on. */
+   leaves out shows once the student switches it on. */
 function tileList(focus) {
-  const base = FOCUS_ORDER[focus] || ["class", "study", "office", "library"];
+  const base = FOCUS_ORDER[focus] || ["learn", "class", "study", "office", "library"];
   const all = HOME_TILES.map(t => t[0]);
   const own = (getSet("tiles") || []).filter(k => all.includes(k));
   const order = [...own, ...base.filter(k => !own.includes(k)), ...all.filter(k => !own.includes(k) && !base.includes(k))];

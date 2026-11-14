@@ -25,7 +25,7 @@ function vocabOf(lex) {
 }
 let vocabPromise = null;
 function loadVocab() { if (!vocabPromise) vocabPromise = getJSON("data/vocab.json").catch(e => { vocabPromise = null; throw e; }); return vocabPromise; }
-const DECKS = [["due", "Due now"], ["class", "My class list"], ["past", "Past class words"], ["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
+const DECKS = [["due", "Due now"], ["course", "Course words"], ["class", "My class list"], ["past", "Past class words"], ["all", "All five texts"], ["nt", "New Testament"], ["st", "Summa"], ["se", "Sermons"], ["hy", "Hymns"], ["ps", "Psalms"],
   ["pp", "Principal parts"], ["tap", "Words I looked up"], ["mk", "My mistakes"]];
 /* Words any student sitting the exam already knows; they are left out of the decks. */
 const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sine sub super inter post ante apud propter ego tu nos vos is hic ille ipse iste idem " +
@@ -46,12 +46,14 @@ function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
   if (deck === "all") return V.order.filter(notBasic).map(l => word(l)).filter(Boolean);
   // Part decks also skip the 150 commonest words overall (they are in "All five texts"), so each opens with that text's own vocabulary.
   if (PART_IDS.includes(deck)) return vocab ? vocab[deck].filter(([li]) => notBasic(lex.lemmas[li][0]) && !(V.freq[lex.lemmas[li][0]] && V.freq[lex.lemmas[li][0]].rank <= 150)).map(([li, n, ref, ex, aid]) => word(lex.lemmas[li][0], { ref, ex, aid })).filter(Boolean) : null;
+  if (deck === "course") return courseDeck();
   if (deck === "tap") return (prog.vtap || []).map(l => word(l)).filter(Boolean);
   /* every card that is due, from any deck (words and principal parts) */
   if (deck === "due") {
     const now = Date.now();
     return Object.entries(prog.vcards || {}).filter(([k, c]) => c.due <= now).sort((a, b) => a[1].due - b[1].due).map(([k]) => {
       if (k.startsWith("pp:")) { const l = k.slice(3), li = V.byLemma[l]; if (li === undefined) return null; const [, gloss, pp] = lex.lemmas[li]; return pp ? { key: k, front: l, sub: "Give all the principal parts", back: pp, extra: gloss, pp: true } : null; }
+      if (k.startsWith("co:")) return courseWords()[k] || null;
       if (k.includes(":")) return null;
       const w = word(k);
       if (w) return w;
@@ -95,7 +97,7 @@ function pickCard(prog, cards, cur) {
   const i = newOk ? cards.findIndex(c => !vc[c.key] && c.key !== cur) : -1;
   if (!newOk && cards.some(c => !vc[c.key])) return { card: null, limit: "new", n: newCap };
   if (!revOk && Object.entries(vc).some(([k, c]) => keys.has(k) && c.due <= now)) return { card: null, limit: "rev", n: revCap };
-  if (i >= 0) return { card: cards[i], why: cards[i].mk ? "A mistake from one of your checked translations." : cards[i].pp ? "New verb for principal parts." : `New card: number ${i + 1} in this deck, by frequency.` };
+  if (i >= 0) return { card: cards[i], why: cards[i].mk ? "A mistake from one of your checked translations." : cards[i].pp ? "New verb for principal parts." : cards[i].key.startsWith("co:") ? `New word from your course (${i + 1} of ${cards.length}).` : `New card: number ${i + 1} in this deck, by frequency.` };
   const weak = Object.entries(vc).filter(([k]) => keys.has(k) && k !== cur).sort((a, b) => a[1].ema - b[1].ema)[0];
   return weak ? { card: byKey[weak[0]], why: "Nothing is due. Extra practice on a weaker card." } : null;
 }

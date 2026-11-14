@@ -325,7 +325,7 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst, off
     </section>
   );
 }
-function WelcomeCard({ onClose, onPlace, focus, onFocus }) {
+function WelcomeCard({ onClose, onPlace, focus, onFocus, onLearn }) {
   const other = focus && !["exam", "class"].includes(focus);
   return (
     <section className="reveal rounded-lg border border-rubric bg-rubrictint px-5 py-4" aria-label="Welcome">
@@ -335,10 +335,11 @@ function WelcomeCard({ onClose, onPlace, focus, onFocus }) {
         <FocusPicker focus={focus} onPick={onFocus} />
       </div>}
       {other ? (
-        <p className="mt-3 text-[15px] leading-snug text-ink">{focus === "learn" ? <>Start with the <strong>Guide</strong> (grammar in plain steps) and <strong>Forms</strong> (tables for any word), and learn the commonest words in <strong>Study → Vocabulary</strong>: the cards come back as Anki’s do, sooner when you miss them.</> : focus === "pray" ? <>Open <strong>Liturgy</strong> for today’s Office and Mass in Latin and English (any hour, the hymns, votive Masses, your own calendar). Tap any word for its meaning; the <strong>Meter</strong> tab in Study scans the hymns.</> : <>The <strong>Library</strong> has the whole Summa, the Fathers, the Catena Aurea and the Latin Library, with every word tappable; the <strong>Dictionary</strong> button (top) looks up any form in Lewis &amp; Short, Wiktionary and Du Cange.</>}</p>
+        <p className="mt-3 text-[15px] leading-snug text-ink">{focus === "learn" ? <>Start in <strong>Learn</strong> (top): a story in Latin that teaches itself, the natural way (as in Lingua Latina), and a 34-lesson grammar course in Wheelock’s order with Church readings. No Latin needed. Each finished lesson’s words come back as flashcards in <strong>Vocabulary</strong>, as Anki’s do.</> : focus === "pray" ? <>Open <strong>Liturgy</strong> for today’s Office and Mass in Latin and English (any hour, the hymns, votive Masses, your own calendar). Tap any word for its meaning; the <strong>Meter</strong> tab in Study scans the hymns.</> : <>The <strong>Library</strong> has the whole Summa, the Fathers, the Catena Aurea and the Latin Library, with every word tappable; the <strong>Dictionary</strong> button (top) looks up any form in Lewis &amp; Short, Wiktionary and Du Cange.</>}</p>
       ) : <>
       <p className="mt-3 text-[14px] text-soft">For the FSSP Latin exam (after Latin 1–3), and for reading the Office for life. Four things to know:</p>
       <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-snug text-ink">
+        <li>New to Latin, or rusty? Begin in <strong>Learn</strong>: a story that teaches Latin from zero and a full grammar course.</li>
         <li><strong>Find my level</strong> first: a short check in each of the five exam parts, so everything starts at your level.</li>
         <li>Each day, <strong>Start today’s session</strong>: it mixes reviews, vocabulary, your weakest exam part and a short oral mock.</li>
         <li>For your weekly vocab quiz, <strong>Class quiz</strong>: add the chapters or Summa articles you’re reading (or paste your book’s list), then write out the dictionary entries.</li>
@@ -355,6 +356,7 @@ function WelcomeCard({ onClose, onPlace, focus, onFocus }) {
       </details>
       </>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {onLearn && focus === "learn" && <Btn variant="primary" onClick={onLearn}>Start learning Latin →</Btn>}
         {onPlace && !other && <Btn variant="primary" onClick={onPlace}>Find my level</Btn>}
         <Btn variant={onPlace && !other ? "plain" : "primary"} onClick={onClose}>{onPlace && !other ? "Skip for now" : "Got it"}</Btn>
       </div>

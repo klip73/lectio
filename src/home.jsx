@@ -8,7 +8,7 @@ function touchRecent(area) {
   r[area] = Date.now();
   writeLocal(RECENT_KEY, r);
 }
-const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["read", "drill", "forms", "meter", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
+const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["course", "read", "drill", "forms", "meter", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
 
 function continueItems(libIdx, posLabel) {
   const r = readLocal(RECENT_KEY) || {};
@@ -26,6 +26,7 @@ function continueItems(libIdx, posLabel) {
     else if (area === "forms") label = "Forms";
     else if (area === "meter") label = "Meter";
     else if (area === "guide") label = "Guide";
+    else if (area === "course") { const c = readCourse(), u = c.at && courseUnit(c.at); label = "Learn Latin"; sub = u ? unitLabel(u) : `${Object.keys(c.done).length} chapters and lessons done`; }
     else if (area === "exam") { const x = readLocal(EXAM_KEY) || {}; label = x.run && !x.run.end ? "Finish your exam sitting" : "Exam sitting"; }
     else if (area === "office") {
       const o = readLocal(OFFICE_KEY) || {};
@@ -112,9 +113,9 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
           <span className={note}>Search the whole Summa, the Catena Aurea, the Fathers, the Roman Catechism and Ritual, both Codes of canon law and the Vulgate, with every word tappable.</span>
         </button>
     </React.Fragment>),
-        learn: (<button key="learn" type="button" className={tile} onClick={() => go("guide")}>
-            <span className={head}>Learn the grammar</span>
-            <span className={note}>The Guide: cases, verbs and constructions step by step, with memory aids from the old grammars; Forms has the tables for any word.</span>
+        learn: (<button key="learn" type="button" className={tile} onClick={() => go("course")}>
+            <span className={head}>Learn Latin from the beginning</span>
+            <span className={note}>No Latin needed: a story that teaches itself (the natural method, as in Lingua Latina) and a 34-lesson grammar course in Wheelock’s order, with Church Latin readings.</span>
           </button>)
         };
         const order = homeTiles(focus);   /* Settings → Home & layout: the student's order, without hidden buttons */
