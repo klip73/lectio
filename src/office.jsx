@@ -116,7 +116,10 @@ function commemRuns(ls) {
   });
   return runs;
 }
-function OfficeSection({ sec, i, showEn, onWord, sel }) {
+/* the Latin and English of a section as plain running text, for the sentence-by-sentence reader */
+const officePlain = ls => officeLines(ls || []).filter(l => l.t).map(l => l.t.replace(/\^[^^]*\^/g, " ").replace(/\{[^}]*\}/g, " ")).join(" ").replace(/\s+/g, " ").trim();
+const officeStepOk = sec => { const head = officeLines(sec[0] || []).filter(l => l.h).map(l => l.h).join(" "); return /Lectio|Hymnus|Evangelium|Homilia|Sermo|Epistola|Capitulum|Oratio/i.test(head) && (officePlain(sec[0]).match(WORD_RE) || []).length >= 12; };
+function OfficeSection({ sec, i, showEn, onWord, sel, onSteps }) {
   const [en, setEn] = useState(false);
   const [openC, setOpenC] = useState({});
   const narrow = useNarrow();
@@ -139,6 +142,7 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
             <p lang="en" className="text-[14px] leading-snug text-soft"><OfficeText line={eng[k].t} latin={false} onWord={onWord} sel={sel} /></p>
           </div>; })}
       {!showEn && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => setEn(false)}>Hide English</button>}
+      {onSteps && officeStepOk(sec) && <button type="button" className="ml-3 mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => onSteps(sec)}>Sentence by sentence</button>}
     </section>
   );
   const block = (ls, latin) => { const fo = latin ? fLa : fEn; return ls.map((l, k) => { const f = fo(k); if (f && f.head) return foldBtn(f, k); if (f && !openC[f.n]) return null; return l.h
@@ -151,6 +155,7 @@ function OfficeSection({ sec, i, showEn, onWord, sel }) {
         {both && <div lang="en" className={under ? "border-t border-rule pt-2" : "border-t border-rule pt-2 sm:border-0 sm:pt-0"}>{block(eng, false)}</div>}
       </div>
       {!showEn && eng.length > 0 && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => setEn(x => !x)}>{en ? "Hide English" : "English"}</button>}
+      {onSteps && officeStepOk(sec) && <button type="button" className="ml-3 mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => onSteps(sec)}>Sentence by sentence</button>}
     </section>
   );
 }
@@ -213,6 +218,7 @@ function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }
   useEffect(() => { help.clear(); }, [keyBase]);
   const chips = showChips ? sections.map(x => ({ i: x.i, name: x.name || (x.s[0].find(l => /^\*Lectio/.test(l)) || "").replace(/\*/g, "") })).filter(x => x.name && x.name.length < 40) : [];
   const anyEn = sections.some(x => x.s[1] && x.s[1].length);
+  const [steps, setSteps] = useState(null);   // a section read sentence by sentence
   return (
     <>
       {anyEn && <label htmlFor="office-en" className="flex items-center gap-1.5 text-[14px] text-soft"><input id="office-en" type="checkbox" checked={showEn} onChange={e => setShowEn(e.target.checked)} className="h-4 w-4 accent-[var(--rubric)]" /> English with the Latin</label>}
@@ -222,9 +228,15 @@ function Sections({ sections, keyBase, onTap, onTable, where, showChips = true }
             className="rounded border border-rule bg-paper px-2 py-0.5 text-[12px] text-ink hover:border-soft">{c.name.replace(/^Psalmus /, "Ps ")}</button>)}
         </nav>
       )}
-      {sections.length ? sections.map(x => <OfficeSection key={keyBase + x.i} sec={x.s} i={x.i} showEn={showEn} onWord={help.pick} sel={help.word} />)
+      {sections.length ? sections.map(x => <OfficeSection key={keyBase + x.i} sec={x.s} i={x.i} showEn={showEn} onWord={help.pick} sel={help.word} onSteps={setSteps} />)
         : <p className="text-[14px] text-soft">Nothing to show in this view today.</p>}
       {help.panel(where, onTable)}
+      {steps && (() => {
+        const head = officeLines(steps[0] || []).filter(l => l.h).map(l => l.h).join(" · ");
+        const part = /Hymnus/i.test(head) ? "hy" : /Evangelium|Epistola/i.test(head) ? "nt" : "se";
+        return <StepThrough title={`${where || "Office"} · ${head}`} part={part} paras={[{ la: officePlain(steps[0]), en: officePlain(steps[1]) }]} formsLoad={() => officeGet("forms")}
+          storeKey={`off:${keyBase}:${head}`.slice(0, 120)} onTable={onTable} onClose={() => setSteps(null)} />;
+      })()}
     </>
   );
 }

@@ -1412,6 +1412,7 @@ function alignCurated(la, src) {
 /*@include share.jsx*/
 /*@include dictionary.jsx*/
 /*@include sunday.jsx*/
+/*@include practice.jsx*/
 
 /* ---------- Links to a passage ---------- */
 const ARTIFACT_URL = "https://claude.ai/artifact/X6N5DSQ3q196vb6ZEzgjty";
@@ -1468,7 +1469,7 @@ function Readiness({ prog, onPick, onPlace, ai }) {
   );
 }
 
-const STUDY_MODES = ["drill", "read", "vocab", "forms", "meter", "bracket", "exam"];
+const STUDY_MODES = ["drill", "read", "vocab", "forms", "meter", "bracket", "exam", "more"];
 /* Before translating: find the skeleton, record yourself. Folded away until wanted; the choice is remembered. */
 function DrillTools({ open, setOpen, children }) {
   return (
@@ -1523,7 +1524,7 @@ function App() {
   /* The app opens on Home (Continue + one button per purpose); tests can ask to start where they left off. */
   /* where the app opens: Home by default, or the student's choice (Settings → Home & layout) */
   const [mode, setMode] = useState(() => {
-    const ok = ["read", "vocab", "exam", "forms", "meter", "bracket", "guide", "office", "library", "course"];
+    const ok = ["read", "vocab", "exam", "forms", "meter", "bracket", "more", "guide", "office", "library", "course"];
     if (window.__LV_START) return ok.includes(ui0.mode) ? ui0.mode : "drill";
     const st = getSet("start");
     if (st === "study") return STUDY_MODES.includes(ui0.study) ? ui0.study : "read";
@@ -1577,6 +1578,7 @@ function App() {
   const [accMap, setAccMap] = useState(null);
   const [lexAll, setLexAll] = useState(null);
   const voice = useLatinVoice();
+  const sbDue = useSbankDue();
   const ctlRef = useRef({});
   const cloudRef = useRef(null);
   const chainRef = useRef(Promise.resolve());
@@ -2231,7 +2233,7 @@ function App() {
       <div ref={practiceRef} className="flex scroll-mt-16 flex-col gap-2">
         {group === "study" && (
           <nav className="flex flex-wrap items-center gap-1 pb-1" aria-label="Practice mode">
-            {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["meter", "Meter"], ["bracket", "Bracket"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>]].map(([m0, l]) => {
+            {[["drill", <><span className="sm:hidden">Drill</span><span className="hidden sm:inline">Verse drill</span></>], ["read", `Passages${dueP ? ` · ${dueP}` : ""}`], ["class", "Class quiz"], ["vocab", <><span className="sm:hidden">Vocab</span><span className="hidden sm:inline">Vocabulary</span>{dueV ? ` · ${dueV}` : ""}</>], ["forms", "Forms"], ["meter", "Meter"], ["bracket", "Bracket"], ["exam", <><span className="sm:hidden">Exam</span><span className="hidden sm:inline">Exam sitting</span></>], ["more", `More${sbDue ? ` · ${sbDue}` : ""}`]].map(([m0, l]) => {
               /* "Class quiz" is the Vocabulary tab opened on My class list. */
               const m = m0 === "class" ? "vocab" : m0;
               const on = m0 === "class" ? mode === "vocab" && prefs.deck === "class" : m0 === "vocab" ? mode === "vocab" && prefs.deck !== "class" : mode === m;
@@ -2264,6 +2266,10 @@ function App() {
         <MeterMode />
       ) : mode === "bracket" ? (
         <BracketMode />
+      ) : mode === "more" ? (
+        <PracticeMode prog={prog} voice={voice} onTable={openTable} onPart={pid => { switchPart(pid, true); showPractice(); }}
+          onMock={() => { const x = readLocal(EXAM_KEY) || {}; writeLocal(EXAM_KEY, { ...x, cfg: { ...(x.cfg || {}), scope: "mock", oral: true } }); setExamKey(k => k + 1); setMode("exam"); resetView(); showPractice(); }}
+          onPlace={parts => startPlacement(parts)} onSetDate={setExam} onOpenLib={(id, ci, hl) => openLibrary(id, ci, hl)} />
       ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
       ) : mode === "vocab" ? (

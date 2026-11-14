@@ -132,6 +132,13 @@ function FeedbackPanel({ where, onClose }) {
 /* ---------- What's new: shown once on Home after an update ---------- */
 const SEEN_KEY = "lectio-vulgata-seen";
 const WHATS_NEW = [
+  { d: "2026-11-14", items: [
+    "Study → More: your exam plan. Enter the exam date and each week shows how many passages to do in each part (more where you are weakest), then full oral mock sittings in the last eight weeks.",
+    "Sentences to review: every sentence you mark “I needed help” is kept and comes back the next day, then after 3 days, a week and so on (Study → More).",
+    "Phrases: the set turns of phrase of St Thomas (videtur quod, respondeo dicendum, secundum quid…), the Bible, Church Latin and the hymns, with a quiz and real examples from the exam texts.",
+    "Sacramental forms: Baptism, Confirmation in danger of death, the Consecration, Absolution, Extreme Unction, Viaticum, the Apostolic Blessing and Matrimony, from the Rituale Romanum and the 1962 Missal. Read, hear, record yourself, then write them from memory word for word.",
+    "Sentence by sentence now also in the Summa reader, every Library work, and the Office’s lessons, hymns, chapters and prayers.",
+  ] },
   { d: "2026-11-13", items: [
     "Dictionary: the button at the top of every page. Type any Latin form (fecerunt, gratiae) for its dictionary word, parsing, Lewis & Short, Wiktionary and Du Cange, all its forms and add-to-deck; headwords are suggested as you type; English → Latin finds the Latin for an English word.",
     "Library search can now include the whole Latin Library (tick “Also search the whole Latin Library”).",

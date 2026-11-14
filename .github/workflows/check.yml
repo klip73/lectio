@@ -1,0 +1,53 @@
+# Build the page and run the main browser tests on every push and pull request to main.
+# Publishing stays manual (tools/app/publish_code.sh or publish_pages.sh): it needs data that is only on gh-pages.
+name: check
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      NODE_MODULES: /tmp/nm/node_modules
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build tools
+        run: |
+          mkdir -p /tmp/nm && cd /tmp/nm && npm init -y >/dev/null
+          npm install --no-audit --no-fund esbuild@0.28 tailwindcss@4 react@19 react-dom@19
+          pip install playwright==1.63.0 && python -m playwright install --with-deps chromium
+      - name: Build the online page and the offline copy (fails over 16 MiB)
+        run: |
+          node tools/build_page.mjs
+          node tools/build_page.mjs --offline
+      - name: Form generator and course checks
+        run: |
+          node tools/forms/check.mjs data | tail -3
+          node tools/course/check.mjs | tail -3
+      - name: Browser tests
+        working-directory: tests
+        run: |
+          node ../tools/build_page.mjs
+          python mkpage.py
+          fail=0
+          for t in run28 run30 run33 run34 run37 run38 run39 run40 run41 run42 run43; do
+            echo "::group::$t"
+            out=$(timeout 600 python $t.py 2>&1) || true
+            echo "$out" | tail -40
+            echo "::endgroup::"
+            echo "$out" | grep -q "^ERRORS: \[\]" || { echo "::error::$t reported errors"; fail=1; }
+            if echo "$out" | grep -q "^FAILS:"; then echo "$out" | grep -q "^FAILS: \[\]" || { echo "::error::$t has failing checks"; fail=1; }; fi
+          done
+          exit $fail

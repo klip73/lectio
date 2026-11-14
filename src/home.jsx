@@ -8,7 +8,7 @@ function touchRecent(area) {
   r[area] = Date.now();
   writeLocal(RECENT_KEY, r);
 }
-const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["course", "read", "drill", "forms", "meter", "bracket", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
+const areaOf = (mode, deck) => mode === "vocab" ? (deck === "class" ? "class" : "vocab") : ["course", "read", "drill", "forms", "meter", "bracket", "more", "exam", "office", "library", "guide"].includes(mode) ? mode : null;
 
 function continueItems(libIdx, posLabel) {
   const r = readLocal(RECENT_KEY) || {};
@@ -26,6 +26,7 @@ function continueItems(libIdx, posLabel) {
     else if (area === "forms") label = "Forms";
     else if (area === "meter") label = "Meter";
     else if (area === "bracket") label = "Bracketing";
+    else if (area === "more") { const t = (readLocal(PRACTICE_KEY) || {}).tab; label = { sentences: "Sentences to review", phrases: "Phrases", forms: "Sacramental forms" }[t] || "Exam plan"; const n = sbankDue(); sub = n ? `${n} sentences due` : ""; }
     else if (area === "guide") label = "Guide";
     else if (area === "course") { const c = readCourse(), u = c.at && courseUnit(c.at); label = "Learn Latin"; sub = u ? unitLabel(u) : `${Object.keys(c.done).length} chapters and lessons done`; }
     else if (area === "exam") { const x = readLocal(EXAM_KEY) || {}; label = x.run && !x.run.end ? "Finish your exam sitting" : "Exam sitting"; }
@@ -90,7 +91,7 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
     study: (<React.Fragment key="study">
         <button type="button" className={tile} onClick={() => go("study")}>
           <span className={head}>Exam preparation</span>
-          <span className={note}>Today’s session: {doneToday === 4 ? "done ✓" : `${doneToday} of 4 steps`}{dueCount ? ` · ${dueCount} reviews due` : ""}{examLeft ? ` · ${examLeft}` : ""}</span>
+          <span className={note}>Today’s session: {doneToday === 4 ? "done ✓" : `${doneToday} of 4 steps`}{dueCount ? ` · ${dueCount} reviews due` : ""}{sbankDue() ? ` · ${sbankDue()} sentences to review` : ""}{examLeft ? ` · ${examLeft}` : ""}</span>
         </button>
     </React.Fragment>),
     office: (<React.Fragment key="office">

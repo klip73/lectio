@@ -15,6 +15,7 @@ function SummaReader({ onTap, onTable, onBack }) {
   const [lex, setLex] = useState(null);
   const [tap, setTap] = useState(null);   // { w, entry }
   const [added, setAdded] = useState("");
+  const [steps, setSteps] = useState(false);   // the article sentence by sentence
   const topRef = useRef(null);
   useEffect(() => { loadSummaIndex().then(setIdx).catch(() => setErr("The Summa didn’t load. Check your connection and try again.")); }, []);
   useEffect(() => {
@@ -32,7 +33,7 @@ function SummaReader({ onTap, onTable, onBack }) {
   const nArts = qrow[2].length;
   const a = Math.min(Math.max(1, an), nArts);
   function go(np, nq, na) {
-    setP(np); setQn(nq); setAn(na); setTap(null);
+    setP(np); setQn(nq); setAn(na); setTap(null); setSteps(false);
     requestAnimationFrame(() => topRef.current && topRef.current.scrollIntoView({ block: "start" }));
   }
   function step(d) {
@@ -115,6 +116,12 @@ function SummaReader({ onTap, onTable, onBack }) {
         {added && <span className="text-[13px] text-ok" aria-live="polite">{added}</span>}
       </div>
       {q && <PhraseTips text={la.join(" ")} kinds={["thomas"]} />}
+      {q && <StepButton onClick={() => setSteps(true)} label="Read it sentence by sentence" note="try each sentence first, then hints and the English" />}
+      {steps && q && (() => {
+        const paras = [];
+        groups.forEach(g => { const eng = enFor(g); g.items.forEach((j, ii) => paras.push({ la: la[j], en: eng.length === g.items.length ? eng[ii] : "", label: SM_ROLE_L[g.role], j })); });
+        return <StepThrough title={`Summa ${SM_PART[p]}, q. ${qn}, a. ${a}`} part="st" paras={paras} ws={ws} storeKey={`st:${p}:${qn}:${a}`} onTable={onTable} onClose={() => setSteps(false)} />;
+      })()}
       {!q ? <p className="text-[15px] text-soft">Loading…</p> : (
         <article className="flex flex-col gap-4 rounded-lg border border-rule bg-leaf px-5 py-5 sm:px-8">
           <header>

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-const NM = "/opt/npm-tools/node_modules";
+const NM = process.env.NODE_MODULES || "/opt/npm-tools/node_modules";   // CI sets NODE_MODULES
 const require = createRequire(NM + "/");
 const esbuild = require("esbuild");
 const { compile } = require("tailwindcss");
@@ -60,7 +60,8 @@ if (offline) {
   const reactJs = react.outputFiles[0].text;
   const dataDir = path.join(root, "data");
   const pack = {};
-  for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
+  // phrase-ex.json (examples for Study → More → Phrases) stays out of the single offline file, which is at its limit: the quiz works without it
+  for (const f of readdirSync(dataDir).filter(f => f.endsWith(".json") && !(!app && f === "phrase-ex.json")).sort()) pack[f] = gzipSync(readFileSync(path.join(dataDir, f)), { level: 9 }).toString("base64");
   // The offline copy carries the whole Office too; the phone app fetches it day by day instead (and keeps what it has fetched).
   // The single offline file must stay under 16 MB, so it carries Matins and the Mass (not the other hours, "d-" files).
   if (!app) for (const f of officeFiles.filter(f => !/^d-/.test(f) && f !== "versions.json" && f !== "votive.json")) pack["office/" + f] = gzipSync(readFileSync(path.join(officeDir, f)), { level: 9 }).toString("base64");
@@ -127,3 +128,9 @@ if (app) {
   console.log(`app version ${version} in ${dir}`);
 }
 console.log(`built ${out}: ${(page.length / 1024).toFixed(0)} KB (js ${(js.length / 1024).toFixed(0)} KB, css ${(css.length / 1024).toFixed(0)} KB)`);
+/* The single offline file must stay under 16 MiB (CONTRIBUTING.md): stop the build rather than ship one that's too big. */
+if (offline && !app) {
+  const bytes = Buffer.byteLength(page), cap = 16 * 1024 * 1024;
+  if (bytes > cap) { console.error(`ERROR: the offline copy is ${(bytes / 1048576).toFixed(2)} MiB, over the 16 MiB limit. Mark fewer Library works offline or move a data file out of the pack.`); process.exit(1); }
+  if (bytes > cap * 0.98) console.warn(`warning: the offline copy is ${(100 * bytes / cap).toFixed(1)}% of its 16 MiB limit (${((cap - bytes) / 1024).toFixed(0)} KB left).`);
+}

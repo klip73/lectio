@@ -296,14 +296,14 @@ function splitSentences(text) {
 }
 function sentencesOf(verses) {
   const out = [];
-  verses.forEach(v => {
+  verses.forEach((v, src) => {
     const la = splitSentences(v[1] || "");
-    if (la.length < 2) { out.push({ v, label: v[0], whole: false }); return; }
+    if (la.length < 2) { out.push({ v, label: v[0], whole: false, src }); return; }
     const en = splitSentences(v[2] || "");
     let k = 0;
     la.forEach((t, j) => {
       const n = (t.match(WORD_RE) || []).length;
-      out.push({ v: [v[0], t, en.length === la.length ? en[j] : v[2], v[3] ? v[3].slice(k, k + n) : null], label: v[0], whole: en.length !== la.length, sub: j + 1, of: la.length, off: k });
+      out.push({ v: [v[0], t, en.length === la.length ? en[j] : v[2], v[3] ? v[3].slice(k, k + n) : null], label: v[0], whole: en.length !== la.length, sub: j + 1, of: la.length, off: k, src });
       k += n;
     });
   });
@@ -353,7 +353,9 @@ function StudySettings({ st, setSt }) {
     </section>
   );
 }
-function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key0, onClose, onTable, onDone }) {
+/* bank: sentences marked "I needed help" join Study → More → Sentences to review; parts: each row's exam part (for the review);
+   onMark(row index, "got" | "help") for each mark. */
+function SentenceReader({ lex, verses: verses0, part: part0, parts, prog, title, storeKey: key0, onClose, onTable, onDone, onMark, bank = true }) {
   const sents = useMemo(() => sentencesOf(verses0), [verses0]);
   const verses = sents.map(x => x.v);
   const storeKey = key0 + (sents.length !== verses0.length ? ":s" : "");
@@ -386,6 +388,7 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, []);
   const v = verses[i];
+  const part = (parts && sents[i] && parts[sents[i].src]) || part0;
   const notes = useMemo(() => {
     const n = grammarNotes(lex, [v]);
     const weak = t => { if (!t || !prog) return 0; const sk = prog.skill && prog.skill[t]; return ((prog.mistakes || []).filter(m => m.concept === t).length >= 2 ? 2 : 0) + (sk && sk.s < 0.5 ? 1 : 0); };
@@ -408,6 +411,8 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
   function mark(r) {
     const next = { ...res, [i]: r };
     setRes(next);
+    if (bank && r === "help") sbankAdd(storeKey + ":" + i, title, part, v);
+    if (onMark && sents[i]) onMark(sents[i].src, r);
     if (!st.advance && verses.some((_, j) => !next[j])) return;   // stay here; ‹ › move on
     if (i + 1 < verses.length) setI(i + 1);
     else { setDone(true); onDone && onDone(next); }

@@ -22,7 +22,7 @@ try:
             if pg.locator(f"article span.lw:text-is('{w}')").count(): print(w, "→", tap(w))
         # open L&S on a known word
         pg.locator("article span.lw:text-is('possunt'), article span.lw:text-is('Rescripta')").first.click(); pg.wait_for_timeout(800)
-        btn = pg.locator("div.fixed.bottom-0 button:has-text('Dictionary')")
+        btn = pg.locator("div.fixed.bottom-0 button[aria-expanded]:has-text('Dictionary')").first
         if btn.count() and btn.get_attribute("aria-expanded") == "false": btn.click()
         pg.wait_for_timeout(2500)
         print("L&S:", pg.locator("div.fixed.bottom-0").inner_text().replace("\n", " | ")[:400])

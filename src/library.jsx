@@ -274,6 +274,8 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
     return g.filter(x => x.key).length >= 2 && g.length < work.chapters.length ? g : null;
   }, [work.id]);
   const [find, setFind] = useState(""), [hits, setHits] = useState(null);
+  const [steps, setSteps] = useState(false);   // this chapter sentence by sentence
+  useEffect(() => { setSteps(false); }, [ci, work.id]);
   function doFind() {
     const n = normForm(find.trim()); if (n.length < 2) { setHits(null); return; }
     const out = [];
@@ -321,6 +323,9 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
           <Btn type="submit">Find</Btn>
         </form>
       </div>
+      <StepButton onClick={() => setSteps(true)} label="Read it sentence by sentence" note="try each sentence, then hints, word help and the English" />
+      {steps && <StepThrough title={`${/^ll-/.test(work.id) ? llTitle(work) : work.title} · ${ch.title}`} part={kinds[0] === "thomas" ? "st" : kinds[0] === "bible" ? "nt" : kinds[0] === "hymn" ? "hy" : "se"}
+        paras={ch.paras.map((t, i) => ({ la: String(t), en: ch.en ? ch.en[i] || "" : "" }))} formsLoad={() => libGet("forms")} storeKey={`lib:${work.id}:${ci}`} onTable={onTable} onClose={() => setSteps(false)} />}
       {hits && (
         <section className="rounded-lg border border-rule bg-leaf px-4 py-3" aria-label="Found in this book">
           <div className="flex items-baseline justify-between"><span className="text-[13px] text-soft">{hits.length ? `${hits.length}${hits.length === 80 ? "+" : ""} places` : "Not found in this book."}</span><button type="button" className="text-[13px] text-soft underline" onClick={() => setHits(null)}>Close</button></div>

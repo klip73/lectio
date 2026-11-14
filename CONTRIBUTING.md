@@ -32,4 +32,4 @@ Thank you for helping. The app is free and open source (MIT for the code; the te
 
 ## Publishing your own copy
 
-Fork the repository, run `node tools/build_page.mjs --app`, and publish with `sh tools/app/publish_pages.sh` (or any static host serving `docs/`). Change `APP_SITE` in `src/office.jsx` to your own address if you also host an online page that reads data from it.
+Fork the repository, run `node tools/build_page.mjs --app`, and publish with `sh tools/app/publish_pages.sh` (or any static host serving `docs/`). For a code-only update of an existing site, `sh tools/app/publish_code.sh` replaces index.html and sw.js and keeps every data file already published. Both scripts stop if `origin/main` has commits your checkout lacks. Change `APP_SITE` in `src/office.jsx` to your own address if you also host an online page that reads data from it.

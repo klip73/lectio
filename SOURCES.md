@@ -76,3 +76,11 @@ The Library search (data/search/) and the Summa's Gospel citations (data/summa/c
 ## Fonts
 
 Loaded from Google Fonts when chosen (Settings → Display), all under the SIL Open Font License 1.1: Merriweather, Alegreya, EB Garamond, Gentium Book Plus, Cardo, Literata, Source Sans 3, Atkinson Hyperlegible (Braille Institute of America) and Lexend.
+
+## More practice (src/practice.jsx)
+
+| What | Where | Licence |
+|---|---|---|
+| Sacramental forms (Baptism, Confirmation by a priest, Absolution, Extreme Unction, Viaticum, Communion, Apostolic Blessing, Matrimony) | the Rituale Romanum (1952) above, as printed, stress accents kept | public domain liturgical text; the English is this app's own |
+| The words of Consecration | Missale Romanum, editio typica 1962 (Canon; De defectibus V), on the Vatican documents shelf | public domain liturgical text; the English is this app's own |
+| Phrase examples (data/phrase-ex.json, tools/data/build_phrase_examples.mjs) | sentences picked from this app's own exam texts and the Summa, matched by the phrase rules in src/grammar.jsx | as those texts |
