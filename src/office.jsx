@@ -433,7 +433,7 @@ function RubricsView() {
     <div className="flex flex-col gap-4">
       <section className="rounded-lg border border-rule bg-leaf px-5 py-4">
         <h2 className="latin text-[1.15rem] font-bold text-ink">The 1960 Code of Rubrics</h2>
-        <p className="mt-1 text-[14px] leading-snug text-soft">The rubrics of the 1962 Breviary and Missal, which the Fraternity follows. Search by word, or by number (“91” is the table of precedence).</p>
+        <p className="mt-1 text-[14px] leading-snug text-soft">The rubrics of the 1962 Breviary and Missal. Search by word, or by number (“91” is the table of precedence).</p>
         <label htmlFor="rubrics-q" className="sr-only">Search the rubrics</label>
         <input id="rubrics-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search: commemoration, Credo, 91…" className="mt-3 w-full rounded-md border border-rule bg-paper px-3 py-2 text-[15px] text-ink" />
       </section>
@@ -494,7 +494,7 @@ function OfficeMode(props) {
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="office-ver" className="text-[14px] text-soft">Calendar</label>
           <select id="office-ver" value={cur ? ver : ""} onChange={e => pick(e.target.value)} className="min-w-0 flex-1 basis-56 rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink sm:flex-none">
-            <option value="">Rubrics 1960 (1962 books, FSSP)</option>
+            <option value="">Rubrics 1960 (1962 books)</option>
             {OFFICE_GROUPS.map(([g, gl]) => {
               const vs = list.filter(x => x.group === g);
               return vs.length ? <optgroup key={g} label={gl}>{vs.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</optgroup> : null;

@@ -1,6 +1,6 @@
 # Lectio Vulgata
 
-**A free, open-source study tool for the Latin of the Church**: the Vulgate, St Thomas, the Breviary and the Fathers. Made for the FSSP Latin Proficiency Exam (New Testament, Summa Theologiae, Matins sermon, Office hymn, Psalm) and for a lifetime of reading the Office. One web page and its data, no server, no account, no tracking: everything runs in your browser.
+**A free, open-source study tool for the Latin of the Church**: the Vulgate, St Thomas, the Breviary and the Fathers. Made for a Latin proficiency exam (New Testament, Summa Theologiae, Matins sermon, Office hymn, Psalm) and for a lifetime of reading the Office. One web page and its data, no server, no account, no tracking: everything runs in your browser.
 
 **Use it:** https://klip73.github.io/lectio/ (add it to your home screen; it works offline once opened).
 **How it works:** the app's own explanation screen (Home → "How this app works", or the footer), and this README.

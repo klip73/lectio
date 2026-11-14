@@ -409,7 +409,7 @@ function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset 
       {sect("liturgy", "Liturgy", <>
         <SetRow label="Calendar" id="set-ver">
           <select id="set-ver" value={ver} onChange={e => pickVer(e.target.value)} className="min-w-0 max-w-full self-start rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink">
-            <option value="">Rubrics 1960 (1962 books, FSSP)</option>
+            <option value="">Rubrics 1960 (1962 books)</option>
             {(vers || []).length > 0 && OFFICE_GROUPS.map(([g, gl]) => { const vs = vers.filter(x => x.group === g); return vs.length ? <optgroup key={g} label={gl}>{vs.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</optgroup> : null; })}
           </select>
           {vers && !vers.length && <span className="text-[12px] text-soft">The other calendars are in the phone app and the online page.</span>}

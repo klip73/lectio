@@ -337,7 +337,7 @@ function WelcomeCard({ onClose, onPlace, focus, onFocus, onLearn }) {
       {other ? (
         <p className="mt-3 text-[15px] leading-snug text-ink">{focus === "learn" ? <>Start in <strong>Learn</strong> (top): a story in Latin that teaches itself, the natural way (as in Lingua Latina), and a 34-lesson grammar course in Wheelock’s order with Church readings. No Latin needed. Each finished lesson’s words come back as flashcards in <strong>Vocabulary</strong>, as Anki’s do.</> : focus === "pray" ? <>Open <strong>Liturgy</strong> for today’s Office and Mass in Latin and English (any hour, the hymns, votive Masses, your own calendar). Tap any word for its meaning; the <strong>Meter</strong> tab in Study scans the hymns.</> : <>The <strong>Library</strong> has the whole Summa, the Fathers, the Catena Aurea and the Latin Library, with every word tappable; the <strong>Dictionary</strong> button (top) looks up any form in Lewis &amp; Short, Wiktionary and Du Cange.</>}</p>
       ) : <>
-      <p className="mt-3 text-[14px] text-soft">For the FSSP Latin exam (after Latin 1–3), and for reading the Office for life. Four things to know:</p>
+      <p className="mt-3 text-[14px] text-soft">For a Latin proficiency exam (after Latin 1–3), and for reading the Office for life. Four things to know:</p>
       <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-snug text-ink">
         <li>New to Latin, or rusty? Begin in <strong>Learn</strong>: a story that teaches Latin from zero and a full grammar course.</li>
         <li><strong>Find my level</strong> first: a short check in each of the five exam parts, so everything starts at your level.</li>

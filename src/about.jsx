@@ -16,7 +16,7 @@ function AboutScreen({ onBack, onGo }) {
       </div>
       <section className={sec}>
         <h1 className="latin text-[1.45rem] font-bold text-ink">How Lectio Vulgata works</h1>
-        <P>A free, open-source study tool for reading the Latin of the Church: the Vulgate, St Thomas, the Breviary and the Fathers. It was made for the FSSP Latin Proficiency Exam and for a lifetime of reading the Office. Anyone may use it, copy it, study how it works and improve it.</P>
+        <P>A free, open-source study tool for reading the Latin of the Church: the Vulgate, St Thomas, the Breviary and the Fathers. It was made for a Latin proficiency exam and for a lifetime of reading the Office. Anyone may use it, copy it, study how it works and improve it.</P>
         <nav aria-label="On this page" className="flex flex-wrap gap-x-3 gap-y-1 text-[14px]">
           {toc.map(([id, l]) => <a key={id} href={"#" + id} onClick={e => { e.preventDefault(); const el = document.getElementById(id); if (el) el.scrollIntoView({ block: "start" }); }} className="text-rubric underline underline-offset-2">{l}</a>)}
         </nav>

@@ -51,8 +51,7 @@ const LINKS = [
     { name: "John Piazza’s links", url: "https://johnpiazza.net/links/", note: "A long list of links for spoken Latin and teaching." }
   ] },
   { id: "study", title: "Study tools", items: [
-    { name: "Anki", url: "https://apps.ankiweb.net/", note: "The flashcard program. Every deck and class list here has “Export… → Anki”." },
-    { name: "Our Lady of Guadalupe Seminary", url: "https://fsspolgs.org/", note: "The FSSP’s English-speaking seminary." }
+    { name: "Anki", url: "https://apps.ankiweb.net/", note: "The flashcard program. Every deck and class list here has “Export… → Anki”." }
   ] }
 ];
 function LinksPage() {
