@@ -117,7 +117,7 @@ function GuideMode({ onOpen, onDrill, onPart, onLemma, voice }) {
       )}
 
       {tab === "memory" && <MemoryAids />}
-      {tab === "web" && <WebLinks />}
+      {tab === "web" && <LinksPage />}
       {tab === "terms" && (
         <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-4 py-4 sm:px-6" aria-label="Summa vocabulary">
           <p className="text-[15px] leading-snug text-ink">The technical words St Thomas uses with fixed meanings. Translate them consistently; a classical dictionary will often mislead.</p>

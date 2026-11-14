@@ -21,23 +21,23 @@ const MEMORY = [
     { k: "Fourth and fifth declensions", verse: ["Masculines end in us: a few", "are Neuter nouns, that end in u.", "Women and trees are Feminine,", "with acus, domus, and manus,", "tribus, Idus, porticus.", "", "Feminine are Fifth in es,", "except meridies and dies.", "Dies in the Singular", "Common we define:", "but its Plural cases are", "always Masculine."], note: "needle, house, hand, tribe, the Ides, porch; noon, day.", src: "Kennedy, The Revised Latin Primer (12th impr., 1906), Appendix IV", url: "https://distantreader.org/stacks/trust/uc2/uc2_ark+=13960=t4mk6787g.txt" }
   ] },
   { id: "dat", title: "Verbs that take the dative", items: [
-    { k: "The list", en: true, la: "favour, help, please, trust (and their opposites); believe, persuade, command, obey, serve, resist, envy, threaten, pardon, spare", note: "So crēdō tibi, faveō, noceō, placeō, cōnfīdō, persuādeō, imperō, pāreō, serviō, resistō, invideō, minor, ignōscō, parcō all take the dative. A&G gives the list in this order: it has been learnt as a chant for a century.", src: "Allen & Greenough § 367", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "The list", en: true, la: "favour, help, please, trust (and their opposites); believe, persuade, command, obey, serve, resist, envy, threaten, pardon, spare", note: "So crēdō tibi, faveō, noceō, placeō, cōnfīdō, persuādeō, imperō, pāreō, serviō, resistō, invideō, minor, ignōscō, parcō all take the dative. A&G gives the list in this order: it has been learnt as a chant for a century.", src: "Allen & Greenough § 367", url: "https://dcc.dickinson.edu/grammar/latin/index" }
   ] },
   { id: "abl5", title: "Five deponents with the ablative", items: [
-    { k: "Learn as one line", la: "ūtor, fruor, fungor, potior, vēscor", note: "“use, enjoy, perform, get possession of, feed on”, with their compounds, take the ablative: ūtor gladiō, I use a sword. (potior also takes the genitive: potīrī rērum, to be master of affairs.) Many teachers give the five as the acronym PUFFV, said “puffy”: potior, ūtor, fruor, fungor, vēscor (so the Lingua Latina blog).", src: "Allen & Greenough § 410; lingvalatina.com, Latin Mnemonics", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "Learn as one line", la: "ūtor, fruor, fungor, potior, vēscor", note: "“use, enjoy, perform, get possession of, feed on”, with their compounds, take the ablative: ūtor gladiō, I use a sword. (potior also takes the genitive: potīrī rērum, to be master of affairs.) Many teachers give the five as the acronym PUFFV, said “puffy”: potior, ūtor, fruor, fungor, vēscor (so the Lingua Latina blog).", src: "Allen & Greenough § 410; lingvalatina.com, Latin Mnemonics", url: "https://dcc.dickinson.edu/grammar/latin/index" }
   ] },
   { id: "gender", title: "Gender by meaning", items: [
-    { k: "The rule", en: true, la: "Masculine: names of men, rivers, winds, months, mountains, peoples. Feminine: women, cities, countries, islands, trees. Neuter: indeclinable words and infinitives used as nouns.", note: "Kennedy’s Memorial Lines on Gender put this into rhyme (below, in full); the same rule in prose is in Allen & Greenough’s chapter on gender.", src: "Kennedy, Revised Latin Primer (1888), Appendix IV; Allen & Greenough, Gender", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "The rule", en: true, la: "Masculine: names of men, rivers, winds, months, mountains, peoples. Feminine: women, cities, countries, islands, trees. Neuter: indeclinable words and infinitives used as nouns.", note: "Kennedy’s Memorial Lines on Gender put this into rhyme (below, in full); the same rule in prose is in Allen & Greenough’s chapter on gender.", src: "Kennedy, Revised Latin Primer (1888), Appendix IV; Allen & Greenough, Gender", url: "https://dcc.dickinson.edu/grammar/latin/index" }
   ] },
   { id: "verb", title: "Verb endings", items: [
     { k: "Personal endings", la: "-ō (-m), -s, -t, -mus, -tis, -nt · passive -r, -ris, -tur, -mur, -minī, -ntur", note: "The nonsense phrase “most must isn’t” gives the active endings (m-o-s-t, mus-t…), all but the perfect’s.", src: "Wikipedia, “Latin mnemonics”", url: "https://en.wikipedia.org/wiki/Latin_mnemonics" },
-    { k: "Four short imperatives", la: "dīc, dūc, fac, fer", note: "From dīcō, dūcō, faciō, ferō: the -e of the imperative is dropped (but dīce, dūce, face in old Latin). Schoolchildren learnt it as a rhyme, “Dic, duc, fac and fer / should have an e but it isn’t there” (wording varies).", src: "Allen & Greenough § 182", url: "https://dcc.dickinson.edu/grammar/latin" },
+    { k: "Four short imperatives", la: "dīc, dūc, fac, fer", note: "From dīcō, dūcō, faciō, ferō: the -e of the imperative is dropped (but dīce, dūce, face in old Latin). Schoolchildren learnt it as a rhyme, “Dic, duc, fac and fer / should have an e but it isn’t there” (wording varies).", src: "Allen & Greenough § 182", url: "https://dcc.dickinson.edu/grammar/latin/index" },
     { k: "Present subjunctive", en: true, la: "1st -e-, 2nd -ea-, 3rd -a-, 4th -ia-", note: "“We bEAt A lIAr”: amet, moneat, regat, audiat. Recorded on the Classics list in 1994 and kept in Cornell College’s collection of Latin mnemonics.", src: "Cornell College, Mnemonic Devices for Learning Latin", url: "https://www.cornellcollege.edu/classical-studies/Mnemonic Devices.shtml" },
-    { k: "Future", en: true, la: "1st and 2nd: -bō, -bis, -bit… · 3rd and 4th: -am, -ēs, -et…", note: "amābō, monēbō; regam, regēs; audiam, audiēs. So regēs can be “you will rule”, not “kings”.", src: "Allen & Greenough, the four conjugations", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "Future", en: true, la: "1st and 2nd: -bō, -bis, -bit… · 3rd and 4th: -am, -ēs, -et…", note: "amābō, monēbō; regam, regēs; audiam, audiēs. So regēs can be “you will rule”, not “kings”.", src: "Allen & Greenough, the four conjugations", url: "https://dcc.dickinson.edu/grammar/latin/index" }
   ] },
   { id: "case", title: "What the cases mean", items: [
     { k: "Ablative", en: true, la: "by, with, from, in, on, at", note: "The ablative’s “basic meanings”, as a modern Oxford grammar sums them up.", src: "Morwood, A Latin Grammar (Oxford, 1999), glossary", url: "" },
-    { k: "Quantity", la: "Vōcālis ante vōcālem corripitur", note: "“A vowel before a vowel is shortened”: deus, via, fīlius. The rule of the old Latin grammars; see the Meter tab in Study.", src: "Allen & Greenough, Prosody (§§ 602 ff.)", url: "https://dcc.dickinson.edu/grammar/latin" }
+    { k: "Quantity", la: "Vōcālis ante vōcālem corripitur", note: "“A vowel before a vowel is shortened”: deus, via, fīlius. The rule of the old Latin grammars; see the Meter tab in Study.", src: "Allen & Greenough, Prosody (§§ 602 ff.)", url: "https://dcc.dickinson.edu/grammar/latin/index" }
   ] },
   { id: "acro", title: "Acronyms and couplets", items: [
     { k: "DIRT: nouns with a locative", en: true, la: "Domus (domī, at home) · Īnsulae, small islands (Naxī, on Naxos) · Rūs (rūrī, in the country) · Towns (Rōmae, in Rome) · and the whole word DIRT for humus (humī, on the ground)", note: "The place where, without a preposition. (With most other nouns Latin uses in + ablative.)", src: "lingvalatina.com, Latin Mnemonics", url: "https://lingvalatina.com" },
@@ -75,43 +75,6 @@ function MemoryAids() {
           )}
         </section>
       ))}
-    </div>
-  );
-}
-
-/* ---------- Latin on the web: links worth knowing (most from the Lingua Latina blog's resources page, checked Nov 2026) ---------- */
-const WEB_LINKS = [
-  ["Reading and listening", [
-    ["Ephemeris", "http://www.alcuinus.net/ephemeris/index.php", "World news written in Latin."],
-    ["Nuntii Latini (Radio Bremen)", "https://www.radiobremen.de/bremenzwei/rubriken/latein/latein-startseite100.html", "Weekly news read aloud in Latin, with the text."],
-    ["Nuntii Latini (Vatican News)", "https://www.vaticannews.va/de/vatikan/news/2018-10/nuntii-latini.html", "The Vatican’s Latin news."],
-    ["Bibliotheca Augustana", "http://www.hs-augsburg.de/~harsch/augusta.html", "Latin texts of every period, many not in the Latin Library."],
-    ["Loebolus", "https://ryanfb.github.io/loebolus/", "Every public-domain Loeb volume, Latin and Greek with English, as PDFs."],
-    ["Vivarium Novum: school readers", "https://vivariumnovum.it/risorse-didattiche/pratica-didattica/libri-scolastici", "Free readers in Latin from the Academia Vivarium Novum."]
-  ]],
-  ["Dictionaries and tools", [
-    ["Forcellini, Totius Latinitatis Lexicon", "https://www.lexica.linguax.com/forc.php", "The great Latin–Latin dictionary (1771): meanings explained in Latin. Also linked from every word’s dictionary box."],
-    ["Glossa", "http://athirdway.com/glossa", "Lewis & Short and other dictionaries in one search."],
-    ["Diogenes", "http://www.dur.ac.uk/p.j.heslin/Software/Diogenes/", "Free program for searching Latin and Greek texts and dictionaries on your own computer."],
-    ["PHI Latin concordance", "https://latin.packhum.org/concordance", "Every place a word occurs in classical Latin."],
-    ["David Morgan’s Lexicon", "http://www.culturaclasica.com/lingualatina/lexicon_latinum_morgan.pdf", "Latin words for modern things (PDF)."],
-    ["Quomodo dicitur?", "http://quomododicitur.com/", "Podcast and help for speaking Latin."],
-    ["John Piazza’s list", "http://johnpiazza.net/links/", "A long list of links for spoken Latin."]
-  ]]
-];
-function WebLinks() {
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-[15px] leading-snug text-ink">Good places for Latin beyond this app. Links open in a new tab.</p>
-      {WEB_LINKS.map(([h, ls]) => (
-        <section key={h} className="rounded-lg border border-rule bg-leaf px-4 py-3">
-          <h3 className="smallcaps mb-1 text-[13px] font-semibold text-rubric">{h}</h3>
-          <ul className="flex flex-col gap-2">
-            {ls.map(([t, u, d]) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer" className="text-[15px] font-medium text-rubric underline underline-offset-2">{t} ↗</a><span className="block text-[14px] leading-snug text-soft">{d}</span></li>)}
-          </ul>
-        </section>
-      ))}
-      <p className="text-[12px] text-soft">Many of these come from the resources page of the Lingua Latina blog (lingvalatina.com).</p>
     </div>
   );
 }

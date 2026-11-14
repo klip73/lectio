@@ -1397,6 +1397,7 @@ function alignCurated(la, src) {
 /*@include settings.jsx*/
 /*@include meter.jsx*/
 /*@include memory.jsx*/
+/*@include links.jsx*/
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/
