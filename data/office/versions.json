@@ -1,0 +1,170 @@
+[
+{
+"id": "t1570",
+"name": "Tridentine - 1570",
+"group": "roman",
+"label": "Tridentine 1570",
+"note": "St Pius V’s Breviary and Missal",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "t1888",
+"name": "Tridentine - 1888",
+"group": "roman",
+"label": "Tridentine 1888",
+"note": "as revised under Leo XIII",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "t1906",
+"name": "Tridentine - 1906",
+"group": "roman",
+"label": "Tridentine 1906",
+"note": "just before St Pius X’s psalter reform",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "da1939",
+"name": "Divino Afflatu - 1939",
+"group": "roman",
+"label": "Divino Afflatu 1939",
+"note": "St Pius X’s psalter (1911), 1939 calendar",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "da1954",
+"name": "Divino Afflatu - 1954",
+"group": "roman",
+"label": "Divino Afflatu 1954",
+"note": "the books before the 1955 and 1960 reforms",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "r1955",
+"name": "Reduced - 1955",
+"group": "roman",
+"label": "Reduced 1955",
+"note": "Pius XII’s simplification of the rubrics",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "usa",
+"name": "Rubrics 1960 - 2020 USA",
+"group": "roman",
+"label": "1960 with newer US feasts",
+"note": "1962 books, with feasts added since",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "m1617",
+"name": "Monastic Tridentinum 1617",
+"group": "monastic",
+"label": "Monastic 1617",
+"note": "Benedictine Breviary, Tridentine",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "m1930",
+"name": "Monastic Divino 1930",
+"group": "monastic",
+"label": "Monastic 1930",
+"note": "Benedictine, after Divino Afflatu",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "m1963",
+"name": "Monastic - 1963",
+"group": "monastic",
+"label": "Monastic 1963",
+"note": "Benedictine, 1960 rubrics",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "m1963b",
+"name": "Monastic - 1963 - Barroux",
+"group": "monastic",
+"label": "Monastic 1963 (Le Barroux)",
+"note": "as kept at Sainte-Madeleine du Barroux",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "c1951",
+"name": "Monastic Tridentinum Cisterciensis 1951",
+"group": "cist",
+"label": "Cistercian 1951",
+"note": "Cistercian Breviary",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "cav",
+"name": "Monastic Tridentinum Cisterciensis Altovadensis",
+"group": "cist",
+"label": "Cistercian (Altovadensis)",
+"note": "the use of Hohenfurth (Vyšší Brod)",
+"years": [
+2026,
+2027,
+2028
+]
+},
+{
+"id": "op1962",
+"name": "Ordo Praedicatorum - 1962",
+"group": "op",
+"label": "Dominican 1962",
+"note": "Ordo Praedicatorum: Office and Dominican Mass",
+"years": [
+2026,
+2027,
+2028
+]
+}
+]
