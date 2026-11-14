@@ -8,7 +8,7 @@ T = "Initium esse sapientiae timorem Domini, dicit propheta. Quid est autem init
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(); pg = b.new_page(viewport={"width": 400, "height": 900})
-        pg.add_init_script("window.__LV_APP_SITE = ''")
+        pg.add_init_script("window.__LV_APP_SITE = ''; localStorage.setItem('lectio-vulgata-study', JSON.stringify({learn:false,hl:'underline'}))")
         pg.on("pageerror", lambda e: errs.append("PAGEERROR " + str(e)))
         pg.on("console", lambda m: m.type == "error" and "ERR_" not in m.text and errs.append("CONSOLE " + m.text))
         pg.goto("http://127.0.0.1:8796/t.html"); pg.wait_for_selector("text=Today’s session", timeout=20000)

@@ -186,12 +186,16 @@ const CTX_L = { thomas: "Scholastic Latin", bible: "Biblical Latin", church: "Ch
 function GrammarNotes({ lex, verses, part, prog, onDrill, text, onHighlight, keyPrefix }) {
   /* tapping a note lights up its words in the passage above (keys as LatinWords makes them: "verse:word", or "word" in the drill) */
   const [act, setAct] = useState(null);
+  const [st, setSt] = useStudyPrefs();
+  const [seen, setSeen] = useState(() => new Set());   // learning mode: notes opened so far (each shows its title until tapped)
   const keyOf = useMemo(() => {
     const out = [];
     (verses || []).forEach((v, vi) => (v[1].match(WORD_RE) || []).forEach((_, k) => out.push(keyPrefix === "" ? String(out.length) : vi + ":" + k)));
     return out;
   }, [verses, keyPrefix]);
-  useEffect(() => { setAct(null); onHighlight && onHighlight(null); }, [verses]);
+  useEffect(() => { setAct(null); setSeen(new Set()); onHighlight && onHighlight(null); }, [verses]);
+  const shown = id => !st.learn || seen.has(id);
+  const reveal = id => { if (!seen.has(id)) setSeen(new Set([...seen, id])); };
   const [open, setOpen0] = useState(() => { const v = readLocal("lectio-vulgata-gnotes"); return v == null ? true : !!v; });
   const setOpen = v => { setOpen0(v); writeLocal("lectio-vulgata-gnotes", v ? 1 : 0); };
   const notes = useMemo(() => grammarNotes(lex, verses), [lex, verses]);
@@ -215,26 +219,33 @@ function GrammarNotes({ lex, verses, part, prog, onDrill, text, onHighlight, key
       {open && (
         <div className="mt-2 flex flex-col gap-2.5">
           {ranked.map(n => (
-            <div key={n.id} role={onHighlight && n.at && n.at.length ? "button" : undefined} tabIndex={onHighlight && n.at && n.at.length ? 0 : undefined} aria-pressed={onHighlight ? act === n.id : undefined}
-              onClick={e => { if (!onHighlight || !n.at || !n.at.length || e.target.closest("button")) return; const on = act === n.id ? null : n.id; setAct(on); onHighlight(on ? new Set(n.at.map(j => keyOf[j])) : null); }}
-              onKeyDown={e => { if (onHighlight && n.at && n.at.length && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); const on = act === n.id ? null : n.id; setAct(on); onHighlight(on ? new Set(n.at.map(j => keyOf[j])) : null); } }}
+            <div key={n.id} role={(onHighlight && n.at && n.at.length) || !shown(n.id) ? "button" : undefined} tabIndex={(onHighlight && n.at && n.at.length) || !shown(n.id) ? 0 : undefined} aria-pressed={onHighlight ? act === n.id : undefined}
+              onClick={e => { if (e.target.closest("button")) return; reveal(n.id); if (!onHighlight || !n.at || !n.at.length || e.target.closest("button")) return; const on = act === n.id ? null : n.id; setAct(on); onHighlight(on ? new Set(n.at.map(j => keyOf[j])) : null); }}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") reveal(n.id); if (onHighlight && n.at && n.at.length && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); const on = act === n.id ? null : n.id; setAct(on); onHighlight(on ? new Set(n.at.map(j => keyOf[j])) : null); } }}
               className={`rounded-md border px-3 py-2 ${onHighlight && n.at && n.at.length ? "cursor-pointer" : ""} ${act === n.id ? "border-rubric bg-rubrictint" : n.w ? "border-rubric bg-paper" : "border-rule bg-paper hover:border-soft"}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2">
                 <span className="text-[14px] font-semibold text-ink">{n.title}{n.w >= 2 ? <span className="ml-1.5 text-[12px] font-normal text-rubric">· you’ve missed this before</span> : n.w ? <span className="ml-1.5 text-[12px] font-normal text-rubric">· a weak spot</span> : null}</span>
                 <span className="num text-[12px] text-soft">{n.ag}</span>
               </div>
+              {!shown(n.id) ? <p className="text-[13px] text-soft">Find it yourself, or tap to see the words and the note.</p> : <>
               {n.ex.length > 0 && <p lang="la" className="latin text-[14px] text-rubric">{n.ex.join(" · ")}</p>}
               <p className="text-[14px] leading-snug text-ink">{n.note}</p>
+              </>}
               {n.tag && CONCEPTS[n.tag] && onDrill && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => onDrill(n.tag)}>Drill verses with {CONCEPTS[n.tag].toLowerCase()} →</button>}
             </div>
           ))}
           {tips.length > 0 && <p className="smallcaps mt-1 text-[12px] font-semibold text-soft">{[...new Set(tips.map(t => CTX_L[t.ctx]))].join(" · ")}</p>}
           {tips.map(t => (
-            <div key={t.id} className="rounded-md border border-dashed border-rule bg-paper px-3 py-2">
-              <span className="text-[14px] font-semibold text-ink">{t.title}</span>{t.ex[0] && t.ex[0].length > 1 && <span lang="la" className="latin ml-2 text-[13px] text-rubric">{t.ex[0]}</span>}
-              <p className="text-[14px] leading-snug text-ink">{t.note}</p>
+            <div key={t.id} role={shown(t.id) ? undefined : "button"} tabIndex={shown(t.id) ? undefined : 0} onClick={() => reveal(t.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); reveal(t.id); } }}
+              className={`rounded-md border border-dashed border-rule bg-paper px-3 py-2 ${shown(t.id) ? "" : "cursor-pointer"}`}>
+              <span className="text-[14px] font-semibold text-ink">{t.title}</span>{shown(t.id) && t.ex[0] && t.ex[0].length > 1 && <span lang="la" className="latin ml-2 text-[13px] text-rubric">{t.ex[0]}</span>}
+              {shown(t.id) ? <p className="text-[14px] leading-snug text-ink">{t.note}</p> : <p className="text-[13px] text-soft">Tap for the tip.</p>}
             </div>
           ))}
+          <div className="flex flex-wrap gap-x-4 text-[13px]">
+            {st.learn && [...ranked, ...tips].some(n => !seen.has(n.id)) && <button type="button" className="text-rubric underline underline-offset-2" onClick={() => setSeen(new Set([...ranked, ...tips].map(n => n.id)))}>Show every note</button>}
+            <button type="button" className="text-soft underline underline-offset-2" onClick={() => setSt({ learn: !st.learn })}>{st.learn ? "Learning mode is on (try it first): turn off" : "Turn on learning mode (try it first)"}</button>
+          </div>
           <p className="text-[11px] text-soft">{onHighlight ? "Tap a note to light up its words in the passage. " : ""}Found from the parsed words, so treat them as pointers, not verdicts. A&G = Allen and Greenough, New Latin Grammar (1903), by section.</p>
         </div>
       )}
@@ -302,6 +313,32 @@ function sentencesOf(verses) {
    (filled in when the box is tapped). Six colours (--g1 … --g6 in page.html, light and dark), then they repeat. */
 const GCOL = 6;
 const gStyle = n => ({ "--gc": `var(--g${n % GCOL + 1})`, "--gt": `var(--g${n % GCOL + 1}-tint)` });
+/* Study settings shared by the sentence reader and the grammar notes: learning mode ("try it first": plain text, help on demand)
+   and how help points colour their words. Key lectio-vulgata-study; other open views follow through the lv-study event. */
+const STUDY_KEY = "lectio-vulgata-study";
+const STUDY_DEF = { learn: true, hl: "underline" };   // hl: underline | fill | off
+function useStudyPrefs() {
+  const [p, setP] = useState(() => ({ ...STUDY_DEF, ...(readLocal(STUDY_KEY) || {}) }));
+  useEffect(() => { const h = e => setP(e.detail); window.addEventListener("lv-study", h); return () => window.removeEventListener("lv-study", h); }, []);
+  const set = ch => { const n = { ...p, ...ch }; writeLocal(STUDY_KEY, n); window.dispatchEvent(new CustomEvent("lv-study", { detail: n })); };
+  return [p, set];
+}
+function StudySettings({ st, setSt }) {
+  const opt = (on, label, f) => <button type="button" aria-pressed={on} onClick={f} className={`rounded-full border px-3 py-1 text-[14px] ${on ? "border-rubric bg-rubrictint font-semibold text-ink" : "border-rule bg-paper text-soft hover:border-soft"}`}>{label}</button>;
+  return (
+    <section className="reveal flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-4 py-3" aria-label="Study settings">
+      <div className="flex flex-col gap-1.5">
+        <span className="smallcaps text-[13px] font-semibold text-soft">Learning mode</span>
+        <div className="flex flex-wrap gap-2">{opt(st.learn, "Try it first", () => setSt({ learn: true }))}{opt(!st.learn, "Show all help at once", () => setSt({ learn: false }))}</div>
+        <p className="text-[13px] text-soft">{st.learn ? "Each sentence starts plain. Open hints one at a time, then all the highlighting when you want it." : "Each sentence opens with its help points and colours showing."}</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="smallcaps text-[13px] font-semibold text-soft">Highlighting</span>
+        <div className="flex flex-wrap gap-2">{opt(st.hl === "underline", "Coloured underline", () => setSt({ hl: "underline" }))}{opt(st.hl === "fill", "Coloured fill", () => setSt({ hl: "fill" }))}{opt(st.hl === "off", "No colours", () => setSt({ hl: "off" }))}</div>
+      </div>
+    </section>
+  );
+}
 function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key0, onClose, onTable, onDone }) {
   const sents = useMemo(() => sentencesOf(verses0), [verses0]);
   const verses = sents.map(x => x.v);
@@ -313,10 +350,26 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
   const [showEn, setShowEn] = useState(false);
   const [word, setWord] = useState(null);                   // { w, entry }
   const [done, setDone] = useState(false);
+  const [st, setSt] = useStudyPrefs();
+  const [gear, setGear] = useState(false);
+  const [step, setStep] = useState(0);                      // learning mode: 0 plain, 1 hints listed, 2 everything highlighted
+  const [allNotes, setAllNotes] = useState(false);
+  const [used, setUsed] = useState(false);                  // any help opened on this sentence
   const topRef = useRef(null);
   useEffect(() => { const all = readLocal(SBS_KEY) || {}; all[storeKey] = { i, r: res }; const ks = Object.keys(all); if (ks.length > 60) delete all[ks[0]]; writeLocal(SBS_KEY, all); }, [i, res]);
-  useEffect(() => { setChip(null); setShowEn(false); setWord(null); topRef.current && topRef.current.scrollIntoView({ block: "start" }); }, [i]);
-  useEffect(() => { const h = e => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, []);
+  useEffect(() => { setChip(null); setShowEn(false); setWord(null); setStep(0); setAllNotes(false); setUsed(false); topRef.current && topRef.current.scrollIntoView({ block: "start" }); }, [i]);
+  const go = j => { if (j < 0 || j >= verses.length) return; setDone(false); setI(j); };
+  const goRef = useRef(go); goRef.current = go;
+  const iRef = useRef(i); iRef.current = i;
+  useEffect(() => {
+    const h = e => {
+      if (e.key === "Escape") onClose();
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (e.key === "ArrowRight") goRef.current(iRef.current + 1);
+      if (e.key === "ArrowLeft") goRef.current(iRef.current - 1);
+    };
+    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
+  }, []);
   const v = verses[i];
   const notes = useMemo(() => {
     const n = grammarNotes(lex, [v]);
@@ -326,12 +379,17 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
   const tips = useMemo(() => phraseTips(v[1], KINDS_OF_PART[part] || ["church"]).filter(t => t.title !== "Word order in hymns"), [i]);
   const sInfo = sents[i] || {};
   const items = [...notes, ...tips];
+  const learn = st.learn;
+  const full = !learn || step >= 2;                          // all colours and word snippets showing
+  const showHelp = !learn || step >= 1;
   const active = items.find(x => x.id === chip);
   const lit = new Set(active && active.at ? active.at : []);
   const colOf = {}, wordCol = {};   // box id -> colour number; word index -> colour of the first box that covers it
   items.filter(x => x.at && x.at.length).forEach((x, n) => { colOf[x.id] = n; x.at.forEach(j => { if (!(j in wordCol)) wordCol[j] = n; }); });
+  const colours = st.hl !== "off";
   const words = v[1].split(/([A-Za-z]+)/);
   let k = -1;
+  const pick = id => { setChip(chip === id ? null : id); setUsed(true); };
   function mark(r) {
     const next = { ...res, [i]: r };
     setRes(next);
@@ -339,16 +397,48 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
     else { setDone(true); onDone && onDone(next); }
   }
   const got = Object.values(res).filter(x => x === "got").length, helped = Object.values(res).filter(x => x === "help").length;
+  const groups = [["Grammar", notes], ["Phrases", tips]].filter(g => g[1].length);
+  const chipBtn = x => {
+    const c = colours && x.id in colOf && (full || chip === x.id);
+    return (
+      <button key={x.id} type="button" aria-pressed={chip === x.id} onClick={() => pick(x.id)}
+        style={c ? gStyle(colOf[x.id]) : undefined}
+        className={`flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[14px] text-ink ${c ? (chip === x.id ? "border-2 border-[var(--gc)] bg-[var(--gt)]" : "border-[var(--gc)] bg-[var(--gt)]") : chip === x.id ? "border-rubric bg-rubrictint" : "border-rule bg-leaf"}`}>
+        <span className={`h-2.5 w-2.5 flex-none rounded-full ${c ? "bg-[var(--gc)]" : x.at && x.at.length && colours ? "bg-[var(--ink-soft)]" : "bg-[var(--rule)]"}`} />
+        <span className="font-semibold">{x.title}</span>
+        {x.w >= 2 && <span className="text-[12px] font-semibold text-rubric" title="You’ve missed this in your own translations">!</span>}
+        {full && x.ex && x.ex[0] && x.at && <span lang="la" className="latin truncate text-soft">{x.ex[0].length > 18 ? x.ex[0].slice(0, 16) + "…" : x.ex[0]}</span>}
+      </button>
+    );
+  };
+  const noteBox = (x, key) => {
+    const c = colours && x.id in colOf;
+    return (
+      <div key={key} className={`reveal rounded-lg border bg-leaf px-4 py-3 ${c ? "border-l-4 border-[var(--gc)]" : "border-rule"}`} style={c ? gStyle(colOf[x.id]) : undefined}>
+        <p className="text-[15px] font-semibold text-ink">{x.title} {x.ag && <span className="num ml-1 text-[13px] font-normal text-soft">{x.ag}</span>}</p>
+        {x.ex && x.ex[0] && <p lang="la" className={`latin text-[15px] ${c ? "text-[var(--gc)]" : "text-rubric"}`}>{x.ex.join(" · ")}</p>}
+        <p className="mt-1 text-[15px] leading-snug text-ink">{x.note}</p>
+        {x.w >= 2 && <p className="mt-1 text-[13px] text-rubric">You’ve missed this in your own translations: take it slowly.</p>}
+      </div>
+    );
+  };
+  const navBtn = (j, label, aria) => <button type="button" aria-label={aria} disabled={j < 0 || j >= verses.length} onClick={() => go(j)} className="rounded-md border border-rule px-2.5 py-1 text-[15px] text-rubric disabled:opacity-30">{label}</button>;
   return (
     <div className="fixed inset-0 z-30 overflow-auto bg-paper" role="dialog" aria-label="Sentence by sentence">
       <div ref={topRef} className="mx-auto flex min-h-full max-w-[46rem] flex-col gap-4 px-4 pb-28 pt-4 sm:px-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={onClose} className="text-[15px] font-medium text-rubric">‹ Back to the passage</button>
-          <span className="num text-[14px] text-soft">{done ? "Done" : `${sents.length !== verses0.length ? "Sentence" : "Verse"} ${i + 1} of ${verses.length}`}</span>
+          <div className="flex items-center gap-2">
+            {navBtn(i - 1, "‹", "Previous sentence")}
+            <span className="num text-[14px] text-soft">{done ? "Done" : `${sents.length !== verses0.length ? "Sentence" : "Verse"} ${i + 1} of ${verses.length}`}</span>
+            {navBtn(i + 1, "›", "Next sentence")}
+            <button type="button" aria-expanded={gear} aria-label="Study settings" title="Study settings" onClick={() => setGear(!gear)} className={`ml-1 rounded-md border px-2.5 py-1 text-[15px] ${gear ? "border-rubric bg-rubrictint text-ink" : "border-rule text-rubric"}`}>⚙</button>
+          </div>
         </div>
-        <div className="flex gap-1" aria-hidden="true">
-          {verses.map((_, j) => <button key={j} type="button" tabIndex={-1} onClick={() => { setDone(false); setI(j); }} className={`h-2 flex-1 rounded-full ${res[j] === "got" ? "bg-[var(--ok)]" : res[j] === "help" ? "bg-[var(--mid)]" : j === i && !done ? "bg-rubric" : "bg-[var(--rule)]"}`} />)}
+        <div className="flex gap-1">
+          {verses.map((_, j) => <button key={j} type="button" aria-label={`Go to ${j + 1}${res[j] === "got" ? ", got it" : res[j] === "help" ? ", needed help" : ""}`} aria-current={j === i && !done ? "step" : undefined} onClick={() => go(j)} className={`h-2 flex-1 rounded-full ${res[j] === "got" ? "bg-[var(--ok)]" : res[j] === "help" ? "bg-[var(--mid)]" : j === i && !done ? "bg-rubric" : "bg-[var(--rule)]"}`} />)}
         </div>
+        {gear && <StudySettings st={st} setSt={s => { setSt(s); if ("learn" in s) { setStep(0); setChip(null); setAllNotes(false); } }} />}
         {done ? (
           <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-5">
             <h2 className="latin text-[1.2rem] font-bold text-ink">{title}</h2>
@@ -357,43 +447,52 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
             <div className="flex flex-wrap gap-2">
               <Btn variant="primary" onClick={onClose}>Translate the passage →</Btn>
               <Btn onClick={() => { setRes({}); setDone(false); setI(0); }}>Go through again</Btn>
+              {Object.values(res).some(x => x === "help") && <Btn onClick={() => { setDone(false); setI(+Object.keys(res).find(j => res[j] === "help")); }}>Review the ones I needed help with</Btn>}
             </div>
           </section>
-        ) : (<>
-          <p className="smallcaps text-[13px] text-soft">{title}{v[0] ? ` · ${typeof v[0] === "number" ? v[0] : ""}` : ""}</p>
+        ) : (
+          <div key={i} className="reveal flex flex-col gap-4">
+          <p className="smallcaps text-[13px] text-soft">{title}{v[0] ? ` · ${typeof v[0] === "number" ? v[0] : ""}` : ""}{sInfo.of ? ` · sentence ${sInfo.sub} of ${sInfo.of}` : ""}</p>
           <p lang="la" className="latin text-[1.55rem] leading-[1.7] text-ink">
             {words.map((t, j) => {
               if (j % 2 === 0) return t;
               k++;
               const my = k, entry = v[3] ? v[3][my] : null;
-              const on = lit.has(my), cn = on ? colOf[active.id] : wordCol[my];
-              return <span key={j} role="button" tabIndex={0} onClick={() => setWord(word && word.k === my ? null : { w: t, entry, k: my })}
-                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWord({ w: t, entry, k: my }); } }}
-                className={`cursor-pointer rounded px-0.5 underline underline-offset-[6px] ${cn === undefined ? "decoration-dotted decoration-[var(--rule)]" : "decoration-solid decoration-2 decoration-[var(--gc)]"} ${on ? "bg-[var(--gt)] text-[var(--gc)]" : ""} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""}`}
+              const on = lit.has(my);
+              const cn = !colours ? undefined : on ? colOf[active.id] : full ? wordCol[my] : undefined;
+              const deco = cn === undefined ? "underline decoration-dotted decoration-[var(--rule)]" : st.hl === "fill" ? "no-underline bg-[var(--gt)]" : "underline decoration-solid decoration-2 decoration-[var(--gc)]";
+              const onCls = on ? (cn === undefined ? "bg-rubrictint text-rubric" : "bg-[var(--gt)] text-[var(--gc)]") : "";
+              return <span key={j} role="button" tabIndex={0} onClick={() => { setWord(word && word.k === my ? null : { w: t, entry, k: my }); setUsed(true); }}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWord({ w: t, entry, k: my }); setUsed(true); } }}
+                className={`cursor-pointer rounded px-0.5 underline-offset-[6px] ${deco} ${onCls} ${word && word.k === my ? "outline outline-1 outline-[var(--rubric)]" : ""}`}
                 style={cn === undefined ? undefined : gStyle(cn)}>{t}</span>;
             })}
           </p>
-          {items.length > 0 && <>
-            <span className="smallcaps text-[13px] font-semibold text-soft">Help</span>
-            <div className="flex flex-wrap gap-2">
-              {items.map(x => (
-                <button key={x.id} type="button" aria-pressed={chip === x.id} onClick={() => setChip(chip === x.id ? null : x.id)}
-                  style={x.id in colOf ? gStyle(colOf[x.id]) : undefined}
-                  className={`flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-[14px] text-ink ${x.id in colOf ? (chip === x.id ? "border-2 border-[var(--gc)] bg-[var(--gt)]" : "border-[var(--gc)] bg-[var(--gt)]") : chip === x.id ? "border-rubric bg-rubrictint" : "border-rule bg-leaf"}`}>
-                  <span className={`h-2.5 w-2.5 flex-none rounded-full ${x.id in colOf ? "bg-[var(--gc)]" : "bg-[var(--rule)]"}`} />
-                  <span className="font-semibold">{x.title}</span>
-                  {x.w >= 2 && <span className="text-[12px] font-semibold text-rubric" title="You’ve missed this in your own translations">!</span>}
-                  {x.ex && x.ex[0] && x.at && <span lang="la" className="latin truncate text-soft">{x.ex[0].length > 18 ? x.ex[0].slice(0, 16) + "…" : x.ex[0]}</span>}
-                </button>
-              ))}
+          {learn && step === 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-dashed border-rule px-4 py-3">
+              <p className="text-[14px] text-soft">Try it on your own first. Tap a word if you need its meaning.</p>
+              {items.length > 0 && <div><button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => { setStep(1); setUsed(true); }}>Show hints ({items.length})</button></div>}
             </div>
+          )}
+          {showHelp && items.length > 0 && <>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="smallcaps text-[13px] font-semibold text-soft">Help</span>
+              {learn && step === 1 && <span className="text-[13px] text-soft">Open one point at a time.</span>}
+            </div>
+            {groups.map(([g, xs]) => (
+              <div key={g} className="flex flex-col gap-1.5">
+                {groups.length > 1 && <span className="text-[12px] font-semibold text-soft">{g}</span>}
+                <div className="flex flex-wrap gap-2">{xs.map(chipBtn)}</div>
+              </div>
+            ))}
           </>}
-          {active && (
-            <div className={`reveal rounded-lg border bg-leaf px-4 py-3 ${active.id in colOf ? "border-l-4 border-[var(--gc)]" : "border-rule"}`} style={active.id in colOf ? gStyle(colOf[active.id]) : undefined}>
-              <p className="text-[15px] font-semibold text-ink">{active.title} {active.ag && <span className="num ml-1 text-[13px] font-normal text-soft">{active.ag}</span>}</p>
-              {active.ex && active.ex[0] && <p lang="la" className={`latin text-[15px] ${active.id in colOf ? "text-[var(--gc)]" : "text-rubric"}`}>{active.ex.join(" · ")}</p>}
-              <p className="mt-1 text-[15px] leading-snug text-ink">{active.note}</p>
-              {active.w >= 2 && <p className="mt-1 text-[13px] text-rubric">You’ve missed this in your own translations: take it slowly.</p>}
+          {active && !allNotes && noteBox(active, "a")}
+          {allNotes && items.map(x => noteBox(x, x.id))}
+          {showHelp && items.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
+              {learn && step === 1 && <button type="button" className="font-medium text-rubric underline underline-offset-2" onClick={() => setStep(2)}>Show all the highlighting</button>}
+              {items.length > 1 && <button type="button" className="font-medium text-rubric underline underline-offset-2" onClick={() => { setAllNotes(!allNotes); setUsed(true); if (learn) setStep(2); }}>{allNotes ? "Show one note at a time" : "Explain everything"}</button>}
+              {learn && step === 2 && <button type="button" className="text-soft underline underline-offset-2" onClick={() => { setStep(0); setChip(null); setAllNotes(false); }}>Hide the help</button>}
             </div>
           )}
           {word && (
@@ -401,19 +500,28 @@ function SentenceReader({ lex, verses: verses0, part, prog, title, storeKey: key
               ? <WordPanel lex={lex} word={word.w} entry={word.entry} onClose={() => setWord(null)} where={title} onTable={onTable} />
               : <LsGuessPanel word={word.w} onClose={() => setWord(null)} />
           )}
-          <div className="rounded-lg border border-rule bg-leaf px-4 py-3">
-            {showEn
-              ? <><span className="smallcaps text-[13px] font-semibold text-soft">{sInfo.whole ? "Translation of the whole passage" : "Translation"}</span><p lang="en" className="mt-1 text-[1.05rem] leading-relaxed text-ink">{v[2]}</p></>
-              : <button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => setShowEn(true)}>Show the translation</button>}
+          {(!learn || showEn) && (
+            <div className="rounded-lg border border-rule bg-leaf px-4 py-3">
+              {showEn
+                ? <><span className="smallcaps text-[13px] font-semibold text-soft">{sInfo.whole ? "Translation of the whole passage" : "Translation"}</span><p lang="en" className="mt-1 text-[1.05rem] leading-relaxed text-ink">{v[2]}</p></>
+                : <button type="button" className="text-[15px] font-medium text-rubric underline underline-offset-2" onClick={() => setShowEn(true)}>Show the translation</button>}
+            </div>
+          )}
           </div>
-        </>)}
+        )}
       </div>
       {!done && (
         <div className="fixed inset-x-0 bottom-0 border-t border-rule bg-paper px-4 py-3">
-          <div className="mx-auto grid max-w-[46rem] grid-cols-2 gap-3">
-            <button type="button" onClick={() => mark("help")} className="rounded-lg border border-rule bg-leaf px-4 py-3 text-[16px] font-semibold text-ink hover:border-soft">I needed help</button>
-            <button type="button" onClick={() => mark("got")} className="rounded-lg bg-[var(--ok)] px-4 py-3 text-[16px] font-semibold text-paper">I got it</button>
-          </div>
+          {learn && !showEn ? (
+            <div className="mx-auto max-w-[46rem]">
+              <button type="button" onClick={() => setShowEn(true)} className="w-full rounded-lg bg-rubric px-4 py-3 text-[16px] font-semibold text-paper">Check translation</button>
+            </div>
+          ) : (
+            <div className="mx-auto grid max-w-[46rem] grid-cols-2 gap-3">
+              <button type="button" onClick={() => mark("help")} className={`rounded-lg border border-rule bg-leaf px-4 py-3 text-[16px] font-semibold text-ink hover:border-soft ${learn && used ? "ring-2 ring-offset-1 ring-[var(--ink-soft)]" : ""}`}>I needed help</button>
+              <button type="button" onClick={() => mark("got")} className="rounded-lg bg-[var(--ok)] px-4 py-3 text-[16px] font-semibold text-paper">I got it</button>
+            </div>
+          )}
         </div>
       )}
     </div>
