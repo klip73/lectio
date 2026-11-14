@@ -413,7 +413,7 @@ function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset 
         <SetCheck id="set-rub" checked={s.rubrics} onChange={v => setSet({ rubrics: v })}>Show rubric notes (the red and grey instructions inside the texts)</SetCheck>
       </>)}
       {sect("layout", "Home & layout", <>
-        <SetRow label="The app opens on"><SetSeg label="The app opens on" items={[["home", "Home"], ["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["last", "Where I left off"]]} value={s.start} onPick={v => setSet({ start: v })} /></SetRow>
+        <SetRow label="The app opens on"><SetSeg label="The app opens on" items={[["home", "Home"], ["course", "Learn"], ["study", "Study"], ["liturgy", "Liturgy"], ["library", "Library"], ["last", "Where I left off"]]} value={s.start} onPick={v => setSet({ start: v })} /></SetRow>
         <SetRow label="Home’s buttons" hint="Their order follows your focus until you move one.">
           <ul className="flex flex-col gap-1" aria-label="Home buttons">
             {tiles.map((k, i) => {

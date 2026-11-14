@@ -1521,6 +1521,7 @@ function App() {
     if (window.__LV_START) return ok.includes(ui0.mode) ? ui0.mode : "drill";
     const st = getSet("start");
     if (st === "study") return STUDY_MODES.includes(ui0.study) ? ui0.study : "read";
+    if (st === "course") return "course";
     if (st === "liturgy") return "office";
     if (st === "library") return "library";
     if (st === "last") return [...ok, "drill", "home"].includes(ui0.mode) ? ui0.mode : "home";
