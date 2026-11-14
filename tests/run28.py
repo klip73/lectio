@@ -33,7 +33,7 @@ try:
         pg.click("button:has-text('I got it')"); pg.wait_for_timeout(300); print("  after got it:", d.locator("span.num").first.inner_text())
         pg.click("button:has-text('Back to the passage')"); pg.wait_for_timeout(300)
         # font
-        pg.click("button[aria-label='Display settings']"); pg.select_option("#disp-font", "alegreya"); pg.wait_for_timeout(300)
+        pg.click("button[aria-label='Settings']"); pg.select_option("#disp-font", "alegreya"); pg.wait_for_timeout(300)
         print("3 font:", pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--font-latin')"), "| link:", pg.locator("link#lvf-alegreya").count())
         pg.reload(); pg.wait_for_selector("nav[aria-label='Section']", timeout=20000)
         print("  after reload:", pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--font-latin')"))

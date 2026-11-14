@@ -3,12 +3,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Source+Sans+3:wght@400;500;600&display=swap">
 <script>/* the Latin font chosen in the header (FontSwitch): set before the page draws */
-window.LV_FONTS = { merriweather: ["Merriweather", ""], alegreya: ["Alegreya", "Alegreya:ital,wght@0,400;0,700;1,400"], garamond: ["EB Garamond", "EB+Garamond:ital,wght@0,400;0,700;1,400"], gentium: ["Gentium Book Plus", "Gentium+Book+Plus:ital,wght@0,400;0,700;1,400"], cardo: ["Cardo", "Cardo:ital,wght@0,400;0,700;1,400"], literata: ["Literata", "Literata:ital,wght@0,400;0,700;1,400"] };
+window.LV_FONTS = { merriweather: ["Merriweather", ""], atkinson: ["Atkinson Hyperlegible", "Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400"], lexend: ["Lexend", "Lexend:wght@400;600;700"], alegreya: ["Alegreya", "Alegreya:ital,wght@0,400;0,700;1,400"], garamond: ["EB Garamond", "EB+Garamond:ital,wght@0,400;0,700;1,400"], gentium: ["Gentium Book Plus", "Gentium+Book+Plus:ital,wght@0,400;0,700;1,400"], cardo: ["Cardo", "Cardo:ital,wght@0,400;0,700;1,400"], literata: ["Literata", "Literata:ital,wght@0,400;0,700;1,400"] };
 window.LV_setFont = function (k) { var f = window.LV_FONTS[k] || window.LV_FONTS.merriweather; if (f[1] && !document.getElementById("lvf-" + k)) { var l = document.createElement("link"); l.id = "lvf-" + k; l.rel = "stylesheet"; l.href = "https://fonts.googleapis.com/css2?family=" + f[1] + "&display=swap"; document.head.appendChild(l); } document.documentElement.style.setProperty("--font-latin", '"' + f[0] + '", Georgia, "Times New Roman", serif'); };
 try { var lf = JSON.parse(localStorage.getItem("lectio-vulgata-font") || "null"); if (lf && lf !== "merriweather") window.LV_setFont(lf); } catch (e) {}</script>
 <script>/* display settings (DisplayPanel): text size, Latin line spacing, page width */
 try { var dd = JSON.parse(localStorage.getItem("lectio-vulgata-display") || "null") || {}, dr = document.documentElement; if (dd.size) dr.style.setProperty("--lv-zoom", dd.size); if (dd.lh === "roomy") dr.setAttribute("data-lh", "roomy"); if (dd.wide) dr.setAttribute("data-wide", "1"); } catch (e) {}</script>
-<script>try { var th = JSON.parse(localStorage.getItem("lectio-vulgata-theme") || "null"); if (th === "dark" || th === "light") document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
+<script>try { var th = JSON.parse(localStorage.getItem("lectio-vulgata-theme") || "null"); if (["dark", "light", "sepia", "contrast"].indexOf(th) >= 0) document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
+<script>/* Settings (settings.jsx): sizes, drop capitals, rubric notes, tap targets, interface font, before the page draws */
+try { var ss = JSON.parse(localStorage.getItem("lectio-vulgata-settings") || "null") || {}, sr = document.documentElement;
+  if (ss.laSize) sr.style.setProperty("--lv-la", ss.laSize); if (ss.enSize) sr.style.setProperty("--lv-en", ss.enSize);
+  if (ss.dropcap === false) sr.setAttribute("data-nodrop", "1"); if (ss.big) sr.setAttribute("data-big", "1"); if (ss.rubrics === false) sr.setAttribute("data-norubrics", "1");
+  var uf = { atkinson: ["Atkinson Hyperlegible", "Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400"], lexend: ["Lexend", "Lexend:wght@400;500;600"] }[ss.uiFont];
+  if (uf) { var ul = document.createElement("link"); ul.id = "lvui-" + ss.uiFont; ul.rel = "stylesheet"; ul.href = "https://fonts.googleapis.com/css2?family=" + uf[1] + "&display=swap"; document.head.appendChild(ul); sr.style.setProperty("--font-ui", '"' + uf[0] + '", "Segoe UI", system-ui, sans-serif'); }
+} catch (e) {}</script>
 <style>
   /* Layout: one quiet reading column, like a single page of a breviary; a progress ledger above, the verse in the middle, grading below. */
   /* Single deliberate paper theme (user asked for a #f8f6f0 stone background). */
@@ -51,6 +58,18 @@ try { var dd = JSON.parse(localStorage.getItem("lectio-vulgata-display") || "nul
     --g1: #8fb3ea; --g1-tint: #1e2a3d; --g2: #93c48a; --g2-tint: #22301f; --g3: #c69be0; --g3-tint: #2f2238;
     --g4: #e0b862; --g4-tint: #362b15; --g5: #7fcfcb; --g5-tint: #183331; --g6: #ec97b6; --g6-tint: #3a1f2a;
   }
+  /* Sepia and high contrast (Settings → Display → Colours) */
+  :root[data-theme="sepia"] {
+    color-scheme: light;
+    --paper: #f1e7d0; --leaf: #f8f0dc; --ink: #3b2f22; --ink-soft: #6e5c46; --rule: #dccba6;
+    --rubric: #93281d; --rubric-tint: #ecd8c4; --ok: #3d6534; --ok-tint: #e1e6cc; --mid: #555779; --mid-tint: #e2dcd6; --warn: #82590f; --warn-tint: #efdfbd;
+  }
+  :root[data-theme="contrast"] {
+    color-scheme: light;
+    --paper: #ffffff; --leaf: #ffffff; --ink: #000000; --ink-soft: #2b2b2b; --rule: #6b6b6b;
+    --rubric: #a10000; --rubric-tint: #ffe1dc; --ok: #145214; --ok-tint: #dff2df; --mid: #26286e; --mid-tint: #e3e4f7; --warn: #6b4500; --warn-tint: #fbebc4;
+    --g1: #0b3f8a; --g2: #145214; --g3: #5a1d7a; --g4: #6b4500; --g5: #0a5654; --g6: #8a1240;
+  }
   html, body { background: var(--paper); color: var(--ink); }
   body { font-family: var(--font-ui); font-size: 16px; }
   .wrap {
@@ -61,6 +80,17 @@ try { var dd = JSON.parse(localStorage.getItem("lectio-vulgata-display") || "nul
   }
   .latin { font-family: var(--font-latin); }
   #root { zoom: var(--lv-zoom, 1); }
+  /* Latin and English sizes (Settings → Display): the readers' Latin, and every translation beside or under it */
+  .lt { zoom: calc(var(--lz, 1) * var(--lv-la, 1)); }
+  p[lang="la"]:not(.lt):not(.lt *):not([lang="la"] *), div[lang="la"]:not(.lt):not(.lt *):not([lang="la"] *) { zoom: var(--lv-la, 1); }
+  [lang="en"]:not([lang="en"] *) { zoom: var(--lv-en, 1); }
+  html[data-nodrop] .initial::first-letter { color: inherit; font-weight: inherit; float: none; font-size: inherit; line-height: inherit; padding: 0; margin: 0; }
+  html[data-norubrics] .rb { display: none; }
+  html[data-big] button, html[data-big] select, html[data-big] input[type="date"] { min-height: 2.75rem; }
+  html[data-big] input[type="checkbox"] { width: 1.4rem; height: 1.4rem; }
+  html[data-big] .lw { padding: .18em .08em; margin: 0 .04em; }
+  html[data-big] p.latin, html[data-big] .lt { line-height: 2.1; }
+  .unk { text-decoration: underline dotted var(--mid) 2px; text-underline-offset: 4px; }
   html[data-wide] .wrap { max-width: 64rem; }
   html[data-lh="roomy"] p.latin, html[data-lh="roomy"] .lt { line-height: 2.15 !important; }
   .gh { background: var(--rubric-tint); color: var(--rubric); border-radius: 3px; box-shadow: 0 0 0 2px var(--rubric-tint); }
@@ -88,7 +118,6 @@ try { var dd = JSON.parse(localStorage.getItem("lectio-vulgata-display") || "nul
   @keyframes pulse { from { opacity: .25; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .tutor-dot { animation: none; } }
   /* Reading aids */
-  .lt { zoom: var(--lz, 1); }
   .st-v { font-weight: 700; color: var(--rubric); }
   .st-nf { font-style: italic; text-decoration: underline dotted var(--rubric); text-underline-offset: 4px; }
   .st-sub { color: var(--mid); background: var(--mid-tint); border-radius: 3px; padding: 0 2px; }

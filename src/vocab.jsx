@@ -87,9 +87,14 @@ function pickCard(prog, cards, cur) {
   const now = Date.now(), vc = prog.vcards || {};
   const keys = new Set(cards.map(c => c.key));
   const byKey = Object.fromEntries(cards.map(c => [c.key, c]));
-  const due = Object.entries(vc).filter(([k, c]) => keys.has(k) && k !== cur && c.due <= now).sort((a, b) => (a[1].box - b[1].box) || (a[1].due - b[1].due));
+  /* Settings → Flashcards: new words and reviews a day (0: no limit). A card failed today ("Again") always comes back. */
+  const today = srsToday(), newCap = getSet("newPerDay"), revCap = getSet("revCap");
+  const revOk = !revCap || today.r < revCap, newOk = !newCap || today.n < newCap;
+  const due = Object.entries(vc).filter(([k, c]) => keys.has(k) && k !== cur && c.due <= now && (revOk || c.ivl === 0)).sort((a, b) => (a[1].box - b[1].box) || (a[1].due - b[1].due));
   if (due.length) return { card: byKey[due[0][0]], why: due[0][1].box === 0 ? "Back again: you didn’t know it last time." : "Due for review." };
-  const i = cards.findIndex(c => !vc[c.key] && c.key !== cur);
+  const i = newOk ? cards.findIndex(c => !vc[c.key] && c.key !== cur) : -1;
+  if (!newOk && cards.some(c => !vc[c.key])) return { card: null, limit: "new", n: newCap };
+  if (!revOk && Object.entries(vc).some(([k, c]) => keys.has(k) && c.due <= now)) return { card: null, limit: "rev", n: revCap };
   if (i >= 0) return { card: cards[i], why: cards[i].mk ? "A mistake from one of your checked translations." : cards[i].pp ? "New verb for principal parts." : `New card: number ${i + 1} in this deck, by frequency.` };
   const weak = Object.entries(vc).filter(([k]) => keys.has(k) && k !== cur).sort((a, b) => a[1].ema - b[1].ema)[0];
   return weak ? { card: byKey[weak[0]], why: "Nothing is due. Extra practice on a weaker card." } : null;
@@ -106,6 +111,9 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
   const [pick, setPick] = useState(null);
   const [shown, setShown] = useState(false);
   const [learn, setLearn] = useState(0);   // My class list: 0 = the list and quizzes, otherwise flashcards (the number rebuilds the deck)
+  const [typed, setTyped] = useState("");   // Settings → Answering: type the answer
+  const [tres, setTres] = useState(null);   // { ok, want }
+  const S = useSettings();
   const keyRef = useRef(null);
   useEffect(() => {
     if (!PART_IDS.includes(deck) || vocab) return;
@@ -114,13 +122,15 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
     return () => { alive = false; };
   }, [deck, vocab]);
   const cards = useMemo(() => (V ? buildDeck(deck, lex, V, vocab, prog, includeCommon) : null), [deck, V, vocab, includeCommon, deck === "tap" ? prog.vtap : null, deck === "mk" ? prog.mistakes : null, learn]);
-  useEffect(() => { setPick(cards ? pickCard(prog, cards, null) : null); setShown(false); }, [cards]);
+  useEffect(() => { setPick(cards ? pickCard(prog, cards, null) : null); setShown(false); setTyped(""); setTres(null); }, [cards, S.newPerDay, S.revCap]);
 
+  const progRef0 = useRef(prog); progRef0.current = prog;
   const curRel = useRel(pick && pick.card && !pick.card.key.includes(":") ? [pick.card.key] : []);
   function grade(k) {
-    const key = pick.card.key;
+    const key = pick.card.key, was = (progRef0.current.vcards || {})[key];
+    if (k !== "know") { if (!was) srsCount("n"); else if (was.due <= Date.now()) srsCount("r"); }
     const next = onGrade(key, k, key.includes(":") ? undefined : wordDiff(key, V, curRel));
-    setShown(false);
+    setShown(false); setTyped(""); setTres(null);
     setPick(pickCard(next, cards, pick.card.key));
   }
   keyRef.current = { shown, grade, reveal: () => setShown(true), has: !!(pick && pick.card) };
@@ -165,9 +175,29 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
   const inDeck = cards.filter(c => vc[c.key] && vc[c.key].box >= 2).length;
   const empty = { due: "Nothing is due right now. Pick a deck to learn new words.", class: "Add your class’s sections first (‹ My class list).", past: "When you clear a week’s sections, their words move here for review.", tap: "Words you tap in passages and drills will collect here.", mk: "Mistakes Claude marks in your checked translations will collect here, so you can re-test them." }[deck];
 
+  if (pick && pick.limit) return <>{deckPicker}<article className="flex flex-col gap-2 rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-ink">
+    <p>{pick.limit === "new" ? `That’s today’s ${pick.n} new words${due ? `, and no reviews are due in this deck` : ""}. More tomorrow.` : `That’s today’s ${pick.n} reviews. The rest wait for tomorrow.`}</p>
+    <p className="text-[13px] text-soft">The daily limits are in Settings (the ⚙ button at the top) → Flashcards &amp; study.</p></article></>;
   if (!pick || !pick.card) return <>{deckPicker}<article className="rounded-lg border border-rule bg-leaf px-5 py-6 text-[15px] text-soft">{cards.length ? "You’ve been through this whole deck." : empty || "This deck is empty."}</article></>;
   const c = pick.card;
   const card = vc[c.key];
+  /* Settings → Card direction: English → Latin for plain word cards (both: alternating, by the card's reviews) */
+  const plainWord = !c.pp && !c.mk;
+  const rev = plainWord && (S.dir === "en" || (S.dir === "both" && ((card ? card.n : 0) + c.key.length) % 2 === 1));
+  /* Settings → Answering: type the answer; checked loosely, and you still choose how well you knew it */
+  function checkTyped() {
+    const a = typed.trim();
+    if (!a) return;
+    let ok;
+    if (rev) {
+      const want = (c.front.split(/[,(]/)[0] || "").trim(), g = a.split(/[,\s]+/)[0];
+      ok = (MORPH.norm(g) === MORPH.norm(want) || MORPH.norm(g) === MORPH.norm(c.key)) && ansStrictOk(g, want);
+    } else if (c.pp) {
+      const want = c.back.split(",").map(x => x.trim()).filter(Boolean).slice(1), got = a.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
+      ok = want.length > 0 && want.every(w => got.some(g => MORPH.norm(g) === MORPH.norm(w.replace(/ sum$/, "")) && ansStrictOk(g, w)));
+    } else ok = meaningOk(a, c.back + " " + (c.extra || ""));
+    setTres({ ok }); setShown(true);
+  }
   const kw = c.key.includes(":") ? null : knowWord(prog, c.key, V, curRel);
   return (
     <>
@@ -185,15 +215,19 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
             : kw ? <span className="text-[13px] text-soft" title="Estimated from your level and how common the word is">New · {kw.p > 0.85 ? "you probably know it" : kw.p > 0.5 ? "you may know it" : "probably new to you"}</span> : null}
         </div>
         <p className="mb-3 text-[13px] italic text-soft">{pick.why}</p>
-        <p lang="la" className="latin text-[2rem] font-bold leading-tight text-ink">{c.front}</p>
-        {c.ex && (
+        {rev ? <p className="text-[1.5rem] font-semibold leading-snug text-ink">{shortGloss(c.back) || c.back}<span className="mt-1 block text-[13px] font-normal text-soft">Give the Latin{S.typed ? "" : ", then show it"}</span></p>
+          : <p lang="la" className="latin text-[2rem] font-bold leading-tight text-ink">{c.front}</p>}
+        {c.ex && (!rev || shown) && (
           <p lang="la" className="latin mt-4 text-[1.05rem] leading-relaxed text-ink">
             <Snippet text={c.ex} /> <span className="whitespace-nowrap text-[13px] not-italic text-soft">({c.ref})</span>
           </p>
         )}
         {shown ? (
           <div className="reveal mt-5 border-l-2 border-rubric pl-3">
-            <p className="text-[1.1rem] leading-snug text-ink">{c.pp ? <span lang="la" className="latin">{c.back}</span> : c.back}</p>
+            {tres && <p className={`mb-1 text-[14px] font-semibold ${tres.ok ? "text-ok" : "text-warn"}`}>{tres.ok ? "✓ That matches." : "✗ Not quite: compare with the answer."} <span className="font-normal text-soft">You wrote “{typed.trim()}”.</span></p>}
+            {rev ? <p lang="la" className="latin text-[1.5rem] font-bold leading-tight text-ink">{c.front}</p>
+              : <p className="text-[1.1rem] leading-snug text-ink">{c.pp ? <span lang="la" className="latin">{c.back}</span> : c.back}</p>}
+            {rev && <p className="mt-1 text-[15px] leading-snug text-ink">{c.back}</p>}
             {c.extra && <p className="mt-1 text-[14px] text-soft">{c.extra}</p>}
             {!c.key.includes(":") && <div className="mt-2"><RelatedWords lemma={c.key} compact /></div>}
             {c.ex && c.aid != null && c.aid >= 0 && (() => {
@@ -202,9 +236,19 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
               return d.parse && form ? <p className="mt-1 text-[14px] text-soft">In the example, <span lang="la" className="latin font-bold text-ink">{form}</span> here: {d.parse.replace(" · ", ", ")}.</p> : null;
             })()}
           </div>
+        ) : S.typed ? (
+          <div className="mt-5 flex flex-col gap-2">
+            <label htmlFor="vc-typed" className="text-[14px] text-soft">{rev ? "The Latin word" : c.pp ? "The other principal parts" : c.mk ? "The right English" : "The meaning"}</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input id="vc-typed" lang={rev || c.pp ? "la" : "en"} value={typed} onChange={e => setTyped(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); checkTyped(); } }}
+                autoComplete="off" autoCapitalize="off" spellCheck={false} className="min-w-0 flex-1 basis-48 rounded-md border border-rule bg-paper px-3 py-2 text-[16px] text-ink" />
+              <Btn variant="primary" onClick={checkTyped} disabled={!typed.trim()}>Check</Btn>
+              <Btn onClick={() => setShown(true)}>Show</Btn>
+            </div>
+          </div>
         ) : (
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Btn variant="primary" onClick={() => setShown(true)}>{c.pp ? "Show principal parts" : c.mk ? "Show the correction" : "Show meaning"}</Btn>
+            <Btn variant="primary" onClick={() => setShown(true)}>{c.pp ? "Show principal parts" : c.mk ? "Show the correction" : rev ? "Show the Latin" : "Show meaning"}</Btn>
             {!c.mk && <Btn onClick={() => grade("know")} title="Mark as known and skip it for five weeks">I know this already</Btn>}
             <span className="ml-1 hidden text-[13px] text-soft sm:inline">Space shows the answer</span>
           </div>

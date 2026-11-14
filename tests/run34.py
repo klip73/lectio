@@ -31,10 +31,10 @@ try:
         pg.click("[aria-label='View'] button:has-text('Accentual')"); pg.wait_for_timeout(300)
         print("accentual:", pg.locator("article > div > div").first.inner_text().replace("\n", "")[:120])
         # display panel
-        pg.click("button[aria-label='Display settings']"); pg.wait_for_selector("[aria-label='Display settings'] [aria-label='Text size']")
+        pg.click("button[aria-label='Settings']"); pg.wait_for_selector("section[aria-label='Settings'] [aria-label='Text size']")
         pg.click("[aria-label='Text size'] button:has-text('Larger')"); pg.click("[aria-label='Line spacing'] button:has-text('Roomy')"); pg.click("[aria-label='Theme'] button:has-text('Dark')")
         print("display:", pg.evaluate("[getComputedStyle(document.documentElement).getPropertyValue('--lv-zoom'), document.documentElement.getAttribute('data-lh'), document.documentElement.getAttribute('data-theme'), getComputedStyle(document.getElementById('root')).zoom]"))
-        pg.click("[aria-label='What brings you here'] button:has-text('Praying')")
+        pg.click("section[aria-label='Settings'] button:has-text('Your focus')"); pg.click("[aria-label='What brings you here'] button:has-text('Praying')")
         pg.click("nav[aria-label='Section'] button[aria-label='Home']"); pg.wait_for_timeout(500)
         print("Home order (pray):", [x.split("\n")[0] for x in pg.locator(".grid.gap-3 > button, .grid.gap-3 > div").all_inner_texts()])
         pg.reload(); pg.wait_for_timeout(1500)

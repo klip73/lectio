@@ -73,15 +73,20 @@ function officeLines(lines) {
   }
   return out;
 }
+/* A red span that is an instruction (a rubric note), not a heading, versicle or antiphon mark: hidden by Settings → Liturgy. */
+const isRubricNote = t => t.length > 18 && /\s/.test(t) && !/^(Psalm|Canticum|Canticle|Commemorat|Nocturn|Lectio|Lesson|Hymn|In Anniversario|de Beata|Responsor|Capitul|Antiphon)/i.test(t);
 function OfficeText({ line, latin, onWord, sel }) {
+  const aids = React.useContext(AidsContext);
+  const unk = latin && aids.unk && aids.unkForms && aids.lex
+    ? w => { const ids = formLookup(aids.unkForms, w); return !!(ids && ids.length) && aids.unk(aids.lex.lemmas[aids.lex.ana[ids[0]][0]][0]); } : null;
   const parts = line.split(/(\^[^^]*\^|\{[^}]*\})/);
   return parts.map((p, i) => {
     if (!p) return null;
-    if (p[0] === "^") return <span key={i} className="text-rubric">{p.slice(1, -1)}</span>;
-    if (p[0] === "{") return <span key={i} className="text-[0.85em] italic text-soft">{p.slice(1, -1).replace(/^omittitur$/, "(omitted)")}</span>;
+    if (p[0] === "^") return <span key={i} className={"text-rubric" + (isRubricNote(p.slice(1, -1)) ? " rb" : "")}>{p.slice(1, -1)}</span>;
+    if (p[0] === "{") return <span key={i} className={"text-[0.85em] italic text-soft" + (/^omittitur$/.test(p.slice(1, -1)) ? "" : " rb")}>{p.slice(1, -1).replace(/^omittitur$/, "(omitted)")}</span>;
     if (!latin) return p;
     return p.split(/(\p{L}+)/u).map((w, j) => (j % 2 === 0 ? w : (
-      <span key={i + ":" + j} role="button" tabIndex={0} className={`lw${sel === w ? " sel" : ""}`} onClick={() => onWord(w)}
+      <span key={i + ":" + j} role="button" tabIndex={0} className={`lw${sel === w ? " sel" : ""}${unk && unk(w) ? " unk" : ""}`} onClick={() => onWord(w)}
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onWord(w); } }}>{w}</span>
     )));
   });
@@ -101,32 +106,49 @@ function useNarrow() {
   useEffect(() => { try { const m = window.matchMedia(q); const f = () => setN(m.matches); m.addEventListener("change", f); return () => m.removeEventListener("change", f); } catch (e) {} }, []);
   return n;
 }
+/* Commemorations inside a section: from a "Commemoratio …" line to the next heading (Settings → Liturgy → Fold away). */
+function commemRuns(ls) {
+  const runs = []; let cur = null;
+  ls.forEach((l, k) => {
+    if (l.t && /^\^Commemorat/i.test(l.t)) { cur = { start: k, end: k, title: l.t.replace(/\^/g, "").trim() }; runs.push(cur); }
+    else if (cur && !l.h) cur.end = k;
+    else cur = null;
+  });
+  return runs;
+}
 function OfficeSection({ sec, i, showEn, onWord, sel }) {
   const [en, setEn] = useState(false);
+  const [openC, setOpenC] = useState({});
   const narrow = useNarrow();
   const la = officeLines(sec[0]), eng = officeLines(sec[1]);
   const both = showEn || en;
-  // On a phone, put each English line under its Latin line when the two match line for line (hymns, psalms, versicles).
-  const paired = both && narrow && la.length > 1 && la.length === eng.length && la.every((l, k) => !!l.h === !!eng[k].h);
+  const under = getSet("enShow") === "under";
+  /* folded commemorations: the "Commemoratio" line becomes a button; the rest of the run shows when it is open */
+  const fold = getSet("commem") === "fold";
+  const foldOf = ls => { const runs = fold ? commemRuns(ls) : []; return k => { const n = runs.findIndex(r => k >= r.start && k <= r.end); return n < 0 ? null : { n, head: k === runs[n].start, title: runs[n].title }; }; };
+  const fLa = foldOf(la), fEn = foldOf(eng);
+  const foldBtn = (f, key) => <button key={key} type="button" aria-expanded={!!openC[f.n]} onClick={() => setOpenC(o => ({ ...o, [f.n]: !o[f.n] }))} className="my-0.5 block text-left text-[14px] text-rubric">{openC[f.n] ? "▾" : "▸"} {f.title}</button>;
+  // Put each English line under its Latin line when the two match line for line (hymns, psalms, versicles): on a phone, or when chosen in Settings.
+  const paired = both && (narrow || under) && la.length > 1 && la.length === eng.length && la.every((l, k) => !!l.h === !!eng[k].h);
   if (paired) return (
     <section id={"office-" + i} className="scroll-mt-16 rounded-lg border border-rule bg-leaf px-4 py-3 sm:px-5">
-      {la.map((l, k) => l.h
+      {la.map((l, k) => { const f = fLa(k); if (f && f.head) return foldBtn(f, k); if (f && !openC[f.n]) return null; return l.h
         ? <p key={k} className="smallcaps mt-1 text-[15px] font-semibold text-rubric">{l.h}</p>
         : <div key={k} className="mb-1">
             <p lang="la" className="lt latin text-[1.08rem] leading-[1.6] text-ink"><OfficeText line={l.t} latin={true} onWord={onWord} sel={sel} /></p>
             <p lang="en" className="text-[14px] leading-snug text-soft"><OfficeText line={eng[k].t} latin={false} onWord={onWord} sel={sel} /></p>
-          </div>)}
+          </div>; })}
       {!showEn && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => setEn(false)}>Hide English</button>}
     </section>
   );
-  const block = (ls, latin) => ls.map((l, k) => l.h
+  const block = (ls, latin) => { const fo = latin ? fLa : fEn; return ls.map((l, k) => { const f = fo(k); if (f && f.head) return foldBtn(f, k); if (f && !openC[f.n]) return null; return l.h
     ? <p key={k} className="smallcaps mt-1 text-[15px] font-semibold text-rubric">{l.h}</p>
-    : <p key={k} className={latin ? "latin text-[1.08rem] leading-[1.75] text-ink" : "text-[15px] leading-snug text-soft"}><OfficeText line={l.t} latin={latin} onWord={onWord} sel={sel} /></p>);
+    : <p key={k} className={latin ? "latin text-[1.08rem] leading-[1.75] text-ink" : "text-[15px] leading-snug text-soft"}><OfficeText line={l.t} latin={latin} onWord={onWord} sel={sel} /></p>; }); };
   return (
     <section id={"office-" + i} className="scroll-mt-16 rounded-lg border border-rule bg-leaf px-4 py-3 sm:px-5">
-      <div className={both ? "grid gap-x-6 gap-y-2 sm:grid-cols-2" : ""}>
+      <div className={both ? (under ? "flex flex-col gap-2" : "grid gap-x-6 gap-y-2 sm:grid-cols-2") : ""}>
         <div lang="la" className="lt">{block(la, true)}</div>
-        {both && <div lang="en" className="border-t border-rule pt-2 sm:border-0 sm:pt-0">{block(eng, false)}</div>}
+        {both && <div lang="en" className={under ? "border-t border-rule pt-2" : "border-t border-rule pt-2 sm:border-0 sm:pt-0"}>{block(eng, false)}</div>}
       </div>
       {!showEn && eng.length > 0 && <button type="button" className="mt-1 text-[12px] text-rubric underline underline-offset-2" onClick={() => setEn(x => !x)}>{en ? "Hide English" : "English"}</button>}
     </section>
@@ -463,7 +485,9 @@ function OfficeMode(props) {
     writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), ver: v });
   }
   const cur = list && list.find(x => x.id === ver);
-  useEffect(() => { if (list && ver && !cur) pick(""); }, [list]);   // a version no longer offered: back to 1960
+  useEffect(() => { if (list && ver && !cur) pick(""); }, [list]);
+  /* the calendar chosen in Settings (or restored from a backup) */
+  useEffect(() => { const f = e => { const v = (e && e.detail) || ""; OFFICE_V = v; setVer(v); }; window.addEventListener("lv-office-ver", f); return () => window.removeEventListener("lv-office-ver", f); }, []);   // a version no longer offered: back to 1960
   return (
     <div className="flex flex-col gap-3">
       {list && list.length > 0 && (
@@ -485,8 +509,11 @@ function OfficeMode(props) {
 }
 function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
   const pref0 = readLocal(OFFICE_KEY) || {};
-  const [part, setPart0] = useState(["office", "mass", "sunday", "calendar", "mine", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
-  const [hour, setHour0] = useState(HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
+  /* Settings → Liturgy: which tab and hour it opens on (a button on Home that names one still wins) */
+  const asked = pref0.pickAt && Date.now() - pref0.pickAt < 8000;
+  const lp = getSet("lpart"), lh = getSet("lhour");
+  const [part, setPart0] = useState(!asked && (lp === "office" || lp === "mass") ? lp : ["office", "mass", "sunday", "calendar", "mine", "prayers", "rubrics"].includes(pref0.part) ? pref0.part : "office");
+  const [hour, setHour0] = useState(!asked && lh === "time" ? hourByTime() : !asked && lh === "m" ? "m" : HOURS_L.some(h => h[0] === pref0.hour) ? pref0.hour : "m");
   const [mview, setMview] = useState(pref0.mview === "full" ? "full" : "lessons");
   const [xview, setXview] = useState(pref0.xview === "full" ? "full" : "propers");
   const [votive, setVotive] = useState(null);   // a votive Mass chosen instead of the Mass of the day (not remembered: each day starts with its own Mass)
@@ -569,7 +596,7 @@ function OfficeModeInner({ prog, onRead, onTable, onTap, onOpen, verLabel }) {
                 <LocalDayNote day={day} onEdit={editHere} />
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Btn variant={isRead ? "ok" : "primary"} pressed={isRead} onClick={() => onRead(dayNum(date), !isRead)}>{isRead ? "✓ Read" : "Mark as read"}</Btn>
-                  <span className="text-[13px] text-soft">{streak ? `${streak} day${streak === 1 ? "" : "s"} in a row · ` : ""}{read.length} day{read.length === 1 ? "" : "s"} read in all</span>
+                  <span className="text-[13px] text-soft">{streak && getSet("streaks") ? `${streak} day${streak === 1 ? "" : "s"} in a row · ` : ""}{read.length} day{read.length === 1 ? "" : "s"} read in all</span>
                 </div>
               </div>
             )}

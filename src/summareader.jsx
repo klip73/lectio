@@ -11,7 +11,7 @@ function SummaReader({ onTap, onTable, onBack }) {
   const [an, setAn] = useState(pos0.a || 1);
   const [q, setQ] = useState(null);
   const [err, setErr] = useState("");
-  const [en, setEn0] = useState(pos0.en !== false);
+  const [en, setEn0] = useState(pos0.en != null ? pos0.en !== false : getSet("enShow") !== "hidden");
   const [lex, setLex] = useState(null);
   const [tap, setTap] = useState(null);   // { w, entry }
   const [added, setAdded] = useState("");

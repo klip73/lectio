@@ -50,15 +50,16 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
   const [libIdx, setLibIdx] = useState(null);
   useEffect(() => { const l = readLocal(LIB_KEY) || {}; if (l._open && l._open !== "summa") libGet("index").then(setLibIdx).catch(() => {}); }, []);
   const items = continueItems(libIdx, posLabel);
-  const doneToday = ["reviews", "vocab", "passage", "oral"].filter(k => k === "reviews" ? dueCount === 0 : k === "vocab" ? day.vocab >= 10 : k === "passage" ? day.passages >= 2 : day.oral >= 1).length;
+  const G = dailyGoal();
+  const doneToday = ["reviews", "vocab", "passage", "oral"].filter(k => k === "reviews" ? dueCount === 0 : k === "vocab" ? day.vocab >= G.words : k === "passage" ? day.passages >= G.passages : day.oral >= 1).length;
   const tile = "flex w-full flex-col gap-1 rounded-lg border border-rule bg-leaf px-5 py-4 text-left hover:border-soft";
   const head = "latin text-[1.15rem] font-bold text-ink";
   const note = "text-[14px] leading-snug text-soft";
-  const openHour = h => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "office", hour: h }); go("office"); };
+  const openHour = h => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "office", hour: h, pickAt: Date.now() }); go("office"); };
   return (
     <div className="flex flex-col gap-3">
       <WhatsNewCard fresh={fresh} />
-      {items.length > 0 && (
+      {items.length > 0 && getSet("showContinue") && (
         <section aria-label="Continue" className="flex flex-col gap-1.5">
           <span className="smallcaps text-[13px] font-semibold text-rubric">Continue</span>
           {items.map((it, i) => (
@@ -100,8 +101,8 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
             {[["m", "Matins"], ["l", "Lauds"], ["v", "Vespers"], ["c", "Compline"]].map(([h, l]) => (
               <button key={h} type="button" onClick={() => openHour(h)} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">{l}</button>
             ))}
-            <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "mass" }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Mass</button>
-            <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "sunday" }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Sunday prep</button>
+            <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "mass", pickAt: Date.now() }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Mass</button>
+            <button type="button" onClick={() => { writeLocal(OFFICE_KEY, { ...(readLocal(OFFICE_KEY) || {}), part: "sunday", pickAt: Date.now() }); go("office"); }} className="rounded-md border border-rule bg-paper px-2.5 py-1 text-[13px] text-ink hover:border-soft">Sunday prep</button>
           </div>
         </div>
     </React.Fragment>),
@@ -116,7 +117,7 @@ function HomeScreen({ go, office, officeRead, day, dueCount, cls, posLabel, exam
             <span className={note}>The Guide: cases, verbs and constructions step by step, with memory aids from the old grammars; Forms has the tables for any word.</span>
           </button>)
         };
-        const order = { exam: ["study", "class", "office", "library"], class: ["class", "study", "office", "library"], learn: ["learn", "class", "study", "office", "library"], pray: ["office", "library", "class", "study"], read: ["library", "office", "class", "study"] }[focus] || ["class", "study", "office", "library"];
+        const order = homeTiles(focus);   /* Settings → Home & layout: the student's order, without hidden buttons */
         return <div className="grid gap-3 sm:grid-cols-2">{order.map(k => tiles[k])}</div>;
       })()}
       <button type="button" onClick={() => go("about")} className="self-start text-[14px] text-rubric underline underline-offset-2">How this app works: word help, AI marking, your data, sources, and the open-source code →</button>

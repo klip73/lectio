@@ -438,7 +438,8 @@ function entryParts(head, pos) {
   return { first, rest, gender, kind };
 }
 /* does one student piece match one expected part? "-are" ~ "amare", "-a" ~ "-a", "bona" ~ "-a" */
-function partOk(got, want, first) {
+function partOk(got, want, first) { return partOk0(got, want, first) && ansStrictOk(got, want); }
+function partOk0(got, want, first) {
   const g = wNorm(got).replace(/[^a-z\- ]/g, "").trim(), w = wNorm(want).replace(/[^a-z\- ]/g, "").trim();
   if (!g) return false;
   if (g === w) return true;

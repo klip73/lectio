@@ -311,7 +311,7 @@ function checkWrite(q, input) {
   const a = fvar(input);
   if (!a) return false;
   const pool = q.agree ? q.answers : q.forms;
-  return pool.some(f => fvar(f) === a);
+  return pool.some(f => fvar(f) === a && ansStrictOk(input.trim(), f));   // Settings: capitals, u/v and i/j as chosen
 }
 /* Parse answers: a form can have several right parsings (amaris, regeris, dominis). */
 function parseKeyFrom(q, sel) {

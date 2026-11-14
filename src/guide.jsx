@@ -12,7 +12,7 @@ function refText(at) {
 function speakLatin(voice, text, done) {
   try {
     const ss = window.speechSynthesis;
-    const u = new SpeechSynthesisUtterance(text.replace(/ \/ /g, ", "));
+    const u = new SpeechSynthesisUtterance(latinForSpeech(text.replace(/ \/ /g, ", ")));
     u.voice = voice; u.lang = voice.lang; u.rate = 0.8;
     u.onend = u.onerror = () => done && done();
     ss.cancel(); ss.speak(u);
@@ -165,7 +165,8 @@ function BackupReminder({ prog, cloud }) {
   const [msg, setMsg] = useState("");
   const amount = Object.keys(prog.cards || {}).length + Object.keys(prog.pcards || {}).length + Object.keys(prog.vcards || {}).length + (prog.sittings || []).length;
   const now = Date.now();
-  if (cloud || amount < 15 || (st.at && now - st.at < 14 * DAY) || (st.snooze && st.snooze > now)) return msg ? <p className="text-[13px] text-ok" aria-live="polite">{msg}</p> : null;
+  const every = getSet("backupEvery");   // Settings → Backup & data (0: never)
+  if (cloud || !every || amount < 15 || (st.at && now - st.at < every * DAY) || (st.snooze && st.snooze > now)) return msg ? <p className="text-[13px] text-ok" aria-live="polite">{msg}</p> : null;
   async function save() { const r = await saveProgressFile(prog); if (r !== "declined") { setSt(readLocal(BACKUP_KEY) || {}); setMsg("Saved. Keep the file somewhere safe (Files, Drive, email to yourself)."); } }
   async function share() {
     const code = encodeBackup(prog);

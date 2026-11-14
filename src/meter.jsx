@@ -331,7 +331,7 @@ function MeterMode() {
     });
   }));
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-raw="1">{/* data-raw: the Latin is scanned as printed (no spelling changes from Settings) */}
       <section className="flex flex-col gap-3 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Choose verse">
         <h3 className="latin text-[1.1rem] font-bold text-ink">Meter: scanning the hymns</h3>
         <p className="text-[14px] leading-snug text-soft">The app splits each line into syllables, marks what the rules settle, and fits the rest to the meter. Tap a syllable to see why it is long or short. Practise by marking a stanza yourself, then check.</p>

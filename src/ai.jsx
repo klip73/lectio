@@ -90,6 +90,7 @@ function aiSample() {
 /* Speed first: Groq (answers in a second or two) when there's a Groq key, unless the student chose Gemini first;
    whichever is first, the other is the backup. */
 async function aiCall(prompt, opts = {}) {
+  if (!getSet("ai")) throw { code: "no_key" };
   const g = hasGeminiKey(), q = hasGroqKey();
   if (!g && !q) throw { code: "no_key" };
   const groqFirst = q && (!g || readAi().first !== "gemini");
@@ -364,7 +365,7 @@ function Dictate({ value, onChange, lang = "en-US", label = "Speak" }) {
   const recRef = useRef(null);
   const baseRef = useRef("");
   useEffect(() => () => { try { recRef.current && recRef.current.abort(); } catch (e) {} }, []);
-  if (!SpeechRec) return null;
+  if (!SpeechRec || !getSet("speech")) return null;
   function start() {
     setErr("");
     const r = new SpeechRec();

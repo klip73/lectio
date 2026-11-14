@@ -72,3 +72,7 @@ The Library search (data/search/) and the Summa's Gospel citations (data/summa/c
 - **Related words** (`data/rel/`, `tools/data/build_related.py`): Open Multilingual Wordnet (github.com/omwn/omw-data): Princeton WordNet 3.0 (WordNet licence), Latin from Wiktionary (CC BY-SA), Italian MultiWordNet/IWN, Spanish MCR (CC BY 3.0), French WOLF (CeCILL-C), Portuguese OpenWN-PT (CC BY-SA), Romanian RoWN; antonyms from Open English WordNet (github.com/globalwordnet/english-wordnet, CC BY 4.0); Greek cognates from Lewis & Short's etymologies.
 - **Votive Masses** (`data/office/votive.json`, `tools/office/build_votive.py`): Divinum Officium's Missal texts and English, 1960 rubrics.
 - **Memory aids** (`src/memory.jsx`): Allen & Greenough's New Latin Grammar (1903) and Bennett's New Latin Grammar (1908), both public domain; Kennedy's Revised Latin Primer (1888); the verses as recorded in Wikipedia's "Latin mnemonics" and Cornell College's collection of Latin mnemonics, each credited where it is shown.
+
+## Fonts
+
+Loaded from Google Fonts when chosen (Settings → Display), all under the SIL Open Font License 1.1: Merriweather, Alegreya, EB Garamond, Gentium Book Plus, Cardo, Literata, Source Sans 3, Atkinson Hyperlegible (Braille Institute of America) and Lexend.

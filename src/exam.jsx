@@ -408,10 +408,11 @@ function ExamMode({ prog, onRecord, sessionGrade, tutor, onQuiz, focusMode, setF
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rule bg-leaf px-5 py-3">
         <span className="smallcaps text-[15px] font-semibold text-rubric">{title}</span>
+        {running && !getSet("examClock") ? <span className="text-[13px] text-soft">{limit ? "Timed sitting (clock hidden in Settings)" : "Clock hidden"}</span> : (
         <span className={`num latin text-[1.3rem] font-bold ${left != null && left <= 60 && running ? "text-warn" : "text-ink"}`} aria-live="off">
           {limit ? mmss(running ? left : Math.max(0, limit - elapsed)) : mmss(elapsed)}
           <span className="ml-1.5 font-sans text-[13px] font-normal text-soft">{running ? (limit ? "left" : "elapsed") : run.timeUp ? "time’s up" : "finished"}</span>
-        </span>
+        </span>)}
         {running && !focusMode && setFocusMode && <Btn onClick={() => setFocusMode(true)} title="Large text, nothing else on screen">Focus mode</Btn>}
       </div>
       {!data && <p className="text-[15px] text-soft">{err || "Loading the passages…"}</p>}

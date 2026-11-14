@@ -9,6 +9,7 @@ const TUTOR_KEY = "lectio-vulgata-tutor";
 const normText = t => (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 let samplePromise = null;
 function getSample() {
+  if (!getSet("ai")) return Promise.resolve(null);   // Settings → AI switched off: nothing is sent anywhere
   if (!samplePromise) {
     samplePromise = (window.claude && window.claude.use ? window.claude.use("sample") : Promise.resolve(null)).catch(() => null)
       .then(sm => sm || (hasAiKey() ? aiSample() : null));
@@ -81,7 +82,7 @@ ${verses.map(v => `${promptTag(v)} ${v[2]}`).join("\n")}
 STUDENT:
 ${user.slice(0, 4000)}
 
-List real mistakes only: wrong tense/mood/voice/person/number/case/agreement/meaning/sense, Latin left out, meaning added. Judge by the Latin; any accurate English is fine. Ignore spelling, punctuation, word order, thou/you, archaic or modern English (saith/says, hath/has, unto/to), and any accurate synonym or paraphrase: these are never mistakes.
+List real mistakes only: wrong tense/mood/voice/person/number/case/agreement/meaning/sense, Latin left out, meaning added. Judge by the Latin; any accurate English is fine. Ignore spelling, punctuation, word order, thou/you, archaic or modern English (saith/says, hath/has, unto/to), and any accurate synonym or paraphrase: these are never mistakes.${{ lenient: "\nBe generous: accept free and idiomatic renderings; report only clear errors of grammar or sense, at most 3.", strict: "\nThis student wants a close rendering: also report, as minor, any place where the English loses the Latin construction (a participle, ablative absolute, subjunctive, passive, or case relation turned into something else) even if the sense survives." }[getSet("aiStrict")] || ""}
 Reply with only JSON, at most 5 issues, most important first, [] if accurate:
 {"v":"got|partly|review","s":"summary, max 15 words","ok":"one thing done well, max 12 words, or empty","i":[{"sev":"error|minor","t":"${Object.keys(ISSUE_TYPES).join("|")}","la":"exact Latin word(s)","vs":"verse or section tag as shown","you":"exact words copied from student, or empty if left out","fix":"correct English for that part","why":"max 20 words, name the grammar","c":"${Object.keys(CONCEPTS).join("|")}|null"}]}
 v: got = no errors (minor allowed), partly = sense right with errors, review = sense wrong or much missing. minor = acceptable but less precise.`;
@@ -175,6 +176,7 @@ function MarkedText({ text, fb, active, setActive }) {
 }
 
 function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
+  if (!getSet("ai")) return <p className="text-[13px] text-soft">AI marking is switched off (Settings → AI). The key-word check above is the app’s own.</p>;
   if (avail === false) {
     return (
       <div className="flex flex-wrap items-center gap-3">
@@ -213,6 +215,7 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
   const minors = fb.issues.length - errs;
   const vColor = { got: "text-ok", partly: "text-mid", review: "text-warn" }[fb.verdict];
   const vText = { got: "Accurate", partly: "Mostly right", review: "Needs work" }[fb.verdict];
+  const hint = getSet("aiHelp") === "hint";   // Settings → AI → A hint first
   return (
     <div className="reveal flex flex-col gap-3" aria-live="polite">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -235,9 +238,9 @@ function TutorPanel({ state, avail, stale, onRun, onStop, active, setActive }) {
                 </div>
                 <p className="mt-1 text-[15px] leading-snug text-ink">
                   {iss.yours ? <>You wrote <span className="line-through decoration-[var(--rubric)]">“{iss.yours}”</span></> : "Left out"}
-                  {iss.fix && <> → <strong className="font-semibold text-ok">“{iss.fix}”</strong></>}
+                  {iss.fix && (hint && active !== i + 1 ? <span className="text-[13px] text-rubric"> · tap for the correction</span> : <> → <strong className="font-semibold text-ok">“{iss.fix}”</strong></>)}
                 </p>
-                {iss.why && <p className="mt-1 text-[14px] leading-snug text-soft">{iss.why}</p>}
+                {iss.why && !(hint && active !== i + 1) && <p className="mt-1 text-[14px] leading-snug text-soft">{iss.why}</p>}
                 {iss.concept && <span className="mt-1.5 inline-block rounded bg-paper px-2 py-0.5 text-[12px] text-soft">{CONCEPTS[iss.concept]}</span>}
               </button>
             </li>

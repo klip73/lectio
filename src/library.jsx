@@ -257,7 +257,8 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
   const merged = /^ll-/.test(work.id) && !!nx && ch0.paras.length <= 2 && !ch0.en && ch0.paras.join(" ").split(/\s+/).length <= 8;
   const ch = merged ? nx : ch0;
   const step = merged ? 2 : 1;
-  const enOn = pos._en !== false;
+  const enOn = pos._en != null ? pos._en !== false : getSet("enShow") !== "hidden";
+  const under = getSet("enShow") === "under";   // Settings → English translations: under each paragraph
   const fs = LIB_FS[pos._fs != null ? pos._fs : 1] || 1.08;
   const hlN = pos._hl ? normForm(pos._hl.replace(/\.$/, "")) : "";
   const hlAt = !hlN ? -1 : ch.paras.findIndex(p => /^can\. \d/.test(hlN) ? (normForm(p).startsWith(hlN + ".") || normForm(p).startsWith(hlN + " ")) : normForm(p).split(/[^a-z]+/).some(w => w.startsWith(hlN)));
@@ -340,7 +341,7 @@ function WorkReader({ work, meta, pos, setPos, help, topRef, hlRef, onTable }) {
             const en = side ? ch.en[i] : null;
             const rub = ch.r && ch.r.includes(i), head = ch.head && i === 0;
             return (
-              <div key={i} ref={i === hlAt ? hlRef : null} className={`${en ? "grid gap-x-6 gap-y-1 sm:grid-cols-2" : ""}${i === hlAt ? " -mx-2 rounded-md bg-rubrictint px-2 py-1" : ""}${head ? " border-b border-rule pb-3" : ""}`}>
+              <div key={i} ref={i === hlAt ? hlRef : null} className={`${en ? (under ? "flex flex-col gap-1" : "grid gap-x-6 gap-y-1 sm:grid-cols-2") : ""}${i === hlAt ? " -mx-2 rounded-md bg-rubrictint px-2 py-1" : ""}${head ? " border-b border-rule pb-3" : ""}`}>
                 {head && <span className="smallcaps mb-1 block text-[12px] font-semibold text-rubric">The Gospel</span>}
                 <p lang="la" style={{ fontSize: rub ? fs * 0.9 + "rem" : fs + "rem" }} className={`lt latin leading-[1.8] ${rub ? "italic text-rubric" : head ? "font-semibold text-ink" : "text-ink"}${verse ? " whitespace-pre-line" : ""}`}>
                   <OfficeText line={p} latin onWord={help.pick} sel={help.word} />

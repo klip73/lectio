@@ -30,6 +30,8 @@ function srsNext(c0, ans, now = Date.now(), fuzz = true) {
   else if (a === "hard") { next = fresh ? 0.5 : Math.max(1, eff * 1.2); ease = Math.max(SRS_EMIN, ease - 0.15); }
   else if (a === "good") { next = fresh ? 1 : ivl < 1 ? 1 : ivl < 2.5 ? 3 : Math.max(eff * ease, ivl + 1); }
   else { next = fresh ? 4 : Math.max(eff * ease * 1.3, ivl + 2); ease = Math.min(SRS_EMAX, ease + 0.15); }
+  /* Settings → How well to remember: shorter intervals for 95%, longer for 85% (fresh cards' first steps stay as they are) */
+  if (!fresh && next >= 1) next = Math.max(1, next * retentionFactor());
   if (fuzz && next >= 3) next = next * (0.95 + Math.random() * 0.1);
   next = Math.min(next, 365 * 2);
   const score = { again: 0, hard: 0.5, good: 1, easy: 1 }[a];
@@ -53,7 +55,8 @@ function recallNow(c, now = Date.now()) {
   const b = srsBase(c);
   if (b.ivl <= 0.01) return 0.35;
   const t = Math.max(0, (now - (b.last || now)) / DAY);
-  return Math.pow(1 + (t / b.ivl) * (Math.pow(0.9, -2) - 1), -0.5);
+  const S = b.ivl / retentionFactor();   // days to 90% recall, whatever retention the intervals were set for
+  return Math.pow(1 + (t / S) * (Math.pow(0.9, -2) - 1), -0.5);
 }
 
 /* ----- the student's level and each word's difficulty ----- */

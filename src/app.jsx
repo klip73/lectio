@@ -857,6 +857,7 @@ function encodeBackup(prog) {
   return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, vtheta: prog.vtheta, exam: prog.exam,
     /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
     lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
+    set: exportSettings(),   /* Settings travel too (settings.jsx) */
     cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
 }
 function decodeBackup(code) {
@@ -888,6 +889,8 @@ function decodeBackup(code) {
     if (d.cls && Array.isArray(d.cls.sections)) {
       try { writeClass({ sections: d.cls.sections.filter(x => x && typeof x === "object"), own: Array.isArray(d.cls.own) ? d.cls.own.filter(o => o && typeof o.head === "string") : [], basic: !!d.cls.basic, words: [], stale: true }); } catch (e) {}
     }
+    /* the settings (applied at once) */
+    if (d.set) importSettings(d.set);
     /* the local calendar too */
     if (Array.isArray(d.lc)) { try { const cur = readLC(), ids = new Set(cur.entries.map(x => x.id)); writeLC({ ...cur, entries: [...cur.entries, ...d.lc.filter(x => x && typeof x.title === "string" && x.rule && !ids.has(x.id)).slice(0, 200)] }); } catch (e) {} }
     const vtheta = Number.isFinite(+d.vtheta) && d.vtheta != null ? Math.max(0, Math.min(6, +d.vtheta)) : undefined;
@@ -948,7 +951,7 @@ function LatinWords({ text, ids, selected, onPick, prefix = "", marks, noStructu
     const shown = aids.acc ? accentWord(p, aids.acc) : p;
     const mk = marks && marks[key];
     const mcls = mk ? ` mk mk-${mk.sev}${mk.on ? " mk-on" : ""}` : "";
-    const scls = (aids.structure && !noStructure && ids ? structClass(aids.lex, ids[k]) : "") + (aids.hl && aids.hl.has(key) ? " gh" : "");
+    const scls = (aids.structure && !noStructure && ids ? structClass(aids.lex, ids[k]) : "") + (aids.hl && aids.hl.has(key) ? " gh" : "") + (aids.unk && aids.lex && ids && ids[k] !== undefined && unkEntry(aids, ids[k]) ? " unk" : "");
     const num = mk && mk.first ? <sup className="mk-n">{mk.n}</sup> : null;
     const known = ids && ids[k] !== undefined;
     if (!known) return mk || scls ? <span key={i} className={`${mcls} ${scls}`.trim()}>{shown}{num}</span> : shown;
@@ -958,6 +961,10 @@ function LatinWords({ text, ids, selected, onPick, prefix = "", marks, noStructu
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(key); } }}>{shown}{num}</span>
     );
   });
+}
+/* Is the word of this parsing entry one to learn (Settings → Underline words to learn)? */
+function unkEntry(aids, entry) {
+  try { const r = readings(entry); if (!r.ids.length || r.kind === "none") return false; return aids.unk(aids.lex.lemmas[aids.lex.ana[r.ids[0]][0]][0]); } catch (e) { return false; }
 }
 /* Plain Latin (no tapping), with accents when they are switched on. */
 function AccentText({ text }) {
@@ -978,6 +985,8 @@ function WordPanel(props) {
   return <div ref={ref} className="scroll-mt-16 scroll-mb-4"><WordPanelBody {...props} /></div>;
 }
 function WordPanelBody({ lex, word, entry, onClose, where, onTable }) {
+  const [more, setMore] = useState(false);
+  useEffect(() => setMore(false), [word, entry]);
   const r = readings(entry);
   const items = r.ids.map(id => describe(lex, id));
   const head = {
@@ -987,6 +996,21 @@ function WordPanelBody({ lex, word, entry, onClose, where, onTable }) {
     none: "No parsing available for this word"
   }[r.kind];
   const guessOnly = items.length && items.every(d => d.guess);
+  /* Settings → Tapping a word: the short view, meaning and parsing, with More for the rest */
+  if (getSet("tap") === "gloss" && !more && items.length) {
+    const d = items[0];
+    return (
+      <div className="reveal mt-4 rounded-md border border-rule bg-paper px-4 py-2.5" aria-live="polite">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span lang="la" className="latin text-[1.02rem] font-bold text-ink">{word}</span>
+          {d.lemma && n1(d.lemma) !== n1(word) && <span lang="la" className="latin text-[14px] font-bold text-rubric">{d.lemma}</span>}
+          {d.gloss && <span className="text-[15px] text-ink">{shortGloss(d.gloss)}</span>}
+          <span className="ml-auto flex gap-3"><button type="button" className="text-[13px] text-rubric underline underline-offset-2" onClick={() => setMore(true)}>More</button><button type="button" onClick={onClose} className="text-[13px] text-soft underline">Close</button></span>
+        </div>
+        <p className="text-[13px] text-soft">{d.guess ? "A guess from the word’s stem." : [d.posL, d.parse].filter(Boolean).join(", ")}{items.length > 1 ? ` · ${items.length - 1} other parsing${items.length > 2 ? "s" : ""} under More` : ""}</p>
+      </div>
+    );
+  }
   return (
     <div className="reveal mt-4 rounded-md border border-rule bg-paper px-4 py-3" aria-live="polite">
       <div className="flex items-baseline justify-between gap-3">
@@ -1363,6 +1387,7 @@ function alignCurated(la, src) {
 /*@include srs.jsx*/
 /*@include export.jsx*/
 /*@include display.jsx*/
+/*@include settings.jsx*/
 /*@include meter.jsx*/
 /*@include memory.jsx*/
 /*@include vocab.jsx*/
@@ -1464,7 +1489,7 @@ function ThemeSwitch() {
 }
 /* The Latin font: Merriweather by default; Alegreya, EB Garamond, Gentium (good with macrons), Cardo, Literata. */
 const FONT_KEY = "lectio-vulgata-font";
-const FONT_L = { merriweather: "Merriweather", alegreya: "Alegreya", garamond: "EB Garamond", gentium: "Gentium", cardo: "Cardo", literata: "Literata" };
+const FONT_L = { merriweather: "Merriweather", alegreya: "Alegreya", garamond: "EB Garamond", gentium: "Gentium", cardo: "Cardo", literata: "Literata", atkinson: "Atkinson Hyperlegible (easy to read)", lexend: "Lexend (easy to read)" };
 function FontSwitch() {
   const [f, setF] = useState(() => { const v = readLocal(FONT_KEY); return FONT_L[v] ? v : "merriweather"; });
   function pick(k) { setF(k); writeLocal(FONT_KEY, k); try { window.LV_setFont && window.LV_setFont(k); } catch (e) {} }
@@ -1483,7 +1508,18 @@ function App() {
   const [prog, setProg] = useState(loadLocalProgress);
   const [drafts, setDrafts] = useState(() => readLocal(DRAFT_KEY) || {});
   /* The app opens on Home (Continue + one button per purpose); tests can ask to start where they left off. */
-  const [mode, setMode] = useState(() => !window.__LV_START ? "home" : ["read", "vocab", "exam", "forms", "meter", "guide", "office", "library"].includes(ui0.mode) ? ui0.mode : "drill");
+  /* where the app opens: Home by default, or the student's choice (Settings → Home & layout) */
+  const [mode, setMode] = useState(() => {
+    const ok = ["read", "vocab", "exam", "forms", "meter", "guide", "office", "library"];
+    if (window.__LV_START) return ok.includes(ui0.mode) ? ui0.mode : "drill";
+    const st = getSet("start");
+    if (st === "study") return STUDY_MODES.includes(ui0.study) ? ui0.study : "read";
+    if (st === "liturgy") return "office";
+    if (st === "library") return "library";
+    if (st === "last") return [...ok, "drill", "home"].includes(ui0.mode) ? ui0.mode : "home";
+    return "home";
+  });
+  const S = useSettings();
   const [formsFocus, setFormsFocus] = useState(null);
   const [lastStudy, setLastStudy] = useState(() => (STUDY_MODES.includes(ui0.study) ? ui0.study : "read"));
   useEffect(() => { if (STUDY_MODES.includes(mode)) setLastStudy(mode); }, [mode]);
@@ -1543,7 +1579,26 @@ function App() {
   useEffect(() => { writeLocal(PREFS_KEY, prefs); }, [prefs]);
   useEffect(() => { writeLocal(DAY_KEY, day); }, [day]);
   useEffect(() => { if (prefs.accents && !accMap) loadAccents().then(setAccMap).catch(() => setPrefs(p => ({ ...p, accents: false }))); }, [prefs.accents, accMap]);
-  useEffect(() => { if (prefs.structure && !lexAll) loadLex().then(setLexAll).catch(() => {}); }, [prefs.structure, lexAll]);
+  useEffect(() => { if ((prefs.structure || S.unknown !== "off") && !lexAll) loadLex().then(setLexAll).catch(() => {}); }, [prefs.structure, S.unknown, lexAll]);
+  /* "Underline words to learn" (Settings → Latin text): which lemmas to mark; the Office's form list finds them in the Liturgy and Library */
+  const [unkForms, setUnkForms] = useState(null);
+  useEffect(() => { if (S.unknown !== "off" && !unkForms) officeGet("forms").then(setUnkForms).catch(() => {}); }, [S.unknown, unkForms]);
+  const unkTest = useMemo(() => {
+    if (S.unknown === "off" || !lexAll) return null;
+    const V = vocabOf(lexAll), vc = prog.vcards || {}, cache = {};
+    return lemma => {
+      if (!lemma) return false;
+      if (lemma in cache) return cache[lemma];
+      let r = false;
+      if (/^[a-z]/.test(lemma) && !BASIC.has(lemma)) {
+        const li = V.byLemma[lemma];
+        if (li !== undefined && lexAll.lemmas[li][1]) r = S.unknown === "new" ? !vc[lemma] && !(V.freq[lemma] && V.freq[lemma].rank <= 150) : knowWord(prog, lemma, V, null).p < 0.5;
+      }
+      return (cache[lemma] = r);
+    };
+  }, [S.unknown, lexAll, prog.vcards, prog.vtheta]);
+  /* "Add stress accents" and "Plain letters" can't both be on */
+  useEffect(() => { if (prefs.accents && S.marks === "plain") setSet({ marks: "printed" }); }, [prefs.accents]);
   // A link ending #p-<book>-<chapter>-<verse> opens that passage.
   useEffect(() => {
     const cm = (location.hash || "").match(/^#class=(LV1\.[A-Za-z0-9_-]+)$/);
@@ -1797,6 +1852,10 @@ function App() {
     setProg(nextProg); persist(nextProg);
     setSession(s => ({ ...s, ["sit:" + uid]: key }));
   }
+  function clearProgress() {
+    const fresh = { ...EMPTY, exam: progRef.current.exam, updated: Date.now() };
+    progRef.current = fresh; setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;
+  }
   function setExam(date) {
     const nextProg = { ...prog, exam: date, updated: Date.now() };
     setProg(nextProg); persist(nextProg);
@@ -1989,7 +2048,7 @@ function App() {
 
   const tabCls = on => `rounded-md px-3.5 py-1.5 text-[15px] font-medium ${on ? "bg-ink text-paper" : "text-ink hover:bg-leaf"}`;
 
-  const aidsValue = { acc: prefs.accents ? accMap : null, structure: !!prefs.structure, lex: lexAll, hl: gHl };
+  const aidsValue = { acc: prefs.accents ? accMap : null, structure: !!prefs.structure, lex: lexAll, hl: gHl, unk: unkTest, unkForms };
   const lz = [0.88, 1, 1.15, 1.32][prefs.size == null ? 1 : prefs.size] * (focusMode ? 1.2 : 1);
   const examTutor = { avail: tutorAvail, fbs, run: runTutor, stop: stopTutor, active: activeIssue, setActive: setActiveIssue };
   if (focusMode && mode === "exam") {
@@ -2021,9 +2080,9 @@ function App() {
           <span className="rounded bg-midtint px-2 py-0.5 text-mid">{cnt("partly")} partly</span>
           <span className="rounded bg-warntint px-2 py-0.5 text-warn">{cnt("review")} review</span>
         </div>}
-        <div className="flex items-center gap-1.5"><button type="button" onClick={() => { setDictOpen(o => !o); setDictWord(""); }} aria-expanded={dictOpen} title="Dictionary: look up any Latin word" aria-label="Dictionary"
-          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dictOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span className="sm:hidden">Dict.</span><span className="hidden sm:inline">Dictionary</span></button><AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} /><button type="button" onClick={() => setDispOpen(o => !o)} aria-expanded={dispOpen} title="Display: text size, font, spacing, light or dark; what you use the app for" aria-label="Display settings"
-          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dispOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span aria-hidden="true" className="latin">Aa</span></button></div>
+        <div className="flex items-center gap-1.5">{!S.hideDict && <button type="button" onClick={() => { setDictOpen(o => !o); setDictWord(""); }} aria-expanded={dictOpen} title="Dictionary: look up any Latin word" aria-label="Dictionary"
+          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dictOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span className="sm:hidden">Dict.</span><span className="hidden sm:inline">Dictionary</span></button>}{S.ai && <AiChip open={aiOpen} onClick={() => setAiOpen(o => !o)} tick={aiTick} />}<button type="button" onClick={() => setDispOpen(o => !o)} aria-expanded={dispOpen} title="Settings: text size, fonts, Latin spelling, AI, flashcards, Liturgy, Home, backup" aria-label="Settings"
+          className={`rounded-md border border-rule px-2.5 py-1 text-[13px] ${dispOpen ? "bg-ink text-paper" : "bg-leaf text-ink hover:border-soft"}`}><span aria-hidden="true"><span className="latin">Aa</span> ⚙</span></button></div>
       </header>
       {dictOpen && (
         <section ref={dictRef} className="reveal scroll-mt-16 rounded-lg border border-rubric bg-leaf px-5 py-4" aria-label="Dictionary">
@@ -2032,12 +2091,12 @@ function App() {
         </section>
       )}
       {dispOpen && (
-        <section className="reveal scroll-mt-16 rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Display settings">
-          <div className="mb-3 flex items-baseline justify-between gap-2">
-            <span className="smallcaps text-[14px] font-semibold text-rubric">Display &amp; your focus</span>
+        <section className="reveal scroll-mt-16 rounded-lg border border-rule bg-leaf px-5 py-3" aria-label="Settings">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <span className="smallcaps text-[14px] font-semibold text-rubric">Settings</span>
             <button type="button" className="text-[13px] text-soft underline" onClick={() => setDispOpen(false)}>Close</button>
           </div>
-          <DisplayPanel focus={prefs.focus} onFocus={chooseFocus} />
+          <SettingsPanel focus={prefs.focus} onFocus={chooseFocus} prefs={prefs} setPrefs={setPrefs} exam={prog.exam} onExam={setExam} onReset={clearProgress} />
         </section>
       )}
       {aiOpen && (
@@ -2453,10 +2512,7 @@ function App() {
       <footer className="flex flex-col gap-2 border-t border-rule pt-3 text-[13px] text-soft">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>{APP ? "App version. Progress saved on this device only; use a backup code to move it." : OFFLINE ? "Offline copy. Progress saved in this browser only; use a backup code to move it." : store === "cloud" ? "Progress saved to your Claude account." : "Progress saved in this browser only. Use a backup code to move it."}</span>
-          <ClearButton onConfirm={() => {
-            const fresh = { ...EMPTY, exam: prog.exam, updated: Date.now() };
-            setProg(fresh); persist(fresh); setSession({}); setDrafts({}); undoRef.current = null;
-          }} />
+          <ClearButton onConfirm={clearProgress} />
         </div>
         <p><button type="button" className="text-rubric underline underline-offset-2" onClick={() => { setMode("about"); resetView(); window.scrollTo({ top: 0 }); }}>How this app works</button> · free and open source (MIT) · <a href="https://github.com/klip73/lectio" target="_blank" rel="noopener noreferrer" className="text-rubric underline underline-offset-2">source code</a></p>
         <details>

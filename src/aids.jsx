@@ -65,7 +65,7 @@ function ReadingAids({ prefs, setPrefs, text, allowStructure = true, voice }) {
     try {
       const ss = window.speechSynthesis;
       if (speaking) { ss.cancel(); setSpeaking(false); return; }
-      const u = new SpeechSynthesisUtterance(text.replace(/ \/ /g, ", "));
+      const u = new SpeechSynthesisUtterance(latinForSpeech(text.replace(/ \/ /g, ", ")));
       u.voice = voice; u.lang = voice.lang; u.rate = 0.85;
       u.onend = u.onerror = () => setSpeaking(false);
       ss.cancel(); ss.speak(u); setSpeaking(true);
@@ -285,10 +285,11 @@ const DAY_KEY = "lectio-vulgata-day";
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 function readDay() { const d = readLocal(DAY_KEY); return d && d.date === todayStr() ? d : { date: todayStr(), reviews: 0, vocab: 0, passages: 0, oral: 0, quiz: 0 }; }
 function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst, office, officeRead, onOffice }) {
+  const G = dailyGoal();   // Settings → Flashcards & study → Daily goal
   const steps = [
     { id: "reviews", label: dueCount ? `Clear your reviews (${dueCount} due)` : "Reviews: nothing due", done: dueCount === 0, n: day.reviews },
-    { id: "vocab", label: "Learn 10 words", done: day.vocab >= 10, n: `${Math.min(day.vocab, 10)}/10` },
-    { id: "passage", label: placeFirst ? `Place yourself in ${focusName}, then translate` : `Translate 2 passages${focusName ? ` in ${focusName}` : ""}`, done: day.passages >= 2, n: `${Math.min(day.passages, 2)}/2` },
+    { id: "vocab", label: `Learn ${G.words} words`, done: day.vocab >= G.words, n: `${Math.min(day.vocab, G.words)}/${G.words}` },
+    { id: "passage", label: placeFirst ? `Place yourself in ${focusName}, then translate` : `Translate ${G.passages} passage${G.passages === 1 ? "" : "s"}${focusName ? ` in ${focusName}` : ""}`, done: day.passages >= G.passages, n: `${Math.min(day.passages, G.passages)}/${G.passages}` },
     { id: "oral", label: "One short oral mock exam", done: day.oral >= 1, n: day.oral ? "done" : "" }
   ];
   const next = steps.find(s => !s.done);
@@ -296,7 +297,7 @@ function TodayCard({ day, dueCount, focusName, onStep, examLeft, placeFirst, off
     <section className="rounded-lg border border-rule bg-leaf px-5 py-4" aria-label="Today's session">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="latin text-[1.1rem] font-bold text-ink">Today’s session</h2>
-        <span className="text-[13px] text-soft">About 20 minutes{examLeft ? ` · ${examLeft}` : ""}</span>
+        <span className="text-[13px] text-soft">About {G.mins} minutes{examLeft ? ` · ${examLeft}` : ""}</span>
       </div>
       <ol className="mt-2 grid gap-1.5 sm:grid-cols-2">
         {steps.map((s, i) => (
