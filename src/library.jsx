@@ -4,7 +4,7 @@ const libCache = {};
 /* The larger additions (St Thomas's other works ct-*, the manuals and readers rd-*, the whole Latin Library ll-*) are read by the online page from the
    phone app's site, to keep the page within its size limit. */
 function libGet(name) {
-  const remote = REMOTE_V && /^(ct|rd|ll|va)-|^pontificale$/.test(name);
+  const remote = REMOTE_V && /^(ct|rd|ll|va)-|^pontificale$|^lectura-map$|^vc\//.test(name);
   if (!libCache[name]) libCache[name] = getJSON(`${remote ? APP_SITE : ""}data/library/${name}.json`).catch(e => { delete libCache[name]; throw e; });
   return libCache[name];
 }
