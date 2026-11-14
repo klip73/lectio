@@ -12,7 +12,7 @@ var SET_DEFAULTS = {
   /* AI */
   ai: true, aiStrict: "standard", aiHelp: "full", speech: true,
   /* flashcards and study */
-  newPerDay: 20, revCap: 0, retention: 90, dir: "la", typed: false, capsMatch: false, uvMatch: false,
+  newPerDay: 20, revCap: 0, pics: "answer", hooks: "hint", retention: 90, dir: "la", typed: false, capsMatch: false, uvMatch: false,
   pron: "church", goal: "standard", streaks: true, examClock: true,
   /* liturgy */
   lpart: "last", lhour: "last", commem: "show", rubrics: true,
@@ -269,6 +269,7 @@ function SetCheck({ id, checked, onChange, children }) {
   return <label htmlFor={id} className="flex items-start gap-2 text-[14px] text-ink"><input id={id} type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--rubric)]" /><span>{children}</span></label>;
 }
 const SET_SECTIONS = [["display", "Display"], ["latin", "Latin text"], ["study", "Sentence study & hints"], ["ai", "AI"], ["cards", "Flashcards & study"], ["liturgy", "Liturgy"], ["layout", "Home & layout"], ["focus", "Your focus"], ["data", "Backup & data"]];
+const S_PICS_HINT = { answer: "Common concrete words (water, bread, sheep…) get a picture, and you can add your own emoji, photo or drawing to any word.", front: "Shown before you answer: easier, but it gives the meaning away on Latin → English cards.", off: "No pictures, even ones you added." };
 const SET_UI_KEY = "lectio-vulgata-settings-ui";
 function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset }) {
   const s = useSettings();
@@ -379,6 +380,12 @@ function SettingsPanel({ focus, onFocus, prefs, setPrefs, exam, onExam, onReset 
         <SetRow label="Reviews a day" id="set-rev" hint="Beyond the limit, due cards wait for tomorrow."><select id="set-rev" value={s.revCap} onChange={e => setSet({ revCap: +e.target.value })} className="self-start rounded-md border border-rule bg-paper px-2 py-1.5 text-[14px] text-ink">{[0, 50, 100, 200, 400].map(n => <option key={n} value={n}>{n ? n : "No limit"}</option>)}</select></SetRow>
         <SetRow label="How well to remember" hint={`Cards come back when you’d remember them about ${s.retention}% of the time. ${s.retention > 90 ? "More reviews, better memory." : s.retention < 90 ? "Fewer reviews, more forgetting." : "The usual balance."}`}>
           <SetSeg label="Retention" items={[[85, "85%"], [90, "90%"], [95, "95%"]]} value={s.retention} onPick={v => setSet({ retention: v })} />
+        </SetRow>
+        <SetRow label="Pictures on word cards" hint={S_PICS_HINT[s.pics]}>
+          <SetSeg label="Pictures" items={[["answer", "With the answer"], ["front", "On the front, as a clue"], ["off", "Off"]]} value={s.pics} onPick={v => setSet({ pics: v })} />
+        </SetRow>
+        <SetRow label="My memory hooks" hint="Write your own hook on any card (✎ under the answer): a sound-alike picture, an English derivative, a sentence.">
+          <SetSeg label="Memory hooks" items={[["hint", "With the answer, and as a hint button"], ["answer", "With the answer only"], ["off", "Off"]]} value={s.hooks} onPick={v => setSet({ hooks: v })} />
         </SetRow>
         <SetRow label="Card direction"><SetSeg label="Card direction" items={[["la", "Latin → English"], ["en", "English → Latin"], ["both", "Both, mixed"]]} value={s.dir} onPick={v => setSet({ dir: v })} /></SetRow>
         <SetRow label="Answering"><SetSeg label="Answering" items={[[false, "Flip the card"], [true, "Type the answer"]]} value={s.typed} onPick={v => setSet({ typed: v })} /></SetRow>

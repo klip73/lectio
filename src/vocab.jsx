@@ -105,7 +105,7 @@ function Snippet({ text }) {
   return text.split(/\[\[|\]\]/).map((part, i) => i % 2 ? <mark key={i} className="rounded bg-rubrictint px-0.5 font-bold text-rubric">{part}</mark> : part);
 }
 
-function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeCommon, aiOn }) {
+function VocabMode({ prog, onGrade, onMnemo, deck, setDeck, includeCommon, setIncludeCommon, aiOn }) {
   const { lex, err } = useLex(true);
   const V = lex ? vocabOf(lex) : null;
   const [vocab, setVocab] = useState(null);
@@ -200,6 +200,8 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
     } else ok = meaningOk(a, c.back + " " + (c.extra || ""));
     setTres({ ok }); setShown(true);
   }
+  const aidOk = plainWord && !c.key.includes(":");   // memory aids on plain word cards
+  const mine = (prog.mnemo || {})[c.key];
   const kw = c.key.includes(":") ? null : knowWord(prog, c.key, V, curRel);
   return (
     <>
@@ -219,6 +221,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
         <p className="mb-3 text-[13px] italic text-soft">{pick.why}</p>
         {rev ? <p className="text-[1.5rem] font-semibold leading-snug text-ink">{shortGloss(c.back) || c.back}<span className="mt-1 block text-[13px] font-normal text-soft">Give the Latin{S.typed ? "" : ", then show it"}</span></p>
           : <p lang="la" className="latin text-[2rem] font-bold leading-tight text-ink">{c.front}</p>}
+        {aidOk && !shown && <MemoryFront lemma={c.key} gloss={c.back} mine={mine} rev={rev} />}
         {c.ex && (!rev || shown) && (
           <p lang="la" className="latin mt-4 text-[1.05rem] leading-relaxed text-ink">
             <Snippet text={c.ex} /> <span className="whitespace-nowrap text-[13px] not-italic text-soft">({c.ref})</span>
@@ -231,6 +234,7 @@ function VocabMode({ prog, onGrade, deck, setDeck, includeCommon, setIncludeComm
               : <p className="text-[1.1rem] leading-snug text-ink">{c.pp ? <span lang="la" className="latin">{c.back}</span> : c.back}</p>}
             {rev && <p className="mt-1 text-[15px] leading-snug text-ink">{c.back}</p>}
             {c.extra && <p className="mt-1 text-[14px] text-soft">{c.extra}</p>}
+            {aidOk && onMnemo && <MemoryBack lemma={c.key} gloss={c.back} mine={mine} rev={rev} card={card} onSave={onMnemo} />}
             {!c.key.includes(":") && <div className="mt-2"><RelatedWords lemma={c.key} compact /></div>}
             {c.ex && c.aid != null && c.aid >= 0 && (() => {
               const d = describe(lex, c.aid);

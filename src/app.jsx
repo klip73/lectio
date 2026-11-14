@@ -855,6 +855,7 @@ function loadLocalProgress() {
 }
 function encodeBackup(prog) {
   return "LV1:" + btoa(unescape(encodeURIComponent(JSON.stringify({ cards: prog.cards, pcards: prog.pcards, vcards: prog.vcards, vtap: prog.vtap, sittings: prog.sittings, mistakes: (prog.mistakes || []).slice(-20), skill: prog.skill, ability: prog.ability, vtheta: prog.vtheta, exam: prog.exam,
+    mnemo: prog.mnemo && Object.keys(prog.mnemo).length ? prog.mnemo : undefined,   /* memory hooks (mnemo.jsx); photos stay on the device */
     /* the class quiz's sections and own words (kept in this browser, not in progress); the words are rebuilt on restore */
     co: (() => { try { const c = readCourse(); return Object.keys(c.done).length || Object.keys(c.cw).length ? { done: c.done, cw: c.cw, at: c.at } : undefined; } catch (e) { return undefined; } })(),
     lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
@@ -897,8 +898,10 @@ function decodeBackup(code) {
       writeCourse({ ...cur, done: { ...pick(d.co.done), ...cur.done }, cw: { ...pick(d.co.cw), ...cur.cw }, at: cur.at || (ok(d.co.at) ? d.co.at : null) }); } catch (e) {} }
     /* the local calendar too */
     if (Array.isArray(d.lc)) { try { const cur = readLC(), ids = new Set(cur.entries.map(x => x.id)); writeLC({ ...cur, entries: [...cur.entries, ...d.lc.filter(x => x && typeof x.title === "string" && x.rule && !ids.has(x.id)).slice(0, 200)] }); } catch (e) {} }
+    const mnemo = {};
+    Object.entries(d.mnemo && typeof d.mnemo === "object" ? d.mnemo : {}).slice(0, 3000).forEach(([l, v]) => { if (typeof l === "string" && l.length <= 40 && v && typeof v === "object") { const t = s60(v.t, 300), e = s60(v.e, 16); if (t || e) mnemo[l] = { t, e }; } });
     const vtheta = Number.isFinite(+d.vtheta) && d.vtheta != null ? Math.max(0, Math.min(6, +d.vtheta)) : undefined;
-    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, vtheta, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
+    return { ...EMPTY, cards, pcards, vcards, vtap, sittings, mistakes, skill, ability, vtheta, mnemo, oread: cleanRead(d.oread), exam: typeof d.exam === "string" ? d.exam : "", updated: Date.now() };
   } catch (e) { return null; }
 }
 
@@ -1398,6 +1401,7 @@ function alignCurated(la, src) {
 /*@include meter.jsx*/
 /*@include memory.jsx*/
 /*@include links.jsx*/
+/*@include mnemo.jsx*/
 /*@include vocab.jsx*/
 
 /*@include exam.jsx*/
@@ -1833,6 +1837,13 @@ function App() {
     setProg(next); persist({ ...next, updated: Date.now() });
   }
   /* b: the word's difficulty (srs.jsx wordDiff), when known: a first answer on a new word also moves the student's level */
+  /* Flashcards: the student's memory hook and emoji for a word (mnemo.jsx); null deletes it */
+  function setMnemo(lemma, v) {
+    const cur = progRef.current || prog, m = { ...(cur.mnemo || {}) };
+    if (v && (v.t || v.e)) m[lemma] = v; else delete m[lemma];
+    const next = { ...cur, mnemo: m, updated: Date.now() };
+    progRef.current = next; setProg(next); persist(next);
+  }
   function gradeVocab(lemma, key, b) {
     const cur = progRef.current || prog;
     const first = !(cur.vcards || {})[lemma];
@@ -2253,7 +2264,7 @@ function App() {
       ) : mode === "forms" ? (
         <FormsMode prog={prog} onAnswer={answerQuiz} focus={formsFocus} />
       ) : mode === "vocab" ? (
-        <VocabMode aiOn={tutorAvail === true} prog={prog} onGrade={gradeVocab} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
+        <VocabMode aiOn={tutorAvail === true} prog={prog} onGrade={gradeVocab} onMnemo={setMnemo} deck={prefs.deck || "all"} setDeck={d => setPrefs(p => ({ ...p, deck: d }))}
           includeCommon={!!prefs.vocabAll} setIncludeCommon={v => setPrefs(p => ({ ...p, vocabAll: v }))} />
       ) : mode === "exam" ? (
         <>
