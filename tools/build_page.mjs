@@ -69,7 +69,9 @@ if (offline) {
   if (!app) {
     // The offline copy is near its 16 MB limit: only the works marked offline, their index, and their smaller word index.
     const libIdx = JSON.parse(readFileSync(path.join(libDir, "index.json"), "utf8"));
-    const keep = libIdx.works.filter(w => w.offline);
+    /* Confessiones (about 260 KB packed) stays online-only to leave the single file room to grow: it is in the phone app and the online page. */
+    const OFFLINE_SKIP = new Set(["confessiones"]);
+    const keep = libIdx.works.filter(w => w.offline && !OFFLINE_SKIP.has(w.id));
     const z = b => gzipSync(b, { level: 9 }).toString("base64");
     pack["library/index.json"] = z(Buffer.from(JSON.stringify({ ...libIdx, works: keep })));
     pack["library/forms.json"] = z(readFileSync(path.join(libDir, existsSync(path.join(libDir, "forms0.json")) ? "forms0.json" : "forms.json")));
