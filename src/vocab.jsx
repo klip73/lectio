@@ -33,7 +33,13 @@ const BASIC = new Set(("sum possum et in non ad cum de ex e ab a abs per pro sin
   "omnis unus deus dominus homo dico facio video uideo venio uenio do habeo eo fero volo uolo audio magnus bonus malus multus ecce amen nihil nemo que ne iesus christus " +
   "dies terra caelum filius pater mater vir uir mulier rex verbum uerbum spiritus").split(" "));
 /* Build a deck as an ordered list of cards. Word cards share their schedule across decks (keyed by lemma). */
+/* Roman numerals (ix, i in "IX Metaphys.", "I Poster.") are numbers, not words to learn: never a card in any deck. */
+const numeralCard = c => !c.key.includes(":") && (isRoman(c.key) || /\bRoman numeral\b/i.test(c.back || ""));
 function buildDeck(deck, lex, V, vocab, prog, includeCommon) {
+  const cards = buildDeck0(deck, lex, V, vocab, prog, includeCommon);
+  return cards ? cards.filter(c => !numeralCard(c)) : cards;
+}
+function buildDeck0(deck, lex, V, vocab, prog, includeCommon) {
   const word = (lemma, ex) => {
     const li = V.byLemma[lemma];
     if (li === undefined || !lex.lemmas[li][1]) return null;

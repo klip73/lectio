@@ -4,7 +4,16 @@
    The list is kept in this browser; words learnt here share their schedule with every other deck (keyed by lemma). */
 const CLASS_KEY = "lectio-vulgata-class";
 const ST_PARTS = [["obj", "Objections"], ["sc", "Sed contra"], ["resp", "Respondeo"], ["ad", "Replies"]];
-function readClass() { const c = readLocal(CLASS_KEY); return c && typeof c === "object" && Array.isArray(c.sections) ? c : { sections: [], words: [], basic: false }; }
+/* Lists saved before Roman numerals were skipped (Nov 2026) still carry "ix", "i"…: drop them on reading, from the list and from past words. */
+function readClass() {
+  const c = readLocal(CLASS_KEY);
+  if (!(c && typeof c === "object" && Array.isArray(c.sections))) return { sections: [], words: [], basic: false };
+  const num = l => isRoman(l);
+  const out = { ...c };
+  if (Array.isArray(c.words)) out.words = c.words.filter(w => !num(w && w[0]));
+  if (c.past && typeof c.past === "object") out.past = Object.fromEntries(Object.entries(c.past).filter(([l]) => !num(l)));
+  return out;
+}
 const writeClass = c => writeLocal(CLASS_KEY, c);
 /* Which part of a Summa article a paragraph is. */
 function stPart(la, prev) {
@@ -557,7 +566,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
     setMOk(auto ? true : null);
     /* With AI on, the AI also marks the forms (it can accept a right variant the exact check missed, never fail a match)
        and the meaning (any real sense of the word, not only the app's gloss), and says if the app's gloss looks wrong. */
-    const aiP = ai && (mean.trim() || form.trim()) ? getSample().then(sm => sm ? sm.json(`Latin vocabulary quiz for a seminarian (Church Latin: j/v and ae/e spellings and missing macrons are fine). Dictionary entry: ${it.inf.head}. The app's meaning: "${shortGloss(it.inf.full)}". Shown "${it.prompt}", the student wrote${it.ep ? ` the rest of the entry: "${form.trim().slice(0, 80)}" and` : ""} the meaning: "${mean.trim().slice(0, 80)}". Judge each. forms_ok: is that the right rest of the dictionary entry (${it.ep ? (it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "genitive and gender" : "the genitive or other endings") : "not asked: null"}; abbreviations like -ae are fine)? meaning_ok: is the student's meaning a correct meaning of this Latin word in any accepted sense (null if blank)? gloss_note: only if the app's meaning is wrong or misses the word's main sense, say so briefly, else "". Reply with only JSON: {"forms_ok":true|false|null,"forms_note":"max 12 words","meaning_ok":true|false|null,"meaning_note":"max 12 words","gloss_note":""}`, { modelTier: "quick" }) : null).catch(() => null) : null;
+    const aiP = ai && (mean.trim() || form.trim()) ? getSample().then(sm => sm ? sm.json(`Latin vocabulary quiz for a seminarian (Church Latin: j/v and ae/e spellings and missing macrons are fine). Dictionary entry: ${it.inf.head}. The app's meaning: "${shortGloss(it.inf.full)}". Shown "${it.prompt}", the student wrote${it.ep ? ` the rest of the entry: "${form.trim().slice(0, 80)}" and` : ""} the meaning: "${mean.trim().slice(0, 80)}". Judge each. forms_ok: is that right for what was asked (${it.ep ? (it.ep.kind === "verb" ? "the other principal parts" : it.ep.kind === "noun" ? "the genitive singular and the gender" : "ONLY the genitive singular, e.g. boni for bonus or naturalis for naturalis: the genitive alone is a complete answer, never ask for the feminine or neuter endings") : "not asked: null"}; abbreviations like -ae are fine; judge only what was asked, never mark it incomplete for leaving out other parts of the entry)? meaning_ok: is the student's meaning a correct meaning of this Latin word in any accepted sense (null if blank)? gloss_note: only if the app's meaning is wrong or misses the word's main sense, say so briefly, else "". Reply with only JSON: {"forms_ok":true|false|null,"forms_note":"max 12 words","meaning_ok":true|false|null,"meaning_note":"max 12 words","gloss_note":""}`, { modelTier: "quick" }) : null).catch(() => null) : null;
     const finish = async r => {
       if (!aiP) { setRes(r); return; }
       setRes({ ...r, ai: { status: "loading" } });
@@ -604,6 +613,17 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
       await finish({ parts, auto, synRes: { status: "done", ok: true, note: `a fair ${it.syn}`, ex: relSyn.filter(k => wNorm(k) !== wNorm(syn).trim()).slice(0, 2) } });
       return;
     }
+    /* a synonym must be another Latin word: not the word itself or one of its forms, not the English meaning typed into the Latin box */
+    if (it.syn && syn.trim()) {
+      const sN = wNorm(syn).trim().replace(/[^a-z ]/g, "");
+      const glossWords = wNorm(it.inf.full + " " + mean).split(/[^a-z]+/).filter(w => w.length >= 3);
+      const same = sN === wNorm(it.key).replace(/[^a-z]/g, "") || wNorm(it.inf.head).split(/[^a-z]+/).includes(sN);
+      const english = !same && (glossWords.includes(sN) || (sN && wNorm(mean).trim() === sN));
+      if (same || english) {
+        await finish({ parts, auto, synRes: { status: "done", ok: false, note: same ? `that is the same word; give a different Latin word` : `that is English (the meaning); give a different Latin word with a close meaning`, ex: relSyn.slice(0, 2) } });
+        return;
+      }
+    }
     if (it.syn && syn.trim() && !ai) {
       await finish({ parts, auto, synRes: { status: "done", ok: null, note: `not in the app’s list; ${it.syn}s it knows`, ex: relSyn.slice(0, 3) } });
       return;
@@ -613,7 +633,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
       setRes({ parts, auto, synRes });
       try {
         const sm = await getSample();
-        const raw = sm ? await sm.json(`Latin vocabulary quiz. Word: ${it.inf.head} ("${shortGloss(it.inf.full)}"). A seminary student was asked for a Latin ${it.syn} and wrote: "${syn.trim().slice(0, 60)}". Is it a fair ${it.syn} (classical or ecclesiastical Latin; close meaning is enough for a synonym)? Reply with only JSON: {"ok":true|false,"note":"max 15 words","ex":["two good ${it.syn}s"]}`, { modelTier: "quick" }) : null;
+        const raw = sm ? await sm.json(`Latin vocabulary quiz. Word: ${it.inf.head} ("${shortGloss(it.inf.full)}"). A seminary student was asked for a Latin ${it.syn} and wrote: "${syn.trim().slice(0, 60)}". Is it a fair ${it.syn} (classical or ecclesiastical Latin; close meaning is enough for a synonym)? It must be a real Latin word different from ${it.key}: an English word, a misspelt English word, or a form or compound of ${it.key} itself is ok:false. For ex give only real Latin words whose meaning truly is ${it.syn === "synonym" ? "close to" : "opposite to"} "${shortGloss(it.inf.full)}" (not words that only look alike, e.g. not ingens for naturalis); give [] if unsure. Reply with only JSON: {"ok":true|false,"note":"max 15 words","ex":["up to two good ${it.syn}s"]}`, { modelTier: "quick" }) : null;
         synRes = raw ? { status: "done", ok: !!raw.ok, note: String(raw.note || "").slice(0, 120), ex: Array.isArray(raw.ex) ? raw.ex.slice(0, 2).map(String) : [] } : { status: "none" };
       } catch (e) { synRes = { status: "none" }; }
     }
@@ -673,7 +693,7 @@ function WriteQuiz({ words, lex, V, own, n, onGrade, onDone, ai, rel = {} }) {
             : res.synRes.status === "done" ? <p className={`text-[14px] ${res.synRes.ok ? "text-ok" : res.synRes.ok === null ? "text-soft" : "text-warn"}`}>{res.synRes.ok ? "✓" : res.synRes.ok === null ? "?" : "✗"} {res.synRes.kind || it.syn}: {res.synRes.note}{res.synRes.ex.length ? ` (e.g. ${res.synRes.ex.join(", ")})` : ""}</p> : null)}
           {res.ai && res.ai.status === "loading" && <p className="text-[14px] text-soft">The AI is checking your answers…</p>}
           {res.ai && res.ai.status === "done" && (<>
-            {it.ep && res.ai.formsNote && res.ai.formsOk != null && <p className={`text-[14px] ${res.ai.formsOk ? "text-ok" : "text-warn"}`}>{res.ai.formsOk ? "✓" : "✗"} {what}: {res.ai.formsNote}</p>}
+            {it.ep && res.ai.formsNote && res.ai.formsOk != null && !(res.ai.formsOk === false && res.parts.filter(p => p.want !== "derivative").every(p => p.ok)) && <p className={`text-[14px] ${res.ai.formsOk ? "text-ok" : "text-warn"}`}>{res.ai.formsOk ? "✓" : "✗"} {what}: {res.ai.formsNote}</p>}
             {res.ai.meanNote && res.ai.meanOk != null && <p className={`text-[14px] ${res.ai.meanOk ? "text-ok" : "text-warn"}`}>{res.ai.meanOk ? "✓" : "✗"} meaning: {res.ai.meanNote}</p>}
             {res.ai.gloss && <p className="text-[14px] text-soft">Note on the app’s meaning: {res.ai.gloss}</p>}
           </>)}
