@@ -24,6 +24,22 @@ function sbankGrade(k, got) {
   x.due = Date.now() + x.ivl * DAY - 2 * 36e5;
   sbankWrite(b);
 }
+/* in the backup code and progress file: the sentence bank (merged, newest kept), phrase and form scores */
+function morePracticeExport() {
+  const b = sbankRead().items, ph = readLocal(PHRASE_STATS_KEY), fo = readLocal(FORM_KEY);
+  if (!b.length && !ph && !fo) return undefined;
+  return { sb: b.slice(-200), ph: ph || undefined, fo: fo || undefined };
+}
+function morePracticeImport(d) {
+  if (!d || typeof d !== "object") return;
+  if (Array.isArray(d.sb)) {
+    const cur = sbankRead(), keys = new Set(cur.items.map(x => x.k));
+    const ok = x => x && typeof x.k === "string" && Array.isArray(x.r) && typeof x.r[1] === "string" && typeof x.due === "number";
+    sbankWrite({ items: [...cur.items, ...d.sb.filter(x => ok(x) && !keys.has(x.k))].slice(-300) });
+  }
+  const merge = (key, v) => { if (v && typeof v === "object" && !Array.isArray(v)) writeLocal(key, { ...v, ...(readLocal(key) || {}) }); };
+  merge(PHRASE_STATS_KEY, d.ph); merge(FORM_KEY, d.fo);
+}
 const sbankDue = () => sbankRead().items.filter(x => x.due <= Date.now()).length;
 function useSbankDue() {
   const [n, setN] = useState(sbankDue);

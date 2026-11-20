@@ -26,6 +26,11 @@ try:
         bank = json.loads(pg.evaluate("localStorage.getItem('lectio-vulgata-sbank')") or "{}")
         check("1 sentence saved to the bank", len(bank.get("items", [])) == 1, bank.get("items", [{}])[0].get("r", ["", ""])[1][:60] if bank.get("items") else "")
         d.locator("button:has-text('Back to the passage')").click(); pg.wait_for_timeout(200)
+        # 1b. the bank travels in the backup code
+        r = pg.evaluate("""() => { if (typeof encodeBackup !== 'function') return 'no global'; const code = encodeBackup(loadLocalProgress());
+          const saved = localStorage.getItem('lectio-vulgata-sbank'); localStorage.removeItem('lectio-vulgata-sbank'); decodeBackup(code);
+          const back = localStorage.getItem('lectio-vulgata-sbank'); return back && JSON.parse(back).items.length === JSON.parse(saved).items.length ? 'ok' : 'lost'; }""")
+        check("1b sentence bank restored from the backup code", r == "ok", r)
         # 2. Study → More: exam plan
         pg.click("nav[aria-label='Practice mode'] button:has-text('More')"); pg.wait_for_selector("nav[aria-label='More practice']", timeout=5000)
         pg.click("nav[aria-label='More practice'] button:has-text('Exam plan')")

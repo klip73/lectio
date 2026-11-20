@@ -860,6 +860,7 @@ function encodeBackup(prog) {
     co: (() => { try { const c = readCourse(); return Object.keys(c.done).length || Object.keys(c.cw).length ? { done: c.done, cw: c.cw, at: c.at } : undefined; } catch (e) { return undefined; } })(),
     lc: (() => { try { const v = readLC(); return v.entries.length ? v.entries : undefined; } catch (e) { return undefined; } })(),
     set: exportSettings(),   /* Settings travel too (settings.jsx) */
+    more: (() => { try { return morePracticeExport(); } catch (e) { return undefined; } })(),   /* Study → More: sentences to review, phrase and form scores (practice.jsx) */
     cls: (() => { try { const c = readClass(); return c.sections.length || (c.own || []).length ? { sections: c.sections, own: c.own || [], basic: !!c.basic } : undefined; } catch (e) { return undefined; } })() }))));
 }
 function decodeBackup(code) {
@@ -893,6 +894,7 @@ function decodeBackup(code) {
     }
     /* the settings (applied at once) */
     if (d.set) importSettings(d.set);
+    if (d.more) { try { morePracticeImport(d.more); } catch (e) {} }
     /* the Learn course's progress */
     if (d.co && typeof d.co === "object") { try { const cur = readCourse(), ok = id => typeof id === "string" && !!courseUnit(id), pick = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([k]) => ok(k)));
       writeCourse({ ...cur, done: { ...pick(d.co.done), ...cur.done }, cw: { ...pick(d.co.cw), ...cur.cw }, at: cur.at || (ok(d.co.at) ? d.co.at : null) }); } catch (e) {} }
